@@ -1,2 +1,7 @@
+import Price
+
+import B1.Data.Prices
+
 main = do
-  putStrLn "Hello, World"
+  putStrLn $ "Prices: " ++ (show getMockPrices)
+

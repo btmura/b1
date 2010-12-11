@@ -41,10 +41,12 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
+Library 
+  Exposed-modules: B1.Data.Price
 
 Executable b1
   Main-is: Main.hs 
-  Build-depends: base >= 4
+  Build-depends: base >= 4, time >= 1.1.4
   
   -- Modules not exported by this package.
   -- Other-modules:       
