@@ -1,9 +1,7 @@
 -- | Module for getting stock prices.
 module B1.Data.Price
-( Price (..)
-, getGooglePrices
-, getMockPrices
-) where
+  ( Price (..)
+  ) where
 
 import Data.Time
 
@@ -18,10 +16,3 @@ data Price = Price
   , volume :: Int -- ^ Volume of the trading period.
   } deriving (Show)
 
--- | Get price information using Google Finance.
-getGooglePrices :: [Price]
-getGooglePrices = []
-
--- | Get mock price information for testing.
-getMockPrices :: [Price]
-getMockPrices = []

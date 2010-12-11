@@ -42,7 +42,10 @@ Build-type:          Simple
 Cabal-version:       >=1.2
 
 Library 
-  Exposed-modules: B1.Data.Price
+  Exposed-modules:
+    B1.Data.Price
+    B1.Data.Price.Google
+    B1.Data.Price.Mock
 
 Executable b1
   Main-is: Main.hs 

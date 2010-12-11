@@ -1,6 +1,4 @@
-import Price
-
-import B1.Data.Prices
+import B1.Data.Price.Mock
 
 main = do
   putStrLn $ "Prices: " ++ (show getMockPrices)
