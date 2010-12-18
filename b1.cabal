@@ -32,7 +32,7 @@ Maintainer:          btmura@gmail.com
 
 Category:            Finance
 
-Build-type:          Simple
+Build-type:          Custom
 
 -- Extra files to be distributed with the package, such as examples or
 -- a README.
@@ -41,19 +41,16 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
-Library 
-  Exposed-modules:
-    B1.Data.Price
-    B1.Data.Price.Google
-    B1.Data.Price.Mock
-
 Executable b1
   Main-is: Main.hs 
-  Build-depends: base >= 4, time >= 1.1.4
-  
-  -- Modules not exported by this package.
-  -- Other-modules:       
-  
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
-  -- Build-tools:         
-  
+  Build-depends:
+    base >= 4,
+    time >= 1.1.4
+  Hs-source-dirs: src
+
+Executable b1-tests
+  Main-is: Tests.hs
+  Build-depends:
+    base >= 4
+  Hs-source-dirs: tests
+
