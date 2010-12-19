@@ -42,7 +42,7 @@ Build-type:          Custom
 Cabal-version:       >=1.2
 
 Executable b1
-  Main-is: Main.hs 
+  Main-is: Main.hs
   Build-depends:
     base >= 4,
     time >= 1.1.4
@@ -51,6 +51,8 @@ Executable b1
 Executable b1-tests
   Main-is: Tests.hs
   Build-depends:
-    base >= 4
+    base >= 4,
+    test-framework >= 0.3.3,
+    test-framework-quickcheck2 >= 0.2.8
   Hs-source-dirs: tests
 
