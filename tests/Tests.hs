@@ -1,17 +1,14 @@
 import Test.Framework
 import Test.Framework.Providers.QuickCheck2
 
-import Data.List
+import qualified B1.Data.Price.GoogleTest
+import qualified B1.Data.Price.MockTest
 
 main :: IO ()
 main = defaultMain tests
 
 tests =
-  [ testGroup "Test Group 1"
-    [ testProperty "sort1" prop_sort1
-    ]
+  [ B1.Data.Price.GoogleTest.getTestGroup
+  , B1.Data.Price.MockTest.getTestGroup
   ]
-
-prop_sort1 xs = sort xs == sortBy compare xs
-  where types = (xs :: [Int])
 
