@@ -1,6 +1,6 @@
 module B1.Data.Price.Google
   ( getGooglePrices
-  , parseGoogleResponse
+  , parseGoogleCsv
   ) where
 
 import Control.Exception
@@ -36,13 +36,16 @@ handleResponse :: Response String -> IO (Maybe [Price])
 handleResponse response = do
   let responseCode = rspCode response
   case responseCode of
-    (2, 0, 0) -> return $ parseGoogleResponse (rspBody response) 
+    (2, 0, 0) -> return $ parseGoogleCsv (rspBody response) 
     _ -> do
       hPutStrLn stderr $ ("getGooglePrices response code: "
           ++ (show responseCode))
       return Nothing
 
--- | Parses the HTML response from Google Finance.
+-- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
-parseGoogleResponse :: String -> Maybe [Price]
-parseGoogleResponse _ = Just []
+parseGoogleCsv :: String -> Maybe [Price]
+parseGoogleCsv _ = Just []
+
+
+

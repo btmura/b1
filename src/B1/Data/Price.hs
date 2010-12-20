@@ -14,5 +14,5 @@ data Price = Price
   , low :: Float -- ^ Lowest price during the trading period
   , close :: Float -- ^ Closing price of the trading period.
   , volume :: Int -- ^ Volume of the trading period.
-  } deriving (Show)
+  } deriving (Show, Eq)
 
