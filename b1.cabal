@@ -45,6 +45,7 @@ Executable b1
   Main-is: Main.hs
   Build-depends:
     base >= 4,
+    HTTP >= 4000.0.8,
     time >= 1.1.4
   Hs-source-dirs: src
 

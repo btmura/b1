@@ -1,5 +1,6 @@
-import B1.Data.Price.Mock
+import B1.Data.Price.Google
 
 main = do
-  putStrLn $ "Prices: " ++ (show (getMockPrices 5))
+  stuff <- getGooglePrices "SPY"
+  putStrLn $ "Prices: " ++ (show stuff)
 
