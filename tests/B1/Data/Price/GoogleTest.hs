@@ -5,7 +5,7 @@ import Data.List
 import Test.Framework
 import Test.Framework.Providers.QuickCheck2
 
-getTestGroup = testGroup "B1.Data.Price.Google"
+getTestGroup = testGroup "B1.Data.Price.GoogleTest"
   [ testProperty "sort1" prop_sort1
   ]
 

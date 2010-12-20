@@ -52,7 +52,8 @@ Executable b1-tests
   Main-is: Tests.hs
   Build-depends:
     base >= 4,
+    QuickCheck >= 2.3.0.2,
     test-framework >= 0.3.3,
     test-framework-quickcheck2 >= 0.2.8
-  Hs-source-dirs: tests
+  Hs-source-dirs: src, tests
 
