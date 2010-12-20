@@ -47,5 +47,3 @@ handleResponse response = do
 parseGoogleCsv :: String -> Maybe [Price]
 parseGoogleCsv _ = Just []
 
-
-

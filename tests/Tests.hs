@@ -3,6 +3,7 @@ import Test.Framework.Providers.QuickCheck2
 
 import qualified B1.Data.Price.GoogleTest
 import qualified B1.Data.Price.MockTest
+import qualified B1.Data.String.UtilsTest
 
 main :: IO ()
 main = defaultMain tests
@@ -10,5 +11,6 @@ main = defaultMain tests
 tests =
   [ B1.Data.Price.GoogleTest.getTestGroup
   , B1.Data.Price.MockTest.getTestGroup
+  , B1.Data.String.UtilsTest.getTestGroup
   ]
 

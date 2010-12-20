@@ -53,8 +53,10 @@ Executable b1-tests
   Main-is: Tests.hs
   Build-depends:
     base >= 4,
+    HUnit >= 1.2.2.3,
     QuickCheck >= 2.3.0.2,
     test-framework >= 0.3.3,
+    test-framework-hunit >= 0.2.6,
     test-framework-quickcheck2 >= 0.2.8
   Hs-source-dirs: src, tests
 

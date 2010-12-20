@@ -1,4 +1,6 @@
-module B1.Data.Price.GoogleTest (getTestGroup) where
+module B1.Data.Price.GoogleTest
+  ( getTestGroup
+  ) where
 
 import Data.Time
 import Test.Framework
@@ -7,17 +9,20 @@ import Test.Framework.Providers.QuickCheck2
 import B1.Data.Price
 import B1.Data.Price.Google
 
+getTestGroup :: Test
 getTestGroup = testGroup "B1.Data.Price.GoogleTest"
   [ testProperty "parseGoogleCsv_empty" prop_parseGoogleCsv_empty
   , testProperty "parseGoogleCsv_some" prop_parseGoogleCsv_some
   , testProperty "parseGoogleCsv_bad" prop_parseGoogleCsv_bad
   ]
 
+prop_parseGoogleCsv_empty :: Bool
 prop_parseGoogleCsv_empty = parseGoogleCsv input == output
   where
     input = "Data,Open,High,Low,Close,Volume\n"
     output = Just []
 
+prop_parseGoogleCsv_some :: Bool
 prop_parseGoogleCsv_some = parseGoogleCsv input == output
   where
     input = "Date,Open,High,Low,Close,Volume\n"
@@ -44,4 +49,5 @@ prop_parseGoogleCsv_some = parseGoogleCsv input == output
         }
       ]
 
+prop_parseGoogleCsv_bad :: String -> Bool
 prop_parseGoogleCsv_bad bad = parseGoogleCsv bad == Nothing
