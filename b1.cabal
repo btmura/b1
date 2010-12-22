@@ -46,6 +46,7 @@ Executable b1
   Build-depends:
     base >= 4,
     HTTP >= 4000.0.8,
+    old-locale >= 1.0.0.2,
     time >= 1.1.4
   Hs-source-dirs: src
 

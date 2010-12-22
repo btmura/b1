@@ -16,8 +16,8 @@ getTestGroup = testGroup "B1.Data.String.UtilsTest"
   ]
 
 case_split_1 :: Assertion  
-case_split_1 = assertEqual "" ["a","b","c"] (split "a,b,c" ',')
+case_split_1 = assertEqual "" ["a","b","c"] (split ',' "a,b,c")
 
 case_split_2 :: Assertion
-case_split_2 = assertEqual "" ["a"] (split "a" ',')
+case_split_2 = assertEqual "" ["a"] (split ',' "a")
 

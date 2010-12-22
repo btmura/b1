@@ -12,26 +12,30 @@ import B1.Data.Price.Google
 getTestGroup :: Test
 getTestGroup = testGroup "B1.Data.Price.GoogleTest"
   [ testProperty "parseGoogleCsv_empty" prop_parseGoogleCsv_empty
+  , testProperty "parseGoogleCsv_count" prop_parseGoogleCsv_count
   , testProperty "parseGoogleCsv_some" prop_parseGoogleCsv_some
-  , testProperty "parseGoogleCsv_bad" prop_parseGoogleCsv_bad
   ]
 
 prop_parseGoogleCsv_empty :: Bool
 prop_parseGoogleCsv_empty = parseGoogleCsv input == output
   where
     input = "Data,Open,High,Low,Close,Volume\n"
-    output = Just []
+    output = []
+
+csv = "Date,Open,High,Low,Close,Volume\n"
+    ++ "17-Dec-10,124.08,124.46,123.82,124.30,141075278\n"
+    ++ "9-Dec-10,123.97,124.02,123.15,123.76,123705049\n"
+
+prop_parseGoogleCsv_count :: Bool
+prop_parseGoogleCsv_count = length (parseGoogleCsv csv) == 2
 
 prop_parseGoogleCsv_some :: Bool
-prop_parseGoogleCsv_some = parseGoogleCsv input == output
+prop_parseGoogleCsv_some = parseGoogleCsv csv == output
   where
-    input = "Date,Open,High,Low,Close,Volume\n"
-        ++ "17-Dec-10,124.08,124.46,123.82,124.30,141075278\n"
-        ++ "9-Dec-10,123.97,124.02,123.15,123.76,123705049\n"
-    output = Just
+    output = 
       [ Price
-        { startTime = LocalTime (fromGregorian 2010 12 17) midnight
-        , endTime = LocalTime (fromGregorian 2010 12 17) midnight
+        { startTime = LocalTime (fromGregorian 1910 12 17) midnight
+        , endTime = LocalTime (fromGregorian 1910 12 17) midnight
         , open = 124.08
         , high = 124.46
         , low = 123.82
@@ -39,8 +43,8 @@ prop_parseGoogleCsv_some = parseGoogleCsv input == output
         , volume = 141075278
         }
       , Price
-        { startTime = LocalTime (fromGregorian 2010 12 9) midnight
-        , endTime = LocalTime (fromGregorian 2010 12 9) midnight
+        { startTime = LocalTime (fromGregorian 1910 12 9) midnight
+        , endTime = LocalTime (fromGregorian 1910 12 9) midnight
         , open = 123.97
         , high = 124.02
         , low = 123.15
@@ -49,5 +53,3 @@ prop_parseGoogleCsv_some = parseGoogleCsv input == output
         }
       ]
 
-prop_parseGoogleCsv_bad :: String -> Bool
-prop_parseGoogleCsv_bad bad = parseGoogleCsv bad == Nothing
