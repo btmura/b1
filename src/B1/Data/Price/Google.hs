@@ -1,6 +1,7 @@
 module B1.Data.Price.Google
   ( getGooglePrices
   , parseGoogleCsv
+  , readGoogleCsv
   ) where
 
 import Control.Exception
@@ -40,13 +41,18 @@ handleResponse :: Response String -> IO (Maybe [Price])
 handleResponse response = do
   let responseCode = rspCode response
   case responseCode of
-    (2, 0, 0) -> do
-      exceptionOrResult <- try $ return (parseGoogleCsv (rspBody response))
-      either handleParseException handleParseResult exceptionOrResult
+    (2, 0, 0) -> parseGoogleCsv (rspBody response) 
     _ -> do
       hPutStrLn stderr ("getGooglePrices response code: "
           ++ show responseCode)
       return Nothing
+
+-- | Parses the CSV response from Google Finance.
+-- Exposed only for testing purposes.
+parseGoogleCsv :: String -> IO (Maybe [Price])
+parseGoogleCsv csv = do
+  exceptionOrResult <- try $ return (readGoogleCsv csv)
+  either handleParseException handleParseResult exceptionOrResult
 
 handleParseException :: SomeException -> IO (Maybe [Price])
 handleParseException exception = do
@@ -56,11 +62,11 @@ handleParseException exception = do
 handleParseResult :: [Price] -> IO (Maybe [Price])
 handleParseResult = return . Just . id
 
--- | Parses the CSV response from Google Finance.
+-- | Reads the CSV response from Google Finance.
 -- Throws exceptions if there are any problems.
 -- Exposed only for testing purposes.
-parseGoogleCsv :: String -> [Price]
-parseGoogleCsv = map (createPrice . split ',') . drop 1 . split '\n'
+readGoogleCsv :: String -> [Price]
+readGoogleCsv = map (createPrice . split ',') . drop 1 . split '\n'
 
 createPrice :: [String] -> Price
 createPrice (date:open:high:low:close:volume:_) = Price
