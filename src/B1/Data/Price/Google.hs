@@ -25,7 +25,7 @@ getGooglePrices symbol = do
 
 handleGetException :: SomeException -> IO (Maybe [Price])
 handleGetException exception = do
-  hPutStrLn stderr $ "getGooglePrices exception: " ++ (show exception)
+  hPutStrLn stderr $ "getGooglePrices exception: " ++ show exception
   return Nothing
 
 handleGetResult :: Either ConnError (Response String) -> IO (Maybe [Price])
@@ -33,7 +33,7 @@ handleGetResult = either handleConError handleResponse
 
 handleConError :: ConnError -> IO (Maybe [Price])
 handleConError connError = do
-  hPutStrLn stderr $ "getGooglePrices connection error: " ++ (show connError)
+  hPutStrLn stderr $ "getGooglePrices connection error: " ++ show connError
   return Nothing
 
 handleResponse :: Response String -> IO (Maybe [Price])
@@ -44,13 +44,13 @@ handleResponse response = do
       exceptionOrResult <- try $ return (parseGoogleCsv (rspBody response))
       either handleParseException handleParseResult exceptionOrResult
     _ -> do
-      hPutStrLn stderr $ ("getGooglePrices response code: "
-          ++ (show responseCode))
+      hPutStrLn stderr ("getGooglePrices response code: "
+          ++ show responseCode)
       return Nothing
 
 handleParseException :: SomeException -> IO (Maybe [Price])
 handleParseException exception = do
-  hPutStrLn stderr $ "getGooglePrices parse exception: " ++ (show exception)
+  hPutStrLn stderr $ "getGooglePrices parse exception: " ++ show exception
   return Nothing
 
 handleParseResult :: [Price] -> IO (Maybe [Price])
@@ -60,7 +60,7 @@ handleParseResult = return . Just . id
 -- Throws exceptions if there are any problems.
 -- Exposed only for testing purposes.
 parseGoogleCsv :: String -> [Price]
-parseGoogleCsv = map createPrice . map (split ',') . drop 1 . split '\n'
+parseGoogleCsv = map (createPrice . split ',') . drop 1 . split '\n'
 
 createPrice :: [String] -> Price
 createPrice (date:open:high:low:close:volume:_) = Price

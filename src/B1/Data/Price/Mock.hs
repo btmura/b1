@@ -9,7 +9,7 @@ import B1.Data.Price
 
 -- | Get price information for testing.
 getMockPrices :: Integral a => a -> [Price]
-getMockPrices numPrices = take (fromIntegral numPrices) (repeat createPrice)
+getMockPrices numPrices = replicate (fromIntegral numPrices) createPrice
 
 createPrice :: Price
 createPrice = Price
