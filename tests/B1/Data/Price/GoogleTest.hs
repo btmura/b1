@@ -4,31 +4,32 @@ module B1.Data.Price.GoogleTest
 
 import Data.Time
 import Test.Framework
-import Test.Framework.Providers.QuickCheck2
+import qualified Test.Framework.Providers.API
+import Test.Framework.Providers.HUnit
+import Test.HUnit
 
 import B1.Data.Price
 import B1.Data.Price.Google
 
-getTestGroup :: Test
+getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Data.Price.GoogleTest"
-  [ testProperty "parseGoogleCsv_empty" prop_parseGoogleCsv_empty
-  , testProperty "parseGoogleCsv_some" prop_parseGoogleCsv_some
-  , testProperty "parseGoogleCsv_valid" prop_parseGoogleCsv_valid
-  , testProperty "parseGoogleCsv_noHeader" prop_parseGoogleCsv_noHeader
-  , testProperty "parseGoogleCsv_badPrices" prop_parseGoogleCsv_badPrices
+  [ testCase "parseGoogleCsv_good" case_parseGoogleCsv_good
+  , testCase "parseGoogleCsv_missingField" case_parseGoogleCsv_missingField
+  , testCase "parseGoogleCsv_invalidField" case_parseGoogleCsv_invalidField
+  , testCase "parseGoogleCsv_badFormat" case_parseGoogleCsv_badFormat
+  , testCase "parseGoogleCsv_noHeaders" case_parseGoogleCsv_noHeaders
+  , testCase "parseGoogleCsv_noLines" case_parseGoogleCsv_noLines
+  , testCase "parseGoogleCsv_nothing" case_parseGoogleCsv_nothing
   ]
 
 headers = "Date,Open,High,Low,Close,Volume\n"
 
-csv = headers
-    ++ "17-Dec-10,124.08,124.46,123.82,124.30,141075278\n"
-    ++ "9-Dec-10,123.97,124.02,123.15,123.76,123705049\n"
+goodLines =
+  [ "17-Dec-10,124.08,124.46,123.82,124.30,141075278\n"
+  , "9-Dec-10,123.97,124.02,123.15,123.76,123705049\n"
+  ]
 
-badPrices = headers
-    ++ "17-Dec-10,124.46,123.82,124.30,141075278\n"
-    ++ "9-Dec-10,Error,123.15,123.76,123705049\n"
-
-prices =
+goodPrices =
   [ Price
     { startTime = LocalTime (fromGregorian 1910 12 17) midnight
     , endTime = LocalTime (fromGregorian 1910 12 17) midnight
@@ -49,20 +50,42 @@ prices =
     }
   ]
 
-prop_parseGoogleCsv_valid :: Bool
-prop_parseGoogleCsv_valid = parseGoogleCsv csv == Just prices
+missingField = "17-Dec-10,124.46,123.82,124.30,141075278\n"
 
-prop_parseGoogleCsv_noHeader :: String -> Bool
-prop_parseGoogleCsv_noHeader noHeader =
-  parseGoogleCsv noHeader == Nothing
+invalidField = "9-Dec-10,Error,124.02,123.15,123.76,123705049\n"
 
-prop_parseGoogleCsv_badPrices :: Bool
-prop_parseGoogleCsv_badPrices =
-  parseGoogleCsv badPrices == Nothing
+badFormat = "Error 404\n"
 
-prop_parseGoogleCsv_empty :: Bool
-prop_parseGoogleCsv_empty = parseGoogleCsv headers == Just []
+case_parseGoogleCsv_good :: Assertion
+case_parseGoogleCsv_good =
+  let csv = foldl (++) "" (headers:goodLines)
+  in assertEqual "" (parseGoogleCsv csv) (Just goodPrices)
 
-prop_parseGoogleCsv_some :: Bool
-prop_parseGoogleCsv_some = parseGoogleCsv csv == Just prices
+case_parseGoogleCsv_missingField :: Assertion
+case_parseGoogleCsv_missingField =
+  let csv = foldl (++) "" ([headers] ++ goodLines ++ [missingField])
+  in assertEqual "" (parseGoogleCsv csv) Nothing
+
+case_parseGoogleCsv_invalidField :: Assertion
+case_parseGoogleCsv_invalidField =
+  let csv = foldl (++) "" ([headers] ++ goodLines ++ [invalidField])
+  in assertEqual "" (parseGoogleCsv csv) Nothing
+
+case_parseGoogleCsv_badFormat :: Assertion
+case_parseGoogleCsv_badFormat =
+  let csv = foldl (++) "" ([headers] ++ goodLines ++ [badFormat])
+  in assertEqual "" (parseGoogleCsv csv) Nothing
+
+case_parseGoogleCsv_noHeaders :: Assertion
+case_parseGoogleCsv_noHeaders =
+  let csv = foldl (++) "" goodLines
+  in assertEqual "" (parseGoogleCsv csv) Nothing
+
+case_parseGoogleCsv_noLines :: Assertion
+case_parseGoogleCsv_noLines =
+  assertEqual "" (parseGoogleCsv headers) (Just [])
+
+case_parseGoogleCsv_nothing :: Assertion
+case_parseGoogleCsv_nothing =
+  assertEqual "" (parseGoogleCsv "") Nothing
 
