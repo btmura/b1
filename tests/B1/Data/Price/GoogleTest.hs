@@ -11,11 +11,11 @@ import B1.Data.Price.Google
 
 getTestGroup :: Test
 getTestGroup = testGroup "B1.Data.Price.GoogleTest"
-  [ testProperty "readGoogleCsv_empty" prop_readGoogleCsv_empty
-  , testProperty "readGoogleCsv_count" prop_readGoogleCsv_count
-  , testProperty "readGoogleCsv_some" prop_readGoogleCsv_some
+  [ testProperty "parseGoogleCsv_empty" prop_parseGoogleCsv_empty
+  , testProperty "parseGoogleCsv_some" prop_parseGoogleCsv_some
   , testProperty "parseGoogleCsv_valid" prop_parseGoogleCsv_valid
-  , testProperty "parseGoogleCsv_invalid" prop_parseGoogleCsv_invalid
+  , testProperty "parseGoogleCsv_noHeader" prop_parseGoogleCsv_noHeader
+  , testProperty "parseGoogleCsv_badPrices" prop_parseGoogleCsv_badPrices
   ]
 
 headers = "Date,Open,High,Low,Close,Volume\n"
@@ -23,6 +23,10 @@ headers = "Date,Open,High,Low,Close,Volume\n"
 csv = headers
     ++ "17-Dec-10,124.08,124.46,123.82,124.30,141075278\n"
     ++ "9-Dec-10,123.97,124.02,123.15,123.76,123705049\n"
+
+badPrices = headers
+    ++ "17-Dec-10,124.46,123.82,124.30,141075278\n"
+    ++ "9-Dec-10,Error,123.15,123.76,123705049\n"
 
 prices =
   [ Price
@@ -45,22 +49,20 @@ prices =
     }
   ]
 
-prop_parseGoogleCsv_valid :: IO Bool
-prop_parseGoogleCsv_valid = do
-  maybePrices <- parseGoogleCsv csv
-  return $ maybePrices == Just prices
+prop_parseGoogleCsv_valid :: Bool
+prop_parseGoogleCsv_valid = parseGoogleCsv csv == Just prices
 
-prop_parseGoogleCsv_invalid :: String -> IO Bool
-prop_parseGoogleCsv_invalid invalid = do
-  maybePrices <- parseGoogleCsv invalid
-  return $ maybePrices == Nothing
+prop_parseGoogleCsv_noHeader :: String -> Bool
+prop_parseGoogleCsv_noHeader noHeader =
+  parseGoogleCsv noHeader == Nothing
 
-prop_readGoogleCsv_empty :: Bool
-prop_readGoogleCsv_empty = readGoogleCsv headers == []
+prop_parseGoogleCsv_badPrices :: Bool
+prop_parseGoogleCsv_badPrices =
+  parseGoogleCsv badPrices == Nothing
 
-prop_readGoogleCsv_count :: Bool
-prop_readGoogleCsv_count = length (readGoogleCsv csv) == 2
+prop_parseGoogleCsv_empty :: Bool
+prop_parseGoogleCsv_empty = parseGoogleCsv headers == Just []
 
-prop_readGoogleCsv_some :: Bool
-prop_readGoogleCsv_some = readGoogleCsv csv == prices
+prop_parseGoogleCsv_some :: Bool
+prop_parseGoogleCsv_some = parseGoogleCsv csv == Just prices
 

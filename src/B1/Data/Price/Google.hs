@@ -1,7 +1,6 @@
 module B1.Data.Price.Google
   ( getGooglePrices
   , parseGoogleCsv
-  , readGoogleCsv
   ) where
 
 import Control.Exception
@@ -41,7 +40,7 @@ handleResponse :: Response String -> IO (Maybe [Price])
 handleResponse response = do
   let responseCode = rspCode response
   case responseCode of
-    (2, 0, 0) -> parseGoogleCsv (rspBody response) 
+    (2, 0, 0) -> return $ parseGoogleCsv (rspBody response) 
     _ -> do
       hPutStrLn stderr ("getGooglePrices response code: "
           ++ show responseCode)
@@ -49,36 +48,59 @@ handleResponse response = do
 
 -- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
-parseGoogleCsv :: String -> IO (Maybe [Price])
-parseGoogleCsv csv = do
-  exceptionOrResult <- try $ return (readGoogleCsv csv)
-  either handleParseException handleParseResult exceptionOrResult
+parseGoogleCsv :: String -> Maybe [Price]
+parseGoogleCsv = maybe Nothing pricesOrNothing
+    . maybe Nothing (Just . parsePriceLines)
+    . dropHeader
+    . split '\n'
 
-handleParseException :: SomeException -> IO (Maybe [Price])
-handleParseException exception = do
-  hPutStrLn stderr $ "getGooglePrices parse exception: " ++ show exception
-  return Nothing
+dropHeader :: [String] -> Maybe [String]
+dropHeader ("Date,Open,High,Low,Close,Volume":rest) = Just rest
+dropHeader _ = Nothing
 
-handleParseResult :: [Price] -> IO (Maybe [Price])
-handleParseResult = return . Just . id
+parsePriceLines :: [String] -> [Maybe Price]
+parsePriceLines = map (parsePriceTokens . split ',')
 
--- | Reads the CSV response from Google Finance.
--- Throws exceptions if there are any problems.
--- Exposed only for testing purposes.
-readGoogleCsv :: String -> [Price]
-readGoogleCsv = map (createPrice . split ',') . drop 1 . split '\n'
+parsePriceTokens :: [String] -> Maybe Price
+parsePriceTokens (date:open:high:low:close:volume:_) = maybePrice
+  where
+    maybeStartTime = parseDateString date
+    maybeEndTime = parseDateString date
+    maybeOpen = parseValue open::Maybe Float
+    maybeHigh = parseValue high::Maybe Float
+    maybeLow = parseValue low::Maybe Float
+    maybeClose = parseValue close::Maybe Float
+    maybeVolume = parseValue volume::Maybe Int
 
-createPrice :: [String] -> Price
-createPrice (date:open:high:low:close:volume:_) = Price
-  { startTime = readDateString date
-  , endTime = readDateString date
-  , open = read open::Float
-  , high = read high::Float
-  , low = read low::Float
-  , close = read close::Float
-  , volume = read volume::Int
-  }
+    maybePrice =
+      if all isJust [maybeStartTime, maybeEndTime]
+          && all isJust [maybeOpen, maybeHigh, maybeLow, maybeClose]
+          && all isJust [maybeVolume]
+        then Just Price
+          { startTime = fromJust maybeStartTime
+          , endTime = fromJust maybeEndTime
+          , open = fromJust maybeOpen
+          , high = fromJust maybeHigh
+          , low = fromJust maybeLow
+          , close = fromJust maybeClose
+          , volume = fromJust maybeVolume
+          }
+        else Nothing
 
-readDateString :: String -> LocalTime
-readDateString = readTime defaultTimeLocale "%e-%b-%g"
+parsePriceTokens _ = Nothing
+
+parseDateString :: String -> Maybe LocalTime
+parseDateString = parseTime defaultTimeLocale "%e-%b-%g"
+
+parseValue :: (Read a) => String -> Maybe a
+parseValue string =
+  case reads string of
+    [(value, "")] -> Just value
+    _ -> Nothing
+
+pricesOrNothing :: [Maybe Price] -> Maybe [Price]
+pricesOrNothing maybePrices =
+  if all isJust maybePrices
+    then Just $ catMaybes maybePrices
+    else Nothing
 
