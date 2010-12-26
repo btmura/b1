@@ -41,9 +41,19 @@ Build-type:          Custom
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
-Executable b1-get-prices
-  Main-is: B1/Program/GetPrices/Main.hs
-  Ghc-options: -main-is B1.Program.GetPrices.Main
+Executable b1-chart
+  Main-is: B1/Program/Chart/Main.hs
+  Ghc-options: -main-is B1.Program.Chart.Main
+  Build-depends:
+    base >= 4,
+    HTTP >= 4000.0.8,
+    old-locale >= 1.0.0.2,
+    time >= 1.1.4
+  Hs-source-dirs: src
+
+Executable b1-prices
+  Main-is: B1/Program/Prices/Main.hs
+  Ghc-options: -main-is B1.Program.Prices.Main
   Build-depends:
     base >= 4,
     HTTP >= 4000.0.8,

@@ -1,4 +1,4 @@
-module B1.Program.GetPrices.Options
+module B1.Program.Prices.Options
   ( Options(..)
   , DataSource(..)
   , readOptions

@@ -1,4 +1,4 @@
-module B1.Program.GetPrices.Main
+module B1.Program.Prices.Main
   ( main
   ) where
   
@@ -8,7 +8,7 @@ import System.Environment
 import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Price.Mock
-import B1.Program.GetPrices.Options
+import B1.Program.Prices.Options
 
 main = do
   args <- getArgs
@@ -23,8 +23,7 @@ main = do
 getPrices :: DataSource -> String -> IO (Maybe [Price])
 getPrices Google symbol = do
   now <- getCurrentDate
-  maybePrices <- getGooglePrices (getStartDate now) (getEndDate now) symbol
-  return maybePrices
+  getGooglePrices (getStartDate now) (getEndDate now) symbol
 
 getPrices Mock _ = return $ Just (getMockPrices 5)
 
