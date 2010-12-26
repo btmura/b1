@@ -21,30 +21,22 @@ getGooglePrices :: String -> IO (Maybe [Price])
 getGooglePrices symbol = do
   let url = "http://www.google.com/finance/historical?output=csv&q=" ++ symbol
   exceptionOrResult <- try $ simpleHTTP (getRequest url)
-  either handleGetException handleGetResult exceptionOrResult
+  return $ either handleGetException handleGetResult exceptionOrResult
 
-handleGetException :: SomeException -> IO (Maybe [Price])
-handleGetException exception = do
-  hPutStrLn stderr $ "getGooglePrices exception: " ++ show exception
-  return Nothing
+handleGetException :: SomeException -> Maybe [Price]
+handleGetException exception = Nothing
 
-handleGetResult :: Either ConnError (Response String) -> IO (Maybe [Price])
+handleGetResult :: Either ConnError (Response String) -> Maybe [Price]
 handleGetResult = either handleConError handleResponse 
 
-handleConError :: ConnError -> IO (Maybe [Price])
-handleConError connError = do
-  hPutStrLn stderr $ "getGooglePrices connection error: " ++ show connError
-  return Nothing
+handleConError :: ConnError -> Maybe [Price]
+handleConError connError = Nothing
 
-handleResponse :: Response String -> IO (Maybe [Price])
-handleResponse response = do
-  let responseCode = rspCode response
-  case responseCode of
-    (2, 0, 0) -> return $ parseGoogleCsv (rspBody response) 
-    _ -> do
-      hPutStrLn stderr ("getGooglePrices response code: "
-          ++ show responseCode)
-      return Nothing
+handleResponse :: Response String -> Maybe [Price]
+handleResponse response =
+  case rspCode response of
+    (2, 0, 0) -> parseGoogleCsv (rspBody response) 
+    _ -> Nothing
 
 -- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
