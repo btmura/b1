@@ -17,11 +17,20 @@ import B1.Data.String.Utils
 -- | Get price information using Google Finance.
 -- Returns Nothing if there was a network problem or parsing issues.
 -- Prints out messages to standard error when there are network issues.
-getGooglePrices :: String -> IO (Maybe [Price])
-getGooglePrices symbol = do
-  let url = "http://www.google.com/finance/historical?output=csv&q=" ++ symbol
-  exceptionOrResult <- try $ simpleHTTP (getRequest url)
-  return $ either handleGetException handleGetResult exceptionOrResult
+getGooglePrices :: LocalTime -> LocalTime -> String -> IO (Maybe [Price])
+getGooglePrices startDate endDate symbol = prices
+  where
+    formatDate = formatTime defaultTimeLocale "%m/%d/%y"
+    formattedStartDate = formatDate startDate
+    formattedEndDate = formatDate endDate
+
+    url = "http://www.google.com/finance/historical?output=csv&q=" ++ symbol
+        ++ "&startDate=" ++ formattedStartDate
+        ++ "&endDate=" ++ formattedEndDate
+
+    prices = do
+      exceptionOrResult <- try $ simpleHTTP (getRequest url)
+      return $ either handleGetException handleGetResult exceptionOrResult
 
 handleGetException :: SomeException -> Maybe [Price]
 handleGetException exception = Nothing
