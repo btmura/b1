@@ -5,7 +5,9 @@ module B1.Program.GetPrices.Main
 import Data.Time
 import System.Environment
 
+import B1.Data.Price
 import B1.Data.Price.Google
+import B1.Data.Price.Mock
 import B1.Program.GetPrices.Options
 
 main = do
@@ -15,10 +17,16 @@ main = do
   putStrLn $ "Symbol: " ++ symbol options
   putStrLn $ "Data source: " ++ show (dataSource options)
 
+  maybePrices <- getPrices (dataSource options) (symbol options)
+  putStrLn $ "Prices: " ++ show maybePrices
+
+getPrices :: DataSource -> String -> IO (Maybe [Price])
+getPrices Google symbol = do
   now <- getCurrentDate
-  prices <- getGooglePrices (getStartDate now) (getEndDate now)
-      (symbol options)
-  putStrLn $ "Prices: " ++ show prices
+  maybePrices <- getGooglePrices (getStartDate now) (getEndDate now) symbol
+  return maybePrices
+
+getPrices Mock _ = return $ Just (getMockPrices 5)
 
 getCurrentDate :: IO LocalTime
 getCurrentDate = do
