@@ -27,7 +27,7 @@ createWindow = do
   windowSizeCallback $= myWindowSizeCallback
 
 myWindowSizeCallback :: Size -> IO ()
-myWindowSizeCallback size@(Size width height) = do
+myWindowSizeCallback size@(Size width height) =
   viewport $= (Position 0 0, size)
 
 drawLoop :: IO Action -> IO ()
@@ -45,14 +45,14 @@ drawLoop action = do
 rotateAction :: Char -> Color3 GLfloat -> GLfloat -> Bool -> GLfloat -> IO Action
 rotateAction key newColor scaleFactor rotating rotateY = do
   loadIdentity
-  doScale scaleFactor scaleFactor 0
-  doRotate rotateY 0 1 0
+  scale3 scaleFactor scaleFactor 0
+  rotate4 rotateY 0 1 0
   color newColor
   renderPrimitive LineLoop $ do
-    drawVertex2 (-1) (-1)
-    drawVertex2 (-1) 1
-    drawVertex2 1 1
-    drawVertex2 1 (-1)
+    vertex2 (-1) (-1)
+    vertex2 (-1) 1
+    vertex2 1 1
+    vertex2 1 (-1)
 
   space <- getKey key
 
@@ -62,11 +62,11 @@ rotateAction key newColor scaleFactor rotating rotateY = do
       Press -> return $ Action (rotateAction key newColor scaleFactor True 0)
       Release -> return $ Action (rotateAction key newColor scaleFactor False 0)
 
-doScale :: GLfloat -> GLfloat -> GLfloat -> IO ()
-doScale x y z = scale x y z
+scale3 :: GLfloat -> GLfloat -> GLfloat -> IO ()
+scale3 = scale
 
-doRotate :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> IO ()
-doRotate c x y z = rotate c $ Vector3 x y z
+rotate4 :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> IO ()
+rotate4 c x y z = rotate c $ Vector3 x y z
 
-drawVertex2 :: GLfloat -> GLfloat -> IO () 
-drawVertex2 x y = vertex $ Vertex2 x y
+vertex2 :: GLfloat -> GLfloat -> IO () 
+vertex2 x y = vertex $ Vertex2 x y
