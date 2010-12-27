@@ -15,10 +15,10 @@ import B1.Data.Price
 import B1.Data.String.Utils
 
 -- | Get price information using Google Finance.
--- Returns Nothing if there was a network problem or parsing issues.
--- Prints out messages to standard error when there are network issues.
-getGooglePrices :: LocalTime -> LocalTime -> String -> IO (Maybe [Price])
-getGooglePrices startDate endDate symbol = prices
+-- Returns a tuple of Nothing and a list of error messages if tthere was a
+-- network problem or parsing issue.
+getGooglePrices :: LocalTime -> LocalTime -> String -> IO (Maybe [Price], [String])
+getGooglePrices startDate endDate symbol = pricesErrorsTuple
   where
     formatDate = formatTime defaultTimeLocale "%m/%d/%y"
     formattedStartDate = formatDate startDate
@@ -28,29 +28,29 @@ getGooglePrices startDate endDate symbol = prices
         ++ "&startDate=" ++ formattedStartDate
         ++ "&endDate=" ++ formattedEndDate
 
-    prices = do
+    pricesErrorsTuple = do
       exceptionOrResult <- try $ simpleHTTP (getRequest url)
       return $ either handleGetException handleGetResult exceptionOrResult
 
-handleGetException :: SomeException -> Maybe [Price]
-handleGetException exception = Nothing
+handleGetException :: SomeException -> (Maybe [Price], [String])
+handleGetException exception = (Nothing, [show exception])
 
-handleGetResult :: Either ConnError (Response String) -> Maybe [Price]
+handleGetResult :: Either ConnError (Response String) -> (Maybe [Price], [String])
 handleGetResult = either handleConError handleResponse 
 
-handleConError :: ConnError -> Maybe [Price]
-handleConError connError = Nothing
+handleConError :: ConnError -> (Maybe [Price], [String])
+handleConError connError = (Nothing, [show connError])
 
-handleResponse :: Response String -> Maybe [Price]
+handleResponse :: Response String -> (Maybe [Price], [String])
 handleResponse response =
   case rspCode response of
     (2, 0, 0) -> parseGoogleCsv (rspBody response) 
-    _ -> Nothing
+    _ -> (Nothing, ["Response code: " ++ show (rspCode response)])
 
 -- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
-parseGoogleCsv :: String -> Maybe [Price]
-parseGoogleCsv = maybe Nothing pricesOrNothing
+parseGoogleCsv :: String -> (Maybe [Price], [String])
+parseGoogleCsv = maybe (Nothing, ["Invalid CSV format"]) pricesOrNothing
     . maybe Nothing (Just . parsePriceLines)
     . dropHeader
     . split '\n'
@@ -99,9 +99,9 @@ parseValue string =
     [(value, "")] -> Just value
     _ -> Nothing
 
-pricesOrNothing :: [Maybe Price] -> Maybe [Price]
+pricesOrNothing :: [Maybe Price] -> (Maybe [Price], [String])
 pricesOrNothing maybePrices =
   if all isJust maybePrices
-    then Just $ catMaybes maybePrices
-    else Nothing
+    then (Just (catMaybes maybePrices), [])
+    else (Nothing, ["Invalid CSV format"])
 

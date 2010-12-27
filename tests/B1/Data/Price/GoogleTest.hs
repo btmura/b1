@@ -59,33 +59,32 @@ badFormat = "Error 404\n"
 case_parseGoogleCsv_good :: Assertion
 case_parseGoogleCsv_good =
   let csv = foldl (++) "" (headers:goodLines)
-  in assertEqual "" (parseGoogleCsv csv) (Just goodPrices)
+  in assertEqual "" (Just goodPrices, []) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_missingField :: Assertion
 case_parseGoogleCsv_missingField =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [missingField])
-  in assertEqual "" (parseGoogleCsv csv) Nothing
+  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_invalidField :: Assertion
 case_parseGoogleCsv_invalidField =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [invalidField])
-  in assertEqual "" (parseGoogleCsv csv) Nothing
+  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_badFormat :: Assertion
 case_parseGoogleCsv_badFormat =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [badFormat])
-  in assertEqual "" (parseGoogleCsv csv) Nothing
+  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_noHeaders :: Assertion
 case_parseGoogleCsv_noHeaders =
   let csv = foldl (++) "" goodLines
-  in assertEqual "" (parseGoogleCsv csv) Nothing
+  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_noLines :: Assertion
 case_parseGoogleCsv_noLines =
-  assertEqual "" (parseGoogleCsv headers) (Just [])
+  assertEqual "" (parseGoogleCsv headers) (Just [], [])
 
 case_parseGoogleCsv_nothing :: Assertion
 case_parseGoogleCsv_nothing =
-  assertEqual "" (parseGoogleCsv "") Nothing
-
+  assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv "") 

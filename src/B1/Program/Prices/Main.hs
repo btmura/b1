@@ -20,12 +20,12 @@ main = do
   maybePrices <- getPrices (dataSource options) (symbol options)
   putStrLn $ "Prices: " ++ show maybePrices
 
-getPrices :: DataSource -> String -> IO (Maybe [Price])
+getPrices :: DataSource -> String -> IO (Maybe [Price], [String])
 getPrices Google symbol = do
   now <- getCurrentDate
   getGooglePrices (getStartDate now) (getEndDate now) symbol
 
-getPrices Mock _ = return $ Just (getMockPrices 5)
+getPrices Mock _ = return (Just (getMockPrices 5), [])
 
 getCurrentDate :: IO LocalTime
 getCurrentDate = do
