@@ -10,7 +10,11 @@ main :: IO ()
 main = do
   initialize
   createWindow
-  drawLoop (rotateAction False 0)
+  drawLoop $ comboAction
+      (rotateAction '1' (Color3 (1::GLfloat) 0 0) 0.25 False 0)
+      (comboAction 
+          (rotateAction '2' (Color3 (0::GLfloat) 0 1) 0.5 False 0)
+          (rotateAction '3' (Color3 (0::GLfloat) 1 0) 0.75 False 0))
   closeWindow
   terminate
 
@@ -38,24 +42,31 @@ drawLoop action = do
     Press -> return ()
     Release -> drawLoop nextAction
 
-rotateAction :: Bool -> GLfloat -> IO Action
-rotateAction rotating rotateY = do
+comboAction :: IO Action -> IO Action -> IO Action
+comboAction action1 action2 = do
+  Action nextAction1 <- action1
+  Action nextAction2 <- action2
+  return $ Action (comboAction nextAction1 nextAction2)
+
+rotateAction :: Char -> Color3 GLfloat -> GLfloat -> Bool -> GLfloat -> IO Action
+rotateAction key newColor scaleFactor rotating rotateY = do
   loadIdentity
-  doScale 0.5 0.5 0
+  doScale scaleFactor scaleFactor 0
   doRotate rotateY 0 1 0
+  color newColor
   renderPrimitive LineLoop $ do
     drawVertex2 (-1) (-1)
     drawVertex2 (-1) 1
     drawVertex2 1 1
     drawVertex2 1 (-1)
 
-  space <- getKey ' '
+  space <- getKey key
 
   if rotating && rotateY <= 180.00
-    then return $ Action (rotateAction True (rotateY + 0.25))
+    then return $ Action (rotateAction key newColor scaleFactor True (rotateY + 0.25))
     else case space of
-      Press -> return $ Action (rotateAction True 0)
-      Release -> return $ Action (rotateAction False 0)
+      Press -> return $ Action (rotateAction key newColor scaleFactor True 0)
+      Release -> return $ Action (rotateAction key newColor scaleFactor False 0)
 
 doScale :: GLfloat -> GLfloat -> GLfloat -> IO ()
 doScale x y z = scale x y z
