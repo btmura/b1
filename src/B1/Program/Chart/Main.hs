@@ -6,6 +6,8 @@ import Control.Monad
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
+import B1.Data.Action
+
 main :: IO ()
 main = do
   initialize
@@ -28,8 +30,6 @@ myWindowSizeCallback :: Size -> IO ()
 myWindowSizeCallback size@(Size width height) = do
   viewport $= (Position 0 0, size)
 
-data Action = Action (IO Action)
-
 drawLoop :: IO Action -> IO ()
 drawLoop action = do
   clear [ColorBuffer, DepthBuffer]
@@ -41,12 +41,6 @@ drawLoop action = do
   case esc of
     Press -> return ()
     Release -> drawLoop nextAction
-
-comboAction :: IO Action -> IO Action -> IO Action
-comboAction action1 action2 = do
-  Action nextAction1 <- action1
-  Action nextAction2 <- action2
-  return $ Action (comboAction nextAction1 nextAction2)
 
 rotateAction :: Char -> Color3 GLfloat -> GLfloat -> Bool -> GLfloat -> IO Action
 rotateAction key newColor scaleFactor rotating rotateY = do
