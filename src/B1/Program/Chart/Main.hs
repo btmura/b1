@@ -7,6 +7,7 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
 import B1.Data.Action
+import B1.Graphics.Rendering.OpenGL.Utils
 
 main :: IO ()
 main = do
@@ -62,11 +63,3 @@ rotateAction key newColor scaleFactor rotating rotateY = do
       Press -> return $ Action (rotateAction key newColor scaleFactor True 0)
       Release -> return $ Action (rotateAction key newColor scaleFactor False 0)
 
-scale3 :: GLfloat -> GLfloat -> GLfloat -> IO ()
-scale3 = scale
-
-rotate4 :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> IO ()
-rotate4 c x y z = rotate c $ Vector3 x y z
-
-vertex2 :: GLfloat -> GLfloat -> IO () 
-vertex2 x y = vertex $ Vertex2 x y
