@@ -10,7 +10,7 @@ main :: IO ()
 main = do
   initialize
   createWindow
-  drawLoop $ Just (drawAction 0)
+  drawLoop (rotateAction False 0)
   closeWindow
   terminate
 
@@ -24,37 +24,39 @@ myWindowSizeCallback :: Size -> IO ()
 myWindowSizeCallback size@(Size width height) = do
   viewport $= (Position 0 0, size)
 
-data Action = Action (Maybe (IO Action))
+data Action = Action (IO Action)
 
-drawLoop :: Maybe (IO Action) -> IO ()
-drawLoop maybeAction = do
-  case maybeAction of
-    Just action -> do
-      Action nextAction <- action
-      drawLoop nextAction
-    _ -> return ()
-
-drawAction :: GLfloat -> IO Action
-drawAction rotateY = do
+drawLoop :: IO Action -> IO ()
+drawLoop action = do
   clear [ColorBuffer, DepthBuffer]
-  loadIdentity
+  Action nextAction <- action
+  swapBuffers
+  sleep 0.001
 
-  doScale 0.5 0.5 1.0
-  doRotate rotateY 0 1.0 0
+  esc <- getKey ESC
+  case esc of
+    Press -> return ()
+    Release -> drawLoop nextAction
+
+rotateAction :: Bool -> GLfloat -> IO Action
+rotateAction rotating rotateY = do
+  loadIdentity
+  doScale 0.5 0.5 0
+  doRotate rotateY 0 1 0
   renderPrimitive LineLoop $ do
     drawVertex2 (-1) (-1)
     drawVertex2 (-1) 1
     drawVertex2 1 1
     drawVertex2 1 (-1)
 
-  swapBuffers
-  sleep 0.001
+  space <- getKey ' '
 
-  esc <- getKey ESC
-  if esc == Press
-    then return $ Action Nothing
-    else return $ Action $ Just $ drawAction $ rotateY + 0.2
-    
+  if rotating && rotateY <= 180.00
+    then return $ Action (rotateAction True (rotateY + 0.25))
+    else case space of
+      Press -> return $ Action (rotateAction True 0)
+      Release -> return $ Action (rotateAction False 0)
+
 doScale :: GLfloat -> GLfloat -> GLfloat -> IO ()
 doScale x y z = scale x y z
 
