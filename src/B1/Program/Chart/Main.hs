@@ -13,11 +13,7 @@ main :: IO ()
 main = do
   initialize
   createWindow
-  drawLoop $ comboAction
-      (rotateAction '1' (Color3 (1::GLfloat) 0 0) 0.25 False 0)
-      (comboAction 
-          (rotateAction '2' (Color3 (0::GLfloat) 0 1) 0.5 False 0)
-          (rotateAction '3' (Color3 (0::GLfloat) 1 0) 0.75 False 0))
+  drawLoop $ (drawScreen drawSideBar (drawMainChart 0))
   closeWindow
   terminate
 
@@ -28,7 +24,7 @@ createWindow = do
   windowSizeCallback $= myWindowSizeCallback
 
 myWindowSizeCallback :: Size -> IO ()
-myWindowSizeCallback size@(Size width height) =
+myWindowSizeCallback size@(Size width height) = do
   viewport $= (Position 0 0, size)
 
 drawLoop :: IO Action -> IO ()
@@ -43,23 +39,54 @@ drawLoop action = do
     Press -> return ()
     Release -> drawLoop nextAction
 
-rotateAction :: Char -> Color3 GLfloat -> GLfloat -> Bool -> GLfloat -> IO Action
-rotateAction key newColor scaleFactor rotating rotateY = do
+drawScreen :: IO Action -> IO Action -> IO Action
+drawScreen sideBarAction mainChartAction = do
   loadIdentity
-  scale3 scaleFactor scaleFactor 0
-  rotate4 rotateY 0 1 0
-  color newColor
+
+  (_, (Size width height)) <- get viewport
+
+  let sideBarWidth = 150
+      sideBarWidthPercentage = sideBarWidth / realToFrac width
+      mainChartWidthPercentage = 1.0 - sideBarWidthPercentage
+
+  translate $ vector3 (-1) 0 0
+  translate $ vector3  sideBarWidthPercentage 0 0
+  Action nextSideBarAction <- preservingMatrix $ do
+    scale3 sideBarWidthPercentage 1 1
+    sideBarAction
+
+  translate $ vector3 sideBarWidthPercentage 0 0
+  translate $ vector3  mainChartWidthPercentage 0 0
+  Action nextMainChartAction <- preservingMatrix $ do
+    scale3 mainChartWidthPercentage 1 1
+    mainChartAction
+
+  return $ Action (drawScreen nextSideBarAction nextMainChartAction)
+
+drawSideBar :: IO Action
+drawSideBar = do
+  color $ color3 0 0 1
+  drawSquare
+  return $ Action drawSideBar
+
+drawMainChart :: GLfloat -> IO Action
+drawMainChart rotateY = do
+  color $ color3 1 0 0
+  rotate rotateY $ vector3 0 1 0
+  drawSquare
+  return $ Action (drawMainChart (rotateY + 0.25))
+
+drawSquare :: IO ()
+drawSquare = do
   renderPrimitive LineLoop $ do
-    vertex2 (-1) (-1)
-    vertex2 (-1) 1
-    vertex2 1 1
-    vertex2 1 (-1)
+    vertex $ vertex2 (-1) (-1)
+    vertex $ vertex2 (-1) 1
+    vertex $ vertex2 1 1
+    vertex $ vertex2 1 (-1)
 
-  space <- getKey key
-
-  if rotating && rotateY <= 180.00
-    then return $ Action (rotateAction key newColor scaleFactor True (rotateY + 0.25))
-    else case space of
-      Press -> return $ Action (rotateAction key newColor scaleFactor True 0)
-      Release -> return $ Action (rotateAction key newColor scaleFactor False 0)
+  renderPrimitive Lines $ do
+    vertex $ vertex2 (-1) 1
+    vertex $ vertex2 1 (-1)
+    vertex $ vertex2 (-1) (-1)
+    vertex $ vertex2 1 1
 
