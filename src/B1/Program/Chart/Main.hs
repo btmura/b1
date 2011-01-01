@@ -27,6 +27,13 @@ myWindowSizeCallback :: Size -> IO ()
 myWindowSizeCallback size@(Size width height) = do
   viewport $= (Position 0 0, size)
 
+  matrixMode $= Projection
+  loadIdentity
+  ortho2D 0 (realToFrac width) (realToFrac height) 0
+
+  matrixMode $= Modelview 0
+  loadIdentity
+
 drawLoop :: IO Action -> IO ()
 drawLoop action = do
   clear [ColorBuffer, DepthBuffer]
@@ -46,19 +53,20 @@ drawScreen sideBarAction mainChartAction = do
   (_, (Size width height)) <- get viewport
 
   let sideBarWidth = 150
-      sideBarWidthPercentage = sideBarWidth / realToFrac width
-      mainChartWidthPercentage = 1.0 - sideBarWidthPercentage
+      sideBarHeight = realToFrac height
 
-  translate $ vector3 (-1) 0 0
-  translate $ vector3  sideBarWidthPercentage 0 0
   Action nextSideBarAction <- preservingMatrix $ do
-    scale3 sideBarWidthPercentage 1 1
+    translate $ vector3 (sideBarWidth / 2) (sideBarHeight / 2) 0
+    scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
     sideBarAction
 
-  translate $ vector3 sideBarWidthPercentage 0 0
-  translate $ vector3  mainChartWidthPercentage 0 0
+  let mainChartWidth = realToFrac width - sideBarWidth
+      mainChartHeight = realToFrac height
+
   Action nextMainChartAction <- preservingMatrix $ do
-    scale3 mainChartWidthPercentage 1 1
+    translate $ vector3 (sideBarWidth + mainChartWidth / 2)
+        (mainChartHeight / 2) 0
+    scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
     mainChartAction
 
   return $ Action (drawScreen nextSideBarAction nextMainChartAction)
