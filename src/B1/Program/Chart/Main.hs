@@ -3,6 +3,7 @@ module B1.Program.Chart.Main
   ) where
 
 import Control.Monad
+import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
@@ -13,7 +14,8 @@ main :: IO ()
 main = do
   initialize
   createWindow
-  drawLoop $ drawScreen drawSideBar drawMainChart
+  font <- createTextureFont "res/DejaVuSans.ttf"
+  drawLoop $ drawScreen font drawSideBar drawMainChart
   closeWindow
   terminate
 
@@ -29,7 +31,7 @@ myWindowSizeCallback size@(Size width height) = do
 
   matrixMode $= Projection
   loadIdentity
-  ortho2D 0 (realToFrac width) (realToFrac height) 0
+  ortho2D 0 (realToFrac width) 0 (realToFrac height)
 
   matrixMode $= Modelview 0
   loadIdentity
@@ -46,11 +48,15 @@ drawLoop action = do
     Press -> return ()
     Release -> drawLoop nextAction
 
-drawScreen :: IO Action -> IO Action -> IO Action
-drawScreen sideBarAction mainChartAction = do
+drawScreen :: Font -> IO Action -> IO Action -> IO Action
+drawScreen font sideBarAction mainChartAction = do
   loadIdentity
 
   (_, (Size width height)) <- get viewport
+
+  color $ color3 0 1 0
+  setFontFaceSize font 12 72
+  renderFont font "Hello, world!" All
 
   let sideBarWidth = 150
       sideBarHeight = realToFrac height
@@ -69,7 +75,7 @@ drawScreen sideBarAction mainChartAction = do
     scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
     mainChartAction
 
-  return $ Action (drawScreen nextSideBarAction nextMainChartAction)
+  return $ Action (drawScreen font nextSideBarAction nextMainChartAction)
 
 drawSideBar :: IO Action
 drawSideBar = do

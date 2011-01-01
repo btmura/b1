@@ -46,6 +46,7 @@ Executable b1-chart
   Ghc-options: -main-is B1.Program.Chart.Main
   Build-depends:
     base >= 4,
+    FTGL >= 1.333,
     GLFW >= 0.4.2,
     HTTP >= 4000.0.8,
     old-locale >= 1.0.0.2,
