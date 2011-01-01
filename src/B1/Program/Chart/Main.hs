@@ -13,7 +13,7 @@ main :: IO ()
 main = do
   initialize
   createWindow
-  drawLoop $ (drawScreen drawSideBar (drawMainChart 0))
+  drawLoop $ drawScreen drawSideBar drawMainChart
   closeWindow
   terminate
 
@@ -69,12 +69,24 @@ drawSideBar = do
   drawSquare
   return $ Action drawSideBar
 
-drawMainChart :: GLfloat -> IO Action
-drawMainChart rotateY = do
+drawMainChart :: IO Action
+drawMainChart = do
   color $ color3 1 0 0
+  drawSquare
+
+  space <- getKey ' '
+  case space of
+    Release -> return $ Action drawMainChart
+    Press -> return $ Action (rotateMainChart 0)
+
+rotateMainChart :: GLfloat -> IO Action
+rotateMainChart rotateY = do
+  color $ color3 0 1 0
   rotate rotateY $ vector3 0 1 0
   drawSquare
-  return $ Action (drawMainChart (rotateY + 0.25))
+  if rotateY >= 180
+    then return $ Action drawMainChart
+    else return $ Action (rotateMainChart (rotateY + 1))
 
 drawSquare :: IO ()
 drawSquare = do
