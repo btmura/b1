@@ -4,6 +4,7 @@ import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.UserHooks
 
 import System.Directory
+import System.Exit
 import System.FilePath
 import System.Process
 
@@ -20,5 +21,5 @@ runTestSuite _ _ _ localBuildInfo = do
   let testDir = buildDir localBuildInfo </> testSuiteExe
   setCurrentDirectory testDir
   exitCode <- system testSuiteExe
-  return ()
+  exitWith exitCode
 
