@@ -10,12 +10,16 @@ import Graphics.UI.GLFW
 import B1.Data.Action
 import B1.Graphics.Rendering.OpenGL.Utils
 
+data Resources = Resources
+  { font :: Font
+  }
+
 main :: IO ()
 main = do
   initialize
   createWindow
-  font <- createTextureFont "res/DejaVuSans.ttf"
-  drawLoop $ drawScreen font drawSideBar drawMainChart
+  resources <- createResources
+  drawLoop $ drawScreen resources
   closeWindow
   terminate
 
@@ -36,6 +40,11 @@ myWindowSizeCallback size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
+createResources :: IO Resources
+createResources = do
+  font <- createTextureFont "res/DejaVuSans.ttf"
+  return $ Resources { font = font }
+
 drawLoop :: IO Action -> IO ()
 drawLoop action = do
   clear [ColorBuffer, DepthBuffer]
@@ -48,59 +57,46 @@ drawLoop action = do
     Press -> return ()
     Release -> drawLoop nextAction
 
-drawScreen :: Font -> IO Action -> IO Action -> IO Action
-drawScreen font sideBarAction mainChartAction = do
+drawScreen :: Resources -> IO Action
+drawScreen resources = do
   loadIdentity
 
   (_, (Size width height)) <- get viewport
 
-  color $ color3 0 1 0
-  setFontFaceSize font 12 72
-  renderFont font "Hello, world!" All
-
   let sideBarWidth = 150
       sideBarHeight = realToFrac height
 
-  Action nextSideBarAction <- preservingMatrix $ do
+  preservingMatrix $ do
     translate $ vector3 (sideBarWidth / 2) (sideBarHeight / 2) 0
-    scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
-    sideBarAction
+    drawSideBar resources sideBarWidth sideBarHeight
 
   let mainChartWidth = realToFrac width - sideBarWidth
       mainChartHeight = realToFrac height
 
-  Action nextMainChartAction <- preservingMatrix $ do
+  preservingMatrix $ do
     translate $ vector3 (sideBarWidth + mainChartWidth / 2)
         (mainChartHeight / 2) 0
-    scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
-    mainChartAction
+    drawMainChart resources mainChartWidth mainChartHeight
 
-  return $ Action (drawScreen font nextSideBarAction nextMainChartAction)
+  return $ Action $ drawScreen resources
 
-drawSideBar :: IO Action
-drawSideBar = do
+drawSideBar :: Resources -> GLfloat -> GLfloat -> IO ()
+drawSideBar resources width height = do
+  scale3 (realToFrac width / 2) (realToFrac height / 2) 1
   color $ color3 0 0 1
   drawSquare
-  return $ Action drawSideBar
 
-drawMainChart :: IO Action
-drawMainChart = do
+drawMainChart :: Resources -> GLfloat -> GLfloat -> IO ()
+drawMainChart resources width height = do
+  preservingMatrix $ do
+    color $ color3 0 1 0
+    translate $ vector3 (-width / 2) (height / 2 - 24) 0
+    setFontFaceSize (font resources) 24 72
+    renderFont (font resources) "SPY" All
+
+  scale3 (realToFrac width / 2) (realToFrac height / 2) 1
   color $ color3 1 0 0
   drawSquare
-
-  space <- getKey ' '
-  case space of
-    Release -> return $ Action drawMainChart
-    Press -> return $ Action (rotateMainChart 0)
-
-rotateMainChart :: GLfloat -> IO Action
-rotateMainChart rotateY = do
-  color $ color3 0 1 0
-  rotate rotateY $ vector3 0 1 0
-  drawSquare
-  if rotateY >= 180
-    then return $ Action drawMainChart
-    else return $ Action (rotateMainChart (rotateY + 1))
 
 drawSquare :: IO ()
 drawSquare = do
