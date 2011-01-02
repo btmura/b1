@@ -9,8 +9,8 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
 import B1.Data.Action
-import B1.Graphics.Rendering.OpenGL.Shapes
-import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.Resources
+import B1.Program.Chart.Screen
 
 main :: IO ()
 main = do
@@ -19,7 +19,7 @@ main = do
 
   resourcesRef <- createInitialResources
   windowSizeCallback $= myWindowSizeCallback resourcesRef
-  drawLoop resourcesRef $ drawScreen drawSideBar drawMainChart
+  drawLoop resourcesRef drawScreen
 
   closeWindow
   terminate
@@ -28,12 +28,6 @@ createWindow :: IO ()
 createWindow = do
   openWindow (Size 400 400) [DisplayAlphaBits 8] Window
   windowTitle $= "B1"
-
-data Resources = Resources
-  { font :: Font
-  , windowWidth :: Int
-  , windowHeight :: Int
-  }
 
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.
@@ -58,12 +52,6 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
-updateWindowSize :: Size -> Resources -> Resources
-updateWindowSize (Size width height) resources = resources
-  { windowWidth = fromIntegral width
-  , windowHeight = fromIntegral height
-  }
-
 drawLoop :: IORef a -> (a -> IO (Action a)) -> IO ()
 drawLoop inputRef action = do
   clear [ColorBuffer, DepthBuffer]
@@ -76,44 +64,4 @@ drawLoop inputRef action = do
   case esc of
     Press -> return ()
     Release -> drawLoop inputRef nextAction
-
--- TODO: Move this code into a separate Screen module.
-drawScreen :: (a -> IO (Action a)) -> (a -> IO (Action a)) -> a -> IO (Action a)
-drawScreen sideBarAction mainChartAction input = do
-  Action nextSideBarAction <- sideBarAction input
-  Action nextMainChartAction <- mainChartAction input
-  return $ Action $ drawScreen nextSideBarAction nextMainChartAction
-
-sideBarWidth = 175
-
-drawSideBar :: Resources -> IO (Action Resources)
-drawSideBar resources = do
-  let sideBarHeight = realToFrac (windowHeight resources)
-
-  loadIdentity
-  translate $ vector3 (sideBarWidth / 2) (sideBarHeight / 2) 0
-  scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
-  color $ color3 0 0 1
-  drawSquarePlaceholder
-  return $ Action drawSideBar 
-
-drawMainChart :: Resources -> IO (Action Resources)
-drawMainChart resources = do
-  let mainChartWidth = realToFrac (windowWidth resources) - sideBarWidth
-      mainChartHeight = realToFrac (windowHeight resources)
-
-  loadIdentity
-  translate $ vector3 (sideBarWidth + mainChartWidth / 2)
-      (mainChartHeight / 2) 0
-
-  preservingMatrix $ do
-    color $ color3 0 1 0
-    translate $ vector3 (-mainChartWidth / 2) (mainChartHeight / 2 - 24) 0
-    setFontFaceSize (font resources) 24 72
-    renderFont (font resources) "SPY" All
-
-  scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
-  color $ color3 1 0 0
-  drawSquarePlaceholder
-  return $ Action drawMainChart
 
