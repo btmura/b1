@@ -9,6 +9,7 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
 import B1.Data.Action
+import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 
 main :: IO ()
@@ -93,7 +94,7 @@ drawSideBar resources = do
   translate $ vector3 (sideBarWidth / 2) (sideBarHeight / 2) 0
   scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
   color $ color3 0 0 1
-  drawSquare
+  drawSquarePlaceholder
   return $ Action drawSideBar 
 
 drawMainChart :: Resources -> IO (Action Resources)
@@ -113,22 +114,6 @@ drawMainChart resources = do
 
   scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
   color $ color3 1 0 0
-  drawSquare
+  drawSquarePlaceholder
   return $ Action drawMainChart
-
--- TODO: Rename this method to "drawSquarePlaceholder" and move to a
---       separate module called "Shapes" ?
-drawSquare :: IO ()
-drawSquare = do
-  renderPrimitive LineLoop $ do
-    vertex $ vertex2 (-1) (-1)
-    vertex $ vertex2 (-1) 1
-    vertex $ vertex2 1 1
-    vertex $ vertex2 1 (-1)
-
-  renderPrimitive Lines $ do
-    vertex $ vertex2 (-1) 1
-    vertex $ vertex2 1 (-1)
-    vertex $ vertex2 (-1) (-1)
-    vertex $ vertex2 1 1
 
