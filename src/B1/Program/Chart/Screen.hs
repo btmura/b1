@@ -50,12 +50,15 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
   translate $ vector3 (sideBarWidth + mainChartWidth / 2)
       (mainChartHeight / 2) 0
 
-  scale3 rangeValue rangeValue 1
+  scale3 rangeValue 1 1
 
+  let symbolPadding = 15
+      fontSize = 14::Int
   preservingMatrix $ do
-    color $ color4 0 1 0 rangeValue
-    translate $ vector3 (-mainChartWidth / 2) (mainChartHeight / 2 - 24) 0
-    setFontFaceSize (font resources) 24 72
+    color $ color4 1 1 0 rangeValue
+    translate $ vector3 (-mainChartWidth / 2 + symbolPadding)
+        (mainChartHeight / 2 - symbolPadding - realToFrac fontSize) 0
+    setFontFaceSize (font resources) fontSize 72
     renderFont (font resources) "SPY" All
 
   scale3 ((mainChartWidth - padding) / 2) ((mainChartHeight - padding) / 2) 1
