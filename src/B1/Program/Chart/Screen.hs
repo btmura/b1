@@ -6,6 +6,7 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Action
+import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Dirty
@@ -14,7 +15,7 @@ import B1.Program.Chart.Resources
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = 
   return (Action (drawScreenLoop drawSideBar
-      (drawMainChart [0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 1.0])), True)
+      (drawMainChart (gradualRange 0 1 100))), True)
 
 drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
     -> (Resources -> IO (Action Resources Dirty, Dirty))

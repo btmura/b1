@@ -13,13 +13,13 @@ import B1.Data.Price.Google
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Data.Price.GoogleTest"
-  [ testCase "parseGoogleCsv_good" case_parseGoogleCsv_good
-  , testCase "parseGoogleCsv_missingField" case_parseGoogleCsv_missingField
-  , testCase "parseGoogleCsv_invalidField" case_parseGoogleCsv_invalidField
-  , testCase "parseGoogleCsv_badFormat" case_parseGoogleCsv_badFormat
-  , testCase "parseGoogleCsv_noHeaders" case_parseGoogleCsv_noHeaders
-  , testCase "parseGoogleCsv_noLines" case_parseGoogleCsv_noLines
-  , testCase "parseGoogleCsv_nothing" case_parseGoogleCsv_nothing
+  [ testCase "case_parseGoogleCsv_good" case_parseGoogleCsv_good
+  , testCase "case_parseGoogleCsv_missingField" case_parseGoogleCsv_missingField
+  , testCase "case_parseGoogleCsv_invalidField" case_parseGoogleCsv_invalidField
+  , testCase "case_parseGoogleCsv_badFormat" case_parseGoogleCsv_badFormat
+  , testCase "case_parseGoogleCsv_noHeaders" case_parseGoogleCsv_noHeaders
+  , testCase "case_parseGoogleCsv_noLines" case_parseGoogleCsv_noLines
+  , testCase "case_parseGoogleCsv_nothing" case_parseGoogleCsv_nothing
   ]
 
 headers = "Date,Open,High,Low,Close,Volume\n"

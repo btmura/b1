@@ -13,7 +13,7 @@ import B1.Program.Chart.Resources
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
-  [ testCase "updateWindowSize" case_updateWindowSize
+  [ testCase "case_updateWindowSize" case_updateWindowSize
   ]
 
 case_updateWindowSize :: Assertion

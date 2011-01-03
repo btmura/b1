@@ -11,9 +11,9 @@ import B1.Data.String.Utils
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Data.String.UtilsTest"
-  [ testCase "split_multipleElements" case_split_multipleElements
-  , testCase "split_oneElement" case_split_oneElement
-  , testCase "split_empty" case_split_empty
+  [ testCase "case_split_multipleElements" case_split_multipleElements
+  , testCase "case_split_oneElement" case_split_oneElement
+  , testCase "case_split_empty" case_split_empty
   ]
 
 case_split_multipleElements :: Assertion  

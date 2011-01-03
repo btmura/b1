@@ -8,7 +8,7 @@ import B1.Data.Price.Mock
 
 getTestGroup :: Test
 getTestGroup = testGroup "B1.Data.Price.MockTest"
-  [ testProperty "getMockPrices_numPrices" prop_getMockPrices_numPrices
+  [ testProperty "prop_getMockPrices_numPrices" prop_getMockPrices_numPrices
   ]
 
 prop_getMockPrices_numPrices :: Int -> Property
