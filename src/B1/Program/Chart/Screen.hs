@@ -13,7 +13,8 @@ import B1.Program.Chart.Resources
 
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = 
-  return (Action (drawScreenLoop drawSideBar drawMainChart), True)
+  return (Action (drawScreenLoop drawSideBar
+      (drawMainChart [0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 1.0])), True)
 
 drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
     -> (Resources -> IO (Action Resources Dirty, Dirty))
@@ -37,14 +38,16 @@ drawSideBar resources = do
   drawSquarePlaceholder
   return (Action drawSideBar, False)
 
-drawMainChart :: Resources -> IO (Action Resources Dirty, Dirty)
-drawMainChart resources = do
+drawMainChart :: [GLfloat] -> Resources -> IO (Action Resources Dirty, Dirty)
+drawMainChart scaleFactors resources = do
   let mainChartWidth = realToFrac (windowWidth resources) - sideBarWidth
       mainChartHeight = realToFrac (windowHeight resources)
 
   loadIdentity
   translate $ vector3 (sideBarWidth + mainChartWidth / 2)
       (mainChartHeight / 2) 0
+
+  scale3 (head scaleFactors) (head scaleFactors) 1
 
   preservingMatrix $ do
     color $ color3 0 1 0
@@ -55,5 +58,8 @@ drawMainChart resources = do
   scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
   color $ color3 1 0 0
   drawSquarePlaceholder
-  return (Action drawMainChart, False)
+
+  if length scaleFactors > 1
+    then return (Action (drawMainChart (tail scaleFactors)), True)
+    else return (Action (drawMainChart scaleFactors), False)
 
