@@ -52,11 +52,11 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
-drawLoop :: IORef a -> (a -> IO (Action a)) -> IO ()
+drawLoop :: IORef a -> (a -> IO (Action a b, b)) -> IO ()
 drawLoop inputRef action = do
   clear [ColorBuffer, DepthBuffer]
   input <- readIORef inputRef
-  Action nextAction <- action input
+  (Action nextAction, _) <- action input
   swapBuffers
   sleep 0.001
 
