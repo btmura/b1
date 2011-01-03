@@ -21,7 +21,8 @@ drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
 drawScreenLoop sideBarAction mainChartAction input = do
   (Action nextSideBarAction, sideBarDirty) <- sideBarAction input
   (Action nextMainChartAction, mainChartDirty) <- mainChartAction input
-  return (Action (drawScreenLoop nextSideBarAction nextMainChartAction), True)
+  return (Action (drawScreenLoop nextSideBarAction nextMainChartAction),
+      sideBarDirty || mainChartDirty)
 
 sideBarWidth = 175
 
@@ -34,7 +35,7 @@ drawSideBar resources = do
   scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
   color $ color3 0 0 1
   drawSquarePlaceholder
-  return (Action drawSideBar, True)
+  return (Action drawSideBar, False)
 
 drawMainChart :: Resources -> IO (Action Resources Dirty, Dirty)
 drawMainChart resources = do
@@ -54,5 +55,5 @@ drawMainChart resources = do
   scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
   color $ color3 1 0 0
   drawSquarePlaceholder
-  return (Action drawMainChart, True)
+  return (Action drawMainChart, False)
 

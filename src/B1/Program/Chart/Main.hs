@@ -9,6 +9,7 @@ import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
 import B1.Data.Action
+import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Screen
 
@@ -45,6 +46,7 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   viewport $= (Position 0 0, size)
   modifyIORef resourcesRef $ updateWindowSize size
 
+  -- Use orthographic projection, since it is easier to position text.
   matrixMode $= Projection
   loadIdentity
   ortho2D 0 (realToFrac width) 0 (realToFrac height)
@@ -52,16 +54,20 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
-drawLoop :: IORef a -> (a -> IO (Action a b, b)) -> IO ()
+drawLoop :: IORef a -> (a -> IO (Action a Dirty, Dirty)) -> IO ()
 drawLoop inputRef action = do
   clear [ColorBuffer, DepthBuffer]
   input <- readIORef inputRef
-  (Action nextAction, _) <- action input
+  (Action nextAction, isDirty) <- action input
   swapBuffers
   sleep 0.001
 
   esc <- getKey ESC
   case esc of
     Press -> return ()
-    Release -> drawLoop inputRef nextAction
+    Release -> do
+      -- If the screen is not dirty, then wait for events rather than drawing
+      -- the same frame again and pegging the CPU to a 100%.
+      unless isDirty waitEvents
+      drawLoop inputRef nextAction
 
