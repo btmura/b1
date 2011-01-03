@@ -28,6 +28,8 @@ drawScreenLoop sideBarAction mainChartAction input = do
 
 sideBarWidth = 175
 
+padding = 20
+
 drawSideBar :: Resources -> IO (Action Resources Dirty, Dirty)
 drawSideBar resources = do
   let sideBarHeight = realToFrac (windowHeight resources)
@@ -56,7 +58,7 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
     setFontFaceSize (font resources) 24 72
     renderFont (font resources) "SPY" All
 
-  scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
+  scale3 ((mainChartWidth - padding) / 2) ((mainChartHeight - padding) / 2) 1
   color $ color4 1 0 0 rangeValue
   drawSquarePlaceholder
 
