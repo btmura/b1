@@ -40,7 +40,7 @@ drawSideBar resources = do
   return (Action drawSideBar, False)
 
 drawMainChart :: [GLfloat] -> Resources -> IO (Action Resources Dirty, Dirty)
-drawMainChart scaleFactors resources = do
+drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
   let mainChartWidth = realToFrac (windowWidth resources) - sideBarWidth
       mainChartHeight = realToFrac (windowHeight resources)
 
@@ -48,19 +48,19 @@ drawMainChart scaleFactors resources = do
   translate $ vector3 (sideBarWidth + mainChartWidth / 2)
       (mainChartHeight / 2) 0
 
-  scale3 (head scaleFactors) (head scaleFactors) 1
+  scale3 rangeValue rangeValue 1
 
   preservingMatrix $ do
-    color $ color3 0 1 0
+    color $ color4 0 1 0 rangeValue
     translate $ vector3 (-mainChartWidth / 2) (mainChartHeight / 2 - 24) 0
     setFontFaceSize (font resources) 24 72
     renderFont (font resources) "SPY" All
 
   scale3 (mainChartWidth / 2) (mainChartHeight / 2) 1
-  color $ color3 1 0 0
+  color $ color4 1 0 0 rangeValue
   drawSquarePlaceholder
 
-  if length scaleFactors > 1
-    then return (Action (drawMainChart (tail scaleFactors)), True)
-    else return (Action (drawMainChart scaleFactors), False)
+  case nextRangeValues of
+    [] -> return (Action (drawMainChart rangeValues), False)
+    _ -> return (Action (drawMainChart nextRangeValues), True)
 

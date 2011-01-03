@@ -30,6 +30,9 @@ createWindow = do
   openWindow (Size 400 400) [DisplayAlphaBits 8] Window
   windowTitle $= "B1"
 
+  blendFunc $= (SrcAlpha, One)
+  blend $= Enabled
+
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.
 createInitialResources :: IO (IORef Resources)

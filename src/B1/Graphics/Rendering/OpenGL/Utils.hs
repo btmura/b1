@@ -1,5 +1,6 @@
 module B1.Graphics.Rendering.OpenGL.Utils
   ( color3
+  , color4
   , scale3
   , texCoord2
   , vector3
@@ -11,6 +12,9 @@ import Graphics.Rendering.OpenGL
 
 color3 :: GLfloat -> GLfloat -> GLfloat -> Color3 GLfloat
 color3 = Color3
+
+color4 :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> Color4 GLfloat
+color4 = Color4
 
 scale3 :: GLfloat -> GLfloat -> GLfloat -> IO ()
 scale3 = scale
