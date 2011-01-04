@@ -28,8 +28,6 @@ drawScreenLoop sideBarAction mainChartAction input = do
 
 sideBarWidth = 175
 
-padding = 20
-
 drawSideBar :: Resources -> IO (Action Resources Dirty, Dirty)
 drawSideBar resources = do
   let sideBarHeight = realToFrac (windowHeight resources)
@@ -43,12 +41,9 @@ drawSideBar resources = do
 
 drawMainChart :: [GLfloat] -> Resources -> IO (Action Resources Dirty, Dirty)
 drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
-  let mainChartWidth = realToFrac (windowWidth resources) - sideBarWidth
-      mainChartHeight = realToFrac (windowHeight resources)
-
   loadIdentity
-  translate $ vector3 (sideBarWidth + mainChartWidth / 2)
-      (mainChartHeight / 2) 0
+  translate $ vector3 (sideBarWidth + (mainChartWidth resources) / 2)
+      ((mainChartHeight resources) / 2) 0
 
   scale3 rangeValue 1 1
 
@@ -56,17 +51,78 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
   drawCenteredInstructions resources
 
   color $ color4 0 0.25 1 rangeValue
-  scale3 ((mainChartWidth - padding) / 2) ((mainChartHeight - padding) / 2) 1
-  drawSquarePlaceholder
+  drawChart resources
 
   case nextRangeValues of
     [] -> return (Action (drawMainChart rangeValues), False)
     _ -> return (Action (drawMainChart nextRangeValues), True)
 
+mainChartWidth :: Resources -> GLfloat
+mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
+
+mainChartHeight :: Resources -> GLfloat
+mainChartHeight resources = realToFrac (windowHeight resources)
+
+drawChart :: Resources -> IO ()
+drawChart resources = do
+  preservingMatrix $ do
+    let padding = 10
+        numRoundedVertices = 5
+        roundedSize = 10
+        translateX = mainChartWidth resources / 2 - padding
+        translateY = mainChartHeight resources / 2 - padding
+
+        cornerTranslateX = translateX - roundedSize
+        cornerTranslateY = translateY - roundedSize
+
+    preservingMatrix $ do
+      translate $ vector3 cornerTranslateX (-cornerTranslateY) 0
+      scale3 roundedSize roundedSize 1
+      renderPrimitive LineStrip $ do
+        mapM_ (\x -> vertex $ circleVertex2 x)
+            (linearRange (2 * pi) (3 * pi / 2) numRoundedVertices) 
+
+    renderPrimitive Lines $ do
+      vertex $ vertex2 (translateX - roundedSize) (-translateY)
+      vertex $ vertex2 (-translateX + roundedSize) (-translateY)
+
+    preservingMatrix $ do
+      translate $ vector3 (-cornerTranslateX) (-cornerTranslateY) 0
+      scale3 roundedSize roundedSize 1
+      renderPrimitive LineStrip $ do
+        mapM_ (\x -> vertex $ circleVertex2 x)
+            (linearRange (3 * pi / 2) pi numRoundedVertices)
+
+    renderPrimitive Lines $ do
+      vertex $ vertex2 (-translateX) (translateY - roundedSize)
+      vertex $ vertex2 (-translateX) (-translateY + roundedSize)
+
+    preservingMatrix $ do
+      translate $ vector3 (-cornerTranslateX) cornerTranslateY 0
+      scale3 roundedSize roundedSize 1
+      renderPrimitive LineStrip $ do
+        mapM_ (\x -> vertex $ circleVertex2 x)
+            (linearRange pi (pi / 2) numRoundedVertices)
+
+    renderPrimitive Lines $ do
+      vertex $ vertex2 (-translateX + roundedSize) translateY
+      vertex $ vertex2 (translateX - roundedSize) translateY
+
+    preservingMatrix $ do
+      translate $ vector3 cornerTranslateX cornerTranslateY 0
+      scale3 roundedSize roundedSize 1
+      renderPrimitive LineStrip $ do
+        mapM_ (\x -> vertex $ circleVertex2 x)
+            (linearRange (pi / 2) 0 numRoundedVertices) 
+
+    renderPrimitive Lines $ do
+      vertex $ vertex2 translateX (translateY - roundedSize)
+      vertex $ vertex2 translateX (-(translateY - roundedSize))
+
 drawCenteredInstructions :: Resources -> IO ()
 drawCenteredInstructions resources =
   preservingMatrix $ do
-    let instructions = "Enter a symbol and press ENTER..."
+    let instructions = "Type in symbol and press ENTER..."
         fontSize = 18::Int
     setFontFaceSize (font resources) fontSize 72
     [left, bottom, _, right, top, _] <- getFontBBox
@@ -78,5 +134,4 @@ drawCenteredInstructions resources =
         centerY = -(realToFrac textHeight / 2)
     translate $ vector3 centerX centerY 0
     renderFont (font resources) instructions All
-
 

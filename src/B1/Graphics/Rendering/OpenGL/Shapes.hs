@@ -1,10 +1,15 @@
 module B1.Graphics.Rendering.OpenGL.Shapes
-  ( drawSquarePlaceholder
+  ( circleVertex2
+  , drawSquarePlaceholder
   ) where
 
 import Graphics.Rendering.OpenGL
 
 import B1.Graphics.Rendering.OpenGL.Utils
+
+circleVertex2 :: GLfloat -> Vertex2 GLfloat
+circleVertex2 radians = vertex2 (realToFrac (cos radians))
+    (realToFrac (sin radians))
 
 drawSquarePlaceholder :: IO ()
 drawSquarePlaceholder = do
