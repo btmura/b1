@@ -52,20 +52,31 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
 
   scale3 rangeValue 1 1
 
-  let symbolPadding = 15
-      fontSize = 14::Int
-  preservingMatrix $ do
-    color $ color4 1 1 0 rangeValue
-    translate $ vector3 (-mainChartWidth / 2 + symbolPadding)
-        (mainChartHeight / 2 - symbolPadding - realToFrac fontSize) 0
-    setFontFaceSize (font resources) fontSize 72
-    renderFont (font resources) "SPY" All
+  color $ color4 0.25  1 0 rangeValue
+  drawCenteredInstructions resources
 
+  color $ color4 0 0.25 1 rangeValue
   scale3 ((mainChartWidth - padding) / 2) ((mainChartHeight - padding) / 2) 1
-  color $ color4 1 0 0 rangeValue
   drawSquarePlaceholder
 
   case nextRangeValues of
     [] -> return (Action (drawMainChart rangeValues), False)
     _ -> return (Action (drawMainChart nextRangeValues), True)
+
+drawCenteredInstructions :: Resources -> IO ()
+drawCenteredInstructions resources =
+  preservingMatrix $ do
+    let instructions = "Enter a symbol and press ENTER..."
+        fontSize = 18::Int
+    setFontFaceSize (font resources) fontSize 72
+    [left, bottom, _, right, top, _] <- getFontBBox
+        (font resources) instructions
+
+    let textWidth = right - left
+        textHeight = top - bottom
+        centerX = -(realToFrac textWidth / 2)
+        centerY = -(realToFrac textHeight / 2)
+    translate $ vector3 centerX centerY 0
+    renderFont (font resources) instructions All
+
 
