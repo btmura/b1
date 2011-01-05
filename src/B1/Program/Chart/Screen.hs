@@ -64,60 +64,14 @@ mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = realToFrac (windowHeight resources)
 
 drawChart :: Resources -> IO ()
-drawChart resources = do
+drawChart resources = 
   preservingMatrix $ do
-    let padding = 10
-        numRoundedVertices = 5
-        roundedSize = 10
-        translateX = mainChartWidth resources / 2 - padding
-        translateY = mainChartHeight resources / 2 - padding
-
-        cornerTranslateX = translateX - roundedSize
-        cornerTranslateY = translateY - roundedSize
-
-    preservingMatrix $ do
-      translate $ vector3 cornerTranslateX (-cornerTranslateY) 0
-      scale3 roundedSize roundedSize 1
-      renderPrimitive LineStrip $ do
-        mapM_ (\x -> vertex $ circleVertex2 x)
-            (linearRange (2 * pi) (3 * pi / 2) numRoundedVertices) 
-
-    renderPrimitive Lines $ do
-      vertex $ vertex2 (translateX - roundedSize) (-translateY)
-      vertex $ vertex2 (-translateX + roundedSize) (-translateY)
-
-    preservingMatrix $ do
-      translate $ vector3 (-cornerTranslateX) (-cornerTranslateY) 0
-      scale3 roundedSize roundedSize 1
-      renderPrimitive LineStrip $ do
-        mapM_ (\x -> vertex $ circleVertex2 x)
-            (linearRange (3 * pi / 2) pi numRoundedVertices)
-
-    renderPrimitive Lines $ do
-      vertex $ vertex2 (-translateX) (translateY - roundedSize)
-      vertex $ vertex2 (-translateX) (-translateY + roundedSize)
-
-    preservingMatrix $ do
-      translate $ vector3 (-cornerTranslateX) cornerTranslateY 0
-      scale3 roundedSize roundedSize 1
-      renderPrimitive LineStrip $ do
-        mapM_ (\x -> vertex $ circleVertex2 x)
-            (linearRange pi (pi / 2) numRoundedVertices)
-
-    renderPrimitive Lines $ do
-      vertex $ vertex2 (-translateX + roundedSize) translateY
-      vertex $ vertex2 (translateX - roundedSize) translateY
-
-    preservingMatrix $ do
-      translate $ vector3 cornerTranslateX cornerTranslateY 0
-      scale3 roundedSize roundedSize 1
-      renderPrimitive LineStrip $ do
-        mapM_ (\x -> vertex $ circleVertex2 x)
-            (linearRange (pi / 2) 0 numRoundedVertices) 
-
-    renderPrimitive Lines $ do
-      vertex $ vertex2 translateX (translateY - roundedSize)
-      vertex $ vertex2 translateX (-(translateY - roundedSize))
+    drawRoundedRectangle (mainChartWidth resources - padding)
+        (mainChartHeight resources - padding) cornerRadius cornerVertices
+  where
+    padding = 10 
+    cornerRadius = 15
+    cornerVertices = 5
 
 drawCenteredInstructions :: Resources -> IO ()
 drawCenteredInstructions resources =
