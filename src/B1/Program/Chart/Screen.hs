@@ -2,6 +2,7 @@ module B1.Program.Chart.Screen
   ( drawScreen
   ) where
 
+import Control.Monad
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
@@ -42,12 +43,12 @@ drawSideBar resources = do
 drawMainChart :: [GLfloat] -> Resources -> IO (Action Resources Dirty, Dirty)
 drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
   loadIdentity
-  translate $ vector3 (sideBarWidth + (mainChartWidth resources) / 2)
-      ((mainChartHeight resources) / 2) 0
+  translate $ vector3 (sideBarWidth + mainChartWidth resources / 2)
+      (mainChartHeight resources / 2) 0
 
   scale3 rangeValue 1 1
 
-  color $ color4 0.25  1 0 rangeValue
+  color $ color4 0.25 1 0 rangeValue
   drawCenteredInstructions resources
 
   color $ color4 0 0.25 1 rangeValue
@@ -63,29 +64,36 @@ mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
 mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = realToFrac (windowHeight resources)
 
+chartPadding :: GLfloat
+chartPadding = 10
+
 drawChart :: Resources -> IO ()
 drawChart resources = 
   preservingMatrix $ do
-    drawRoundedRectangle (mainChartWidth resources - padding)
-        (mainChartHeight resources - padding) cornerRadius cornerVertices
+    drawRoundedRectangle (mainChartWidth resources - chartPadding)
+        (mainChartHeight resources - chartPadding) cornerRadius cornerVertices
   where
     padding = 10 
     cornerRadius = 15
     cornerVertices = 5
 
 drawCenteredInstructions :: Resources -> IO ()
-drawCenteredInstructions resources =
-  preservingMatrix $ do
-    let instructions = "Type in symbol and press ENTER..."
-        fontSize = 18::Int
-    setFontFaceSize (font resources) fontSize 72
-    [left, bottom, _, right, top, _] <- getFontBBox
-        (font resources) instructions
+drawCenteredInstructions resources = do
+  layout <- createSimpleLayout
+  setFontFaceSize (font resources) 18 72
+  setLayoutFont layout (font resources)
+  setLayoutLineLength layout 
+      (realToFrac (mainChartWidth resources - chartPadding))
 
-    let textWidth = right - left
-        textHeight = top - bottom
-        centerX = -(realToFrac textWidth / 2)
-        centerY = -(realToFrac textHeight / 2)
+  let instructions = "Type in symbol and press ENTER..."
+  [left, bottom, _, right, top, _] <- getLayoutBBox layout instructions
+
+  let centerX = -(left + (abs (right - left)) / 2)
+      centerY = -(top - (abs (bottom - top)) / 2)
+  preservingMatrix $ do 
     translate $ vector3 centerX centerY 0
-    renderFont (font resources) instructions All
+    color $ color3 0 1 0
+    renderLayout layout instructions
+
+  destroyLayout layout
 
