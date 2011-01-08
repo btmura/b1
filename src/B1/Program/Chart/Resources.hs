@@ -1,10 +1,10 @@
 module B1.Program.Chart.Resources
   ( Resources (..)
-  , updateKeysPressed
-  , updateNextSymbol
+  , updateKeyPress
   , updateWindowSize
   ) where
 
+import Data.Maybe
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
@@ -13,18 +13,13 @@ data Resources = Resources
   { font :: Font
   , windowWidth :: Int
   , windowHeight :: Int
-  , keysPressed :: [Key]
-  , currentSymbol :: String
-  , nextSymbol :: String
+  , keyPress :: Maybe Key
   } deriving (Show, Eq)
 
-updateKeysPressed :: [Key] -> Resources -> Resources
-updateKeysPressed keysPressed resources = resources
-  { keysPressed = keysPressed
+updateKeyPress :: Maybe Key -> Resources -> Resources
+updateKeyPress maybeKeyPress resources = resources
+  { keyPress = maybeKeyPress
   }
-
-updateNextSymbol :: Resources -> Resources
-updateNextSymbol resources = resources
 
 updateWindowSize :: Size -> Resources -> Resources
 updateWindowSize (Size width height) resources = resources

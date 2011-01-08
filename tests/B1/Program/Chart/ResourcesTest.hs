@@ -2,6 +2,7 @@ module B1.Program.Chart.ResourcesTest
   ( getTestGroup
   ) where
 
+import Data.Maybe
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Test.Framework
@@ -26,20 +27,16 @@ case_updateWindowSize = do
 
       origResources = Resources
         { font = font
-        , keysPressed = []
+        , keyPress = Nothing
         , windowWidth = 0
         , windowHeight = 0
-        , currentSymbol = ""
-        , nextSymbol = ""
         }
 
       expectedResources = Resources
         { font = font
-        , keysPressed = []
+        , keyPress = Nothing
         , windowWidth = width
         , windowHeight = 3007
-        , currentSymbol = ""
-        , nextSymbol = ""
         }
  
   assertEqual "" expectedResources (updateWindowSize size origResources) 

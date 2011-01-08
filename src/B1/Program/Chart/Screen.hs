@@ -3,8 +3,10 @@ module B1.Program.Chart.Screen
   ) where
 
 import Control.Monad
+import Data.Char
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
+import Graphics.UI.GLFW
 
 import B1.Data.Action
 import B1.Data.Range
@@ -16,7 +18,7 @@ import B1.Program.Chart.Resources
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = 
   return (Action (drawScreenLoop drawSideBar
-      (drawMainChart (gradualRange 0 1 100))), True)
+      (drawMainChart (gradualRange 0 1 100) "")), True)
 
 drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
     -> (Resources -> IO (Action Resources Dirty, Dirty))
@@ -40,8 +42,9 @@ drawSideBar resources = do
   drawSquarePlaceholder
   return (Action drawSideBar, False)
 
-drawMainChart :: [GLfloat] -> Resources -> IO (Action Resources Dirty, Dirty)
-drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
+drawMainChart :: [GLfloat] -> String -> Resources
+    -> IO (Action Resources Dirty, Dirty)
+drawMainChart rangeValues@(rangeValue:nextRangeValues) nextSymbol resources = do
   loadIdentity
   translate $ vector3 (sideBarWidth + mainChartWidth resources / 2)
       (mainChartHeight resources / 2) 0
@@ -49,20 +52,39 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) resources = do
   scale3 rangeValue 1 1
 
   color $ color4 0.25 1 0 rangeValue
-  drawCenteredInstructions resources
+  let newNextSymbol = getNextSymbol nextSymbol resources
+  if newNextSymbol == ""
+    then drawCenteredInstructions resources
+    else drawNextSymbol newNextSymbol resources
 
   color $ color4 0 0.25 1 rangeValue
   drawChart resources
 
   case nextRangeValues of
-    [] -> return (Action (drawMainChart rangeValues), False)
-    _ -> return (Action (drawMainChart nextRangeValues), True)
+    [] -> return (Action (drawMainChart rangeValues newNextSymbol), False)
+    _ -> return (Action (drawMainChart nextRangeValues newNextSymbol), True)
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
 
 mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = realToFrac (windowHeight resources)
+
+-- TODO: Unit test
+nextSymbolLetterPressed :: Resources -> Bool
+nextSymbolLetterPressed (Resources { keyPress = maybeKeyPress }) =
+  case maybeKeyPress of
+    Just (CharKey char) -> isAlpha char
+    _ -> False
+
+-- TODO: Unit test
+getNextSymbol :: String -> Resources -> String
+getNextSymbol currentNextSymbol (Resources { keyPress = maybeKeyPress }) =
+  case maybeKeyPress of
+    Just (CharKey char) -> if isAlpha char
+      then currentNextSymbol ++ [char]
+      else currentNextSymbol
+    _ -> currentNextSymbol
 
 chartPadding :: GLfloat
 chartPadding = 10
@@ -73,7 +95,6 @@ drawChart resources =
     drawRoundedRectangle (mainChartWidth resources - chartPadding)
         (mainChartHeight resources - chartPadding) cornerRadius cornerVertices
   where
-    padding = 10 
     cornerRadius = 15
     cornerVertices = 5
 
@@ -92,8 +113,25 @@ drawCenteredInstructions resources = do
       centerY = -(top - (abs (bottom - top)) / 2)
   preservingMatrix $ do 
     translate $ vector3 centerX centerY 0
-    color $ color3 0 1 0
     renderLayout layout instructions
+
+  destroyLayout layout
+
+drawNextSymbol :: String -> Resources -> IO ()
+drawNextSymbol nextSymbol resources = do
+  layout <- createSimpleLayout
+  setFontFaceSize (font resources) 48 72
+  setLayoutFont layout (font resources)
+  setLayoutLineLength layout 
+      (realToFrac (mainChartWidth resources - chartPadding))
+
+  [left, bottom, _, right, top, _] <- getLayoutBBox layout nextSymbol
+
+  let centerX = -(left + (abs (right - left)) / 2)
+      centerY = -(top - (abs (bottom - top)) / 2)
+  preservingMatrix $ do 
+    translate $ vector3 centerX centerY 0
+    renderLayout layout nextSymbol
 
   destroyLayout layout
 

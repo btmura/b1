@@ -41,11 +41,9 @@ createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
   newIORef Resources
     { font = font
-    , keysPressed = []
+    , keyPress = Nothing
     , windowWidth = 0
     , windowHeight = 0
-    , currentSymbol = ""
-    , nextSymbol = ""
     }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
@@ -62,12 +60,11 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   loadIdentity
 
 myKeyCallback :: IORef Resources -> Key -> KeyButtonState -> IO ()
-myKeyCallback resourcesRef key state = 
-  case state of
-    Press -> modifyIORef resourcesRef $ updateKeysPressed [key]
-    Release -> modifyIORef resourcesRef $ updateKeysPressed []
+myKeyCallback resourcesRef key state = do
+  let maybeKey = if state == Press then Just key else Nothing
+  modifyIORef resourcesRef $ updateKeyPress maybeKey
 
-drawLoop :: IORef a -> (a -> IO (Action a Dirty, Dirty)) -> IO ()
+drawLoop :: (Show a) => IORef a -> (a -> IO (Action a Dirty, Dirty)) -> IO ()
 drawLoop inputRef action = do
   clear [ColorBuffer, DepthBuffer]
   input <- readIORef inputRef
