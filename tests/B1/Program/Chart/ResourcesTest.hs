@@ -26,14 +26,20 @@ case_updateWindowSize = do
 
       origResources = Resources
         { font = font
+        , keysPressed = []
         , windowWidth = 0
         , windowHeight = 0
+        , currentSymbol = ""
+        , nextSymbol = ""
         }
 
       expectedResources = Resources
         { font = font
+        , keysPressed = []
         , windowWidth = width
         , windowHeight = 3007
+        , currentSymbol = ""
+        , nextSymbol = ""
         }
  
   assertEqual "" expectedResources (updateWindowSize size origResources) 

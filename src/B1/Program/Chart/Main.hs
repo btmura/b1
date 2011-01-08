@@ -20,6 +20,7 @@ main = do
 
   resourcesRef <- createInitialResources
   windowSizeCallback $= myWindowSizeCallback resourcesRef
+  keyCallback $= myKeyCallback resourcesRef
   drawLoop resourcesRef drawScreen
 
   closeWindow
@@ -37,11 +38,14 @@ createWindow = do
 -- The other fields will be filled in later.
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
-  font <- createTextureFont "res/DejaVuSans.ttf"
+  font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
   newIORef Resources
     { font = font
+    , keysPressed = []
     , windowWidth = 0
     , windowHeight = 0
+    , currentSymbol = ""
+    , nextSymbol = ""
     }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
@@ -56,6 +60,12 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
 
   matrixMode $= Modelview 0
   loadIdentity
+
+myKeyCallback :: IORef Resources -> Key -> KeyButtonState -> IO ()
+myKeyCallback resourcesRef key state = 
+  case state of
+    Press -> modifyIORef resourcesRef $ updateKeysPressed [key]
+    Release -> modifyIORef resourcesRef $ updateKeysPressed []
 
 drawLoop :: IORef a -> (a -> IO (Action a Dirty, Dirty)) -> IO ()
 drawLoop inputRef action = do
