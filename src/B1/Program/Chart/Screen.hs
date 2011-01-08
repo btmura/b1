@@ -18,7 +18,7 @@ import B1.Program.Chart.Resources
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = 
   return (Action (drawScreenLoop drawSideBar
-      (drawMainChart (gradualRange 0 1 100) "")), True)
+      (drawMainChart (gradualRange 0 1 100) ("", ""))), True)
 
 drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
     -> (Resources -> IO (Action Resources Dirty, Dirty))
@@ -42,9 +42,10 @@ drawSideBar resources = do
   drawSquarePlaceholder
   return (Action drawSideBar, False)
 
-drawMainChart :: [GLfloat] -> String -> Resources
+drawMainChart :: [GLfloat] -> (String, String) -> Resources
     -> IO (Action Resources Dirty, Dirty)
-drawMainChart rangeValues@(rangeValue:nextRangeValues) nextSymbol resources = do
+drawMainChart rangeValues@(rangeValue:nextRangeValues) inputSymbols
+    resources = do
   loadIdentity
   translate $ vector3 (sideBarWidth + mainChartWidth resources / 2)
       (mainChartHeight resources / 2) 0
@@ -52,17 +53,18 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) nextSymbol resources = do
   scale3 rangeValue 1 1
 
   color $ color4 0.25 1 0 rangeValue
-  let newNextSymbol = getNextSymbol nextSymbol resources
-  if newNextSymbol == ""
+  let nextInputSymbols@(currentSymbol, nextSymbol) =
+          getInputSymbols inputSymbols resources
+  if nextSymbol == ""
     then drawCenteredInstructions resources
-    else drawNextSymbol newNextSymbol resources
+    else drawNextSymbol nextSymbol resources
 
   color $ color4 0 0.25 1 rangeValue
   drawChart resources
 
   case nextRangeValues of
-    [] -> return (Action (drawMainChart rangeValues newNextSymbol), False)
-    _ -> return (Action (drawMainChart nextRangeValues newNextSymbol), True)
+    [] -> return (Action (drawMainChart rangeValues nextInputSymbols), False)
+    _ -> return (Action (drawMainChart nextRangeValues nextInputSymbols), True)
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
@@ -70,21 +72,24 @@ mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
 mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = realToFrac (windowHeight resources)
 
--- TODO: Unit test
-nextSymbolLetterPressed :: Resources -> Bool
-nextSymbolLetterPressed (Resources { keyPress = maybeKeyPress }) =
-  case maybeKeyPress of
-    Just (CharKey char) -> isAlpha char
-    _ -> False
+getInputSymbols :: (String, String) -> Resources -> (String, String)
 
--- TODO: Unit test
-getNextSymbol :: String -> Resources -> String
-getNextSymbol currentNextSymbol (Resources { keyPress = maybeKeyPress }) =
-  case maybeKeyPress of
-    Just (CharKey char) -> if isAlpha char
-      then currentNextSymbol ++ [char]
-      else currentNextSymbol
-    _ -> currentNextSymbol
+-- Append to the next symbol if the key is just a character...
+getInputSymbols inputs@(currentSymbol, nextSymbol) 
+    (Resources { keyPress = Just (CharKey char) })
+  | isAlpha char = (currentSymbol, nextSymbol ++ [char])
+  | otherwise = inputs
+
+-- Handle special keys. 
+getInputSymbols inputs@(currentSymbol, nextSymbol)
+    (Resources { keyPress = Just (SpecialKey special) }) =
+  case special of
+    ENTER -> (nextSymbol, "")
+    ESC -> (currentSymbol, "")
+    _ -> inputs
+
+-- Drop all other events.
+getInputSymbols inputs _ = inputs
 
 chartPadding :: GLfloat
 chartPadding = 10

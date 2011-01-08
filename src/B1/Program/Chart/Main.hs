@@ -72,10 +72,11 @@ drawLoop inputRef action = do
   swapBuffers
   sleep 0.001
 
-  esc <- getKey ESC
-  case esc of
-    Press -> return ()
-    Release -> do
+  control <- getKey LCTRL
+  c <- getKey 'C'
+  if (control == Press && c == Press)
+    then return ()
+    else do
       -- If the screen is not dirty, then wait for events rather than drawing
       -- the same frame again and pegging the CPU to a 100%.
       unless isDirty waitEvents
