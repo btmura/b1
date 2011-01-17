@@ -16,9 +16,10 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
-drawScreen resources = 
+drawScreen resources = do
+  let state = ChartState { currentSymbol = "", nextSymbol = "" }
   return (Action (drawScreenLoop drawSideBar
-      (drawMainChart (gradualRange 0 1 100) ("", ""))), True)
+      (drawMainChart (gradualRange 0 1 100) state)), True)
 
 drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
     -> (Resources -> IO (Action Resources Dirty, Dirty))
@@ -42,10 +43,14 @@ drawSideBar resources = do
   drawSquarePlaceholder
   return (Action drawSideBar, False)
 
-drawMainChart :: [GLfloat] -> (String, String) -> Resources
+data ChartState = ChartState
+  { currentSymbol :: String
+  , nextSymbol :: String
+  }
+
+drawMainChart :: [GLfloat] -> ChartState -> Resources
     -> IO (Action Resources Dirty, Dirty)
-drawMainChart rangeValues@(rangeValue:nextRangeValues) inputSymbols
-    resources = do
+drawMainChart rangeValues@(rangeValue:nextRangeValues) state resources = do
   loadIdentity
   translate $ vector3 (sideBarWidth + mainChartWidth resources / 2)
       (mainChartHeight resources / 2) 0
@@ -53,18 +58,17 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) inputSymbols
   scale3 rangeValue 1 1
 
   color $ color4 0.25 1 0 rangeValue
-  let nextInputSymbols@(currentSymbol, nextSymbol) =
-          getInputSymbols inputSymbols resources
-  if nextSymbol == ""
+  let nextState = refreshSymbolState state resources
+  if nextSymbol nextState == ""
     then drawCenteredInstructions resources
-    else drawNextSymbol nextSymbol resources
+    else drawNextSymbol (nextSymbol nextState) resources
 
   color $ color4 0 0.25 1 rangeValue
   drawChart resources
 
   case nextRangeValues of
-    [] -> return (Action (drawMainChart rangeValues nextInputSymbols), False)
-    _ -> return (Action (drawMainChart nextRangeValues nextInputSymbols), True)
+    [] -> return (Action (drawMainChart rangeValues nextState), False)
+    _ -> return (Action (drawMainChart nextRangeValues nextState), True)
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
@@ -72,24 +76,27 @@ mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
 mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = realToFrac (windowHeight resources)
 
-getInputSymbols :: (String, String) -> Resources -> (String, String)
+refreshSymbolState :: ChartState -> Resources -> ChartState
 
 -- Append to the next symbol if the key is just a character...
-getInputSymbols inputs@(currentSymbol, nextSymbol) 
+refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
     (Resources { keyPress = Just (CharKey char) })
-  | isAlpha char = (currentSymbol, nextSymbol ++ [char])
-  | otherwise = inputs
+  | isAlpha char = state { nextSymbol = nextSymbol ++ [char] }
+  | otherwise = state
 
--- Handle special keys. 
-getInputSymbols inputs@(currentSymbol, nextSymbol)
-    (Resources { keyPress = Just (SpecialKey special) }) =
-  case special of
-    ENTER -> (nextSymbol, "")
-    ESC -> (currentSymbol, "")
-    _ -> inputs
+-- ENTER makes the next symbol the current symbol.
+refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
+    (Resources { keyPress = Just (SpecialKey ENTER) }) =
+  state { currentSymbol = nextSymbol
+        , nextSymbol = ""
+        }
+
+-- ESC cancels the next symbol.
+refreshSymbolState state (Resources { keyPress = Just (SpecialKey ESC) }) =
+  state { nextSymbol = "" }
 
 -- Drop all other events.
-getInputSymbols inputs _ = inputs
+refreshSymbolState state _ = state
 
 chartPadding :: GLfloat
 chartPadding = 10
