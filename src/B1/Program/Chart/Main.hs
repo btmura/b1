@@ -44,6 +44,7 @@ createInitialResources = do
     , keyPress = Nothing
     , windowWidth = 0
     , windowHeight = 0
+    , sideBarWidth = 175
     }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()

@@ -23,20 +23,22 @@ case_updateWindowSize = do
 
   let width = 1337
       height = 3007
-      size = Size (fromIntegral width) (fromIntegral height)
+      size = Size width height
 
       origResources = Resources
         { font = font
         , keyPress = Nothing
         , windowWidth = 0
         , windowHeight = 0
+        , sideBarWidth = 0
         }
 
       expectedResources = Resources
         { font = font
         , keyPress = Nothing
-        , windowWidth = width
-        , windowHeight = 3007
+        , windowWidth = realToFrac width
+        , windowHeight = realToFrac height
+        , sideBarWidth = 0
         }
  
   assertEqual "" expectedResources (updateWindowSize size origResources) 

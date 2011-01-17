@@ -11,8 +11,9 @@ import Graphics.UI.GLFW
 
 data Resources = Resources
   { font :: Font
-  , windowWidth :: Int
-  , windowHeight :: Int
+  , windowWidth :: GLfloat
+  , windowHeight :: GLfloat
+  , sideBarWidth :: GLfloat
   , keyPress :: Maybe Key
   } deriving (Show, Eq)
 
