@@ -12,6 +12,7 @@ import B1.Data.Action
 import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.Animation
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
@@ -21,20 +22,22 @@ data ChartState = ChartState
   }
 
 drawChart :: Resources -> IO (Action Resources Dirty, Dirty)
-drawChart resources = do
-  let state = ChartState { currentSymbol = "", nextSymbol = "" }
-  drawMainChart state (gradualRange 0 1 100) resources
+drawChart resources = drawChartLoop initAnimation initState resources
+  where
+    initState = ChartState { currentSymbol = "", nextSymbol = "" }
+    initAnimation = animateOnce $ gradualRange 0 1 100
 
-drawMainChart :: ChartState -> [GLfloat] -> Resources
+drawChartLoop :: Animation (GLfloat, Dirty) -> ChartState -> Resources
     -> IO (Action Resources Dirty, Dirty)
-drawMainChart state rangeValues@(rangeValue:nextRangeValues) resources = do
+drawChartLoop animation state resources = do
   loadIdentity
   translate $ vector3 (sideBarWidth resources + (mainChartWidth resources) / 2)
       (mainChartHeight resources / 2) 0
 
-  scale3 rangeValue 1 1
+  let (animationValue, isDirty) = getCurrentFrame animation
+  scale3 animationValue 1 1
 
-  color $ color4 0.25 1 0 rangeValue
+  color $ color4 0.25 1 0 animationValue
   let newState = refreshSymbolState state resources
 
   when (currentSymbol newState /= "") $
@@ -46,12 +49,10 @@ drawMainChart state rangeValues@(rangeValue:nextRangeValues) resources = do
   when (nextSymbol newState /= "") $
     drawNextSymbol (nextSymbol newState) resources
 
-  color $ color4 0 0.25 1 rangeValue
+  color $ color4 0 0.25 1 animationValue
   drawChartBorder resources
 
-  case nextRangeValues of
-    [] -> return (Action (drawMainChart newState rangeValues), False)
-    _ -> return (Action (drawMainChart newState nextRangeValues), True)
+  return (Action (drawChartLoop (getNextAnimation animation) newState), isDirty)
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = windowWidth resources - sideBarWidth resources
