@@ -58,17 +58,23 @@ drawMainChart rangeValues@(rangeValue:nextRangeValues) state resources = do
   scale3 rangeValue 1 1
 
   color $ color4 0.25 1 0 rangeValue
-  let nextState = refreshSymbolState state resources
-  if nextSymbol nextState == ""
-    then drawCenteredInstructions resources
-    else drawNextSymbol (nextSymbol nextState) resources
+  let newState = refreshSymbolState state resources
+
+  when (currentSymbol newState /= "") $
+    drawCurrentSymbol (currentSymbol newState) resources
+
+  when (currentSymbol newState == "" && nextSymbol newState == "") $
+    drawCenteredInstructions resources
+
+  when (nextSymbol newState /= "") $
+    drawNextSymbol (nextSymbol newState) resources
 
   color $ color4 0 0.25 1 rangeValue
   drawChart resources
 
   case nextRangeValues of
-    [] -> return (Action (drawMainChart rangeValues nextState), False)
-    _ -> return (Action (drawMainChart nextRangeValues nextState), True)
+    [] -> return (Action (drawMainChart rangeValues newState), False)
+    _ -> return (Action (drawMainChart nextRangeValues newState), True)
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = realToFrac (windowWidth resources) - sideBarWidth
@@ -86,10 +92,10 @@ refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
 
 -- ENTER makes the next symbol the current symbol.
 refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
-    (Resources { keyPress = Just (SpecialKey ENTER) }) =
-  state { currentSymbol = nextSymbol
-        , nextSymbol = ""
-        }
+    (Resources { keyPress = Just (SpecialKey ENTER) }) = state
+  { currentSymbol = nextSymbol
+  , nextSymbol = ""
+  }
 
 -- ESC cancels the next symbol.
 refreshSymbolState state (Resources { keyPress = Just (SpecialKey ESC) }) =
@@ -101,14 +107,15 @@ refreshSymbolState state _ = state
 chartPadding :: GLfloat
 chartPadding = 10
 
+cornerRadius :: GLfloat
+cornerRadius = 15
+
 drawChart :: Resources -> IO ()
-drawChart resources = 
+drawChart resources = do
+  let cornerVertices = 5
   preservingMatrix $ do
     drawRoundedRectangle (mainChartWidth resources - chartPadding)
         (mainChartHeight resources - chartPadding) cornerRadius cornerVertices
-  where
-    cornerRadius = 15
-    cornerVertices = 5
 
 drawCenteredInstructions :: Resources -> IO ()
 drawCenteredInstructions resources = do
@@ -126,6 +133,26 @@ drawCenteredInstructions resources = do
   preservingMatrix $ do 
     translate $ vector3 centerX centerY 0
     renderLayout layout instructions
+
+  destroyLayout layout
+
+drawCurrentSymbol :: String -> Resources -> IO ()
+drawCurrentSymbol symbol resources = do
+  layout <- createSimpleLayout
+  setFontFaceSize (font resources) 18 72
+  setLayoutFont layout (font resources)
+  setLayoutLineLength layout
+      (realToFrac (mainChartWidth resources - chartPadding))
+
+  [left, bottom, _, right, top, _] <- getLayoutBBox layout symbol
+
+  let symbolPadding = cornerRadius
+      centerX = -(realToFrac (mainChartWidth resources)) / 2 + symbolPadding 
+      centerY = (realToFrac (mainChartHeight resources)) / 2
+          - (abs (bottom - top)) - symbolPadding
+  preservingMatrix $ do 
+    translate $ vector3 centerX centerY 0
+    renderLayout layout symbol
 
   destroyLayout layout
 
