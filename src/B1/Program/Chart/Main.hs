@@ -65,11 +65,16 @@ myKeyCallback resourcesRef key state = do
   let maybeKey = if state == Press then Just key else Nothing
   modifyIORef resourcesRef $ updateKeyPress maybeKey
 
-drawLoop :: (Show a) => IORef a -> (a -> IO (Action a Dirty, Dirty)) -> IO ()
-drawLoop inputRef action = do
+drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))
+    -> IO ()
+drawLoop resourcesRef action = do
   clear [ColorBuffer, DepthBuffer]
-  input <- readIORef inputRef
-  (Action nextAction, isDirty) <- action input
+  resources <- readIORef resourcesRef
+  (Action nextAction, isDirty) <- action resources
+
+  -- Reset the key pressed after each frame.
+  modifyIORef resourcesRef $ updateKeyPress Nothing
+
   swapBuffers
   sleep 0.001
 
@@ -81,5 +86,5 @@ drawLoop inputRef action = do
       -- If the screen is not dirty, then wait for events rather than drawing
       -- the same frame again and pegging the CPU to a 100%.
       unless isDirty waitEvents
-      drawLoop inputRef nextAction
+      drawLoop resourcesRef nextAction
 
