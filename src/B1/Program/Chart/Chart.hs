@@ -4,6 +4,7 @@ module B1.Program.Chart.Chart
   
 import Control.Monad
 import Data.Char
+import Data.Maybe
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
@@ -29,67 +30,65 @@ data Frame = Frame
 data ChartState = ChartState
   { currentSymbol :: String
   , nextSymbol :: String
-  , currentFrame :: Frame
+  , currentFrame :: Maybe Frame
   , previousFrame :: Maybe Frame
   }
 
 drawChart :: Resources -> IO (Action Resources Dirty, Dirty)
 drawChart resources = drawChartLoop initState resources
   where
-    currentFrame = Frame
+    instructionsFrame = Frame
       { chart = Instructions
-      , scaleAnimation = animateOnce $ linearRange 0.5 1 30
-      , alphaAnimation = animateOnce $ linearRange 0 1 30
+      , scaleAnimation = incomingScaleAnimation
+      , alphaAnimation = incomingAlphaAnimation
       }
 
     initState = ChartState
       { currentSymbol = ""
       , nextSymbol = ""
-      , currentFrame = currentFrame 
+      , currentFrame = Just instructionsFrame 
       , previousFrame = Nothing
       }
 
+incomingScaleAnimation :: Animation (GLfloat, Dirty)
+incomingScaleAnimation = animateOnce [1]
+
+incomingAlphaAnimation :: Animation (GLfloat, Dirty)
+incomingAlphaAnimation = animateOnce $ linearRange 0 1 30
+
+outgoingScaleAnimation :: Animation (GLfloat, Dirty)
+outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 30
+
+outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
+outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
+
 drawChartLoop :: ChartState -> Resources -> IO (Action Resources Dirty, Dirty)
-drawChartLoop state@ChartState
-    { currentFrame = currentFrame
-    } resources = do
+drawChartLoop state resources = do
 
   loadIdentity
   translateToCenter resources
 
-  drawCurrentFrame currentFrame resources
+  mapM_ (drawFrame resources nextState) allFrames
+  drawNextSymbol resources nextState
 
-  return (Action (drawChartLoop nextState), True)
+  return (Action (drawChartLoop nextState), nextDirty)
 
   where
-    nextCurrentFrame = currentFrame
-      { scaleAnimation = getNextAnimation $ scaleAnimation currentFrame
-      , alphaAnimation = getNextAnimation $ alphaAnimation currentFrame
-      }
+    nextState = (refreshSymbolState resources
+        . refreshCurrentFrame resources) state
+    allFrames = catMaybes [currentFrame nextState, previousFrame nextState]
+    nextDirty = any isDirtyFrame allFrames
 
-    nextState = state
-      { currentFrame = nextCurrentFrame
-      }
+isDirtyFrame :: Frame -> Bool
+isDirtyFrame (Frame
+    { scaleAnimation = scaleAnimation
+    , alphaAnimation = alphaAnimation
+    }) = any (snd . getCurrentFrame) [scaleAnimation, alphaAnimation]
 
 translateToCenter :: Resources -> IO ()
 translateToCenter resources =
   translate $ vector3 (sideBarWidth resources + (mainChartWidth resources) / 2)
       (mainChartHeight resources / 2) 0
-
-drawCurrentFrame :: Frame -> Resources -> IO ()
-drawCurrentFrame (Frame
-    { chart = Instructions
-    , scaleAnimation = scaleAnimation
-    , alphaAnimation = alphaAnimation
-    }) resources = do
-  let scaleAmount = fst . getCurrentFrame $ scaleAnimation
-      alphaAmount = fst . getCurrentFrame $ alphaAnimation
-  preservingMatrix $ do
-    scale3 scaleAmount scaleAmount 1
-    color $ color4 0.25 1 0 alphaAmount
-    drawCenteredInstructions resources
-    color $ color4 0 0.25 1 alphaAmount
-    drawChartBorder resources
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = windowWidth resources - sideBarWidth resources
@@ -97,38 +96,100 @@ mainChartWidth resources = windowWidth resources - sideBarWidth resources
 mainChartHeight :: Resources -> GLfloat
 mainChartHeight resources = windowHeight resources
 
-refreshSymbolState :: ChartState -> Resources -> ChartState
+drawFrame :: Resources -> ChartState -> Frame -> IO ()
+drawFrame resources state (Frame
+    { chart = chart
+    , scaleAnimation = scaleAnimation
+    , alphaAnimation = alphaAnimation
+    }) = do
+  let scaleAmount = fst . getCurrentFrame $ scaleAnimation
+      alphaAmount = fst . getCurrentFrame $ alphaAnimation
+  preservingMatrix $ do
+    scale3 scaleAmount scaleAmount 1
+    color $ blue alphaAmount
+    drawChartBorder resources
+
+    color $ green alphaAmount
+    case chart of
+      Chart _ -> drawCurrentSymbol resources chart
+      _ -> drawCenteredInstructions resources
+
+blue :: GLfloat -> Color4 GLfloat
+blue alpha = color4 0 0.25 1 alpha
+
+green :: GLfloat -> Color4 GLfloat
+green alpha = color4 0.25 1 0 alpha
+
+black :: GLfloat -> Color4 GLfloat
+black alpha = color4 0 0 0 alpha
+
+refreshCurrentFrame :: Resources -> ChartState -> ChartState
+refreshCurrentFrame resources
+    state@ChartState
+      { currentFrame = currentFrame
+      , previousFrame = previousFrame
+      } = state
+  { currentFrame = nextFrame currentFrame
+  , previousFrame = nextFrame previousFrame
+  }
+
+nextFrame :: Maybe Frame -> Maybe Frame
+nextFrame Nothing = Nothing
+nextFrame (Just frame) = Just $ frame
+  { scaleAnimation = getNextAnimation $ scaleAnimation frame
+  , alphaAnimation = getNextAnimation $ alphaAnimation frame
+  }
+
+refreshSymbolState :: Resources -> ChartState -> ChartState
 
 -- Append to the next symbol if the key is just a character...
-refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
-    (Resources { keyPress = Just (CharKey char) })
+refreshSymbolState (Resources { keyPress = Just (CharKey char) })
+    state@ChartState { nextSymbol = nextSymbol }
   | isAlpha char = state { nextSymbol = nextSymbol ++ [char] }
   | otherwise = state
 
 -- ENTER makes the next symbol the current symbol.
-refreshSymbolState state@ChartState { nextSymbol = nextSymbol }
-    (Resources { keyPress = Just (SpecialKey ENTER) }) = state
-  { currentSymbol = nextSymbol
-  , nextSymbol = ""
-  }
+refreshSymbolState (Resources { keyPress = Just (SpecialKey ENTER) })
+    state@ChartState
+      { nextSymbol = nextSymbol
+      , currentFrame = currentFrame
+      }
+  | nextSymbol == "" = state
+  | otherwise = state
+    { currentSymbol = nextSymbol
+    , nextSymbol = ""
+    , currentFrame = newCurrentFrame (Chart nextSymbol)
+    , previousFrame = newPreviousFrame currentFrame
+    }
 
 -- ESC cancels the next symbol.
-refreshSymbolState state (Resources { keyPress = Just (SpecialKey ESC) }) =
-  state { nextSymbol = "" }
+refreshSymbolState (Resources { keyPress = Just (SpecialKey ESC) })
+    state = state { nextSymbol = "" }
 
 -- Drop all other events.
-refreshSymbolState state _ = state
+refreshSymbolState _ state = state
 
-chartPadding :: GLfloat
-chartPadding = 10
+newCurrentFrame :: Chart -> Maybe Frame
+newCurrentFrame chart = Just $ Frame
+  { chart = chart
+  , scaleAnimation = incomingScaleAnimation
+  , alphaAnimation = incomingAlphaAnimation
+  }
 
-cornerRadius :: GLfloat
-cornerRadius = 15
+newPreviousFrame :: Maybe Frame -> Maybe Frame
+newPreviousFrame Nothing = Nothing
+newPreviousFrame (Just frame) = Just $ frame 
+  { scaleAnimation = outgoingScaleAnimation
+  , alphaAnimation = outgoingAlphaAnimation
+  }
+
+chartPadding = 10::GLfloat
+cornerRadius = 10::GLfloat
+cornerVertices = 5::Int
 
 drawChartBorder :: Resources -> IO ()
 drawChartBorder resources = do
-  let cornerVertices = 5
-      width = mainChartWidth resources - chartPadding
+  let width = mainChartWidth resources - chartPadding
       height = mainChartHeight resources - chartPadding
   preservingMatrix $
     drawRoundedRectangle width height cornerRadius cornerVertices
@@ -152,8 +213,8 @@ drawCenteredInstructions resources = do
 
   destroyLayout layout
 
-drawCurrentSymbol :: String -> Resources -> IO ()
-drawCurrentSymbol symbol resources = do
+drawCurrentSymbol :: Resources -> Chart -> IO ()
+drawCurrentSymbol resources (Chart symbol) = do
   layout <- createSimpleLayout
   setFontFaceSize (font resources) 18 72
   setLayoutFont layout (font resources)
@@ -162,7 +223,7 @@ drawCurrentSymbol symbol resources = do
 
   [left, bottom, _, right, top, _] <- getLayoutBBox layout symbol
 
-  let symbolPadding = cornerRadius
+  let symbolPadding = 15
       centerX = -mainChartWidth resources / 2 + symbolPadding
       centerY = mainChartHeight resources / 2 - symbolPadding
           - abs (bottom - top)
@@ -172,10 +233,9 @@ drawCurrentSymbol symbol resources = do
 
   destroyLayout layout
 
-drawNextSymbol :: ChartState -> Resources -> IO ()
-drawNextSymbol (ChartState { nextSymbol = nextSymbol })
-    resources = do
-
+drawNextSymbol :: Resources -> ChartState -> IO ()
+drawNextSymbol _ (ChartState { nextSymbol = "" }) = return ()
+drawNextSymbol resources (ChartState { nextSymbol = nextSymbol }) = do
   layout <- createSimpleLayout
   setFontFaceSize (font resources) 48 72
   setLayoutFont layout (font resources)
@@ -184,13 +244,25 @@ drawNextSymbol (ChartState { nextSymbol = nextSymbol })
 
   [left, bottom, _, right, top, _] <- getLayoutBBox layout nextSymbol
 
-  let centerX = -(left + (abs (right - left)) / 2)
+  let width = abs $ right - left
+      height = abs $ bottom - top
+      padding = 15
+      centerX = -(left + (abs (right - left)) / 2)
       centerY = -(top - (abs (bottom - top)) / 2)
+  blend $= Disabled
   preservingMatrix $ do 
+    color $ black 1
+    fillRoundedRectangle (width + padding * 2) (height + padding * 2)
+        cornerRadius cornerVertices
+
+    color $ blue 1
+    drawRoundedRectangle (width + padding * 2) (height + padding * 2)
+        cornerRadius cornerVertices
+
+    color $ green 1
     translate $ vector3 centerX centerY 0
     renderLayout layout nextSymbol
+  blend $= Enabled
 
   destroyLayout layout
-
-
 

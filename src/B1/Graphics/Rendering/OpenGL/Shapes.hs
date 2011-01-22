@@ -1,5 +1,6 @@
 module B1.Graphics.Rendering.OpenGL.Shapes
   ( drawRoundedRectangle
+  , fillRoundedRectangle
   , drawSquarePlaceholder
   ) where
 
@@ -10,8 +11,16 @@ import B1.Graphics.Rendering.OpenGL.Utils
 
 -- | Draws a rounded rectangle around (0, 0).
 drawRoundedRectangle :: GLfloat -> GLfloat -> GLfloat -> Int -> IO ()
-drawRoundedRectangle width height cornerRadius cornerVertices =
-  renderPrimitive LineLoop $ do
+drawRoundedRectangle = renderRoundedRectangle LineLoop
+
+-- | Fills a rounded rectangle around (0, 0).
+fillRoundedRectangle :: GLfloat -> GLfloat -> GLfloat -> Int -> IO ()
+fillRoundedRectangle = renderRoundedRectangle Polygon
+
+renderRoundedRectangle :: PrimitiveMode -> GLfloat -> GLfloat -> GLfloat
+    -> Int -> IO ()
+renderRoundedRectangle mode width height cornerRadius cornerVertices =
+  renderPrimitive mode $ do
     mapM_ vertex (getRoundedRectangleVertices width height
         cornerRadius cornerVertices)
 
