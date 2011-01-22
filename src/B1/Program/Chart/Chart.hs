@@ -148,6 +148,14 @@ refreshSymbolState (Resources { keyPress = Just (CharKey char) })
   | isAlpha char = state { nextSymbol = nextSymbol ++ [char] }
   | otherwise = state
 
+-- BACKSPACE deletes one character in a symbol...
+refreshSymbolState (Resources { keyPress = Just (SpecialKey BACKSPACE) })
+    state@ChartState { nextSymbol = nextSymbol }
+  | length nextSymbol < 1 = state
+  | otherwise = state { nextSymbol = trimmedSymbol }
+  where
+    trimmedSymbol = take (length nextSymbol - 1) nextSymbol
+
 -- ENTER makes the next symbol the current symbol.
 refreshSymbolState (Resources { keyPress = Just (SpecialKey ENTER) })
     state@ChartState
