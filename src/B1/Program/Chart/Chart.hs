@@ -16,51 +16,80 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
+type Symbol = String
+
+data Chart = Instructions | Chart Symbol
+
+data Frame = Frame
+  { chart :: Chart
+  , scaleAnimation :: Animation (GLfloat, Dirty)
+  , alphaAnimation :: Animation (GLfloat, Dirty)
+  }
+
 data ChartState = ChartState
   { currentSymbol :: String
   , nextSymbol :: String
-  , entryScaleAnimation :: Animation (GLfloat, Dirty)
-  , entryAlphaAnimation :: Animation (GLfloat, Dirty)
-  } deriving (Show)
+  , currentFrame :: Frame
+  , previousFrame :: Maybe Frame
+  }
 
 drawChart :: Resources -> IO (Action Resources Dirty, Dirty)
 drawChart resources = drawChartLoop initState resources
   where
+    currentFrame = Frame
+      { chart = Instructions
+      , scaleAnimation = animateOnce $ linearRange 0.5 1 30
+      , alphaAnimation = animateOnce $ linearRange 0 1 30
+      }
+
     initState = ChartState
       { currentSymbol = ""
       , nextSymbol = ""
-      , entryScaleAnimation = animateOnce $ linearRange 0.5 1 50
-      , entryAlphaAnimation = animateOnce $ linearRange 0 1 50
+      , currentFrame = currentFrame 
+      , previousFrame = Nothing
       }
 
 drawChartLoop :: ChartState -> Resources -> IO (Action Resources Dirty, Dirty)
-drawChartLoop state resources = do
+drawChartLoop state@ChartState
+    { currentFrame = currentFrame
+    } resources = do
+
   loadIdentity
+  translateToCenter resources
+
+  drawCurrentFrame currentFrame resources
+
+  return (Action (drawChartLoop nextState), True)
+
+  where
+    nextCurrentFrame = currentFrame
+      { scaleAnimation = getNextAnimation $ scaleAnimation currentFrame
+      , alphaAnimation = getNextAnimation $ alphaAnimation currentFrame
+      }
+
+    nextState = state
+      { currentFrame = nextCurrentFrame
+      }
+
+translateToCenter :: Resources -> IO ()
+translateToCenter resources =
   translate $ vector3 (sideBarWidth resources + (mainChartWidth resources) / 2)
       (mainChartHeight resources / 2) 0
 
-  let scaleAmount = fst . getCurrentFrame . entryScaleAnimation $ state
-  scale3 scaleAmount scaleAmount 1
-
-  let alphaAmount = fst . getCurrentFrame . entryAlphaAnimation $ state
-  color $ color4 0.25 1 0 alphaAmount
-
-  let newState = refreshSymbolState state resources
-
-  when (currentSymbol newState /= "") $
-    drawCurrentSymbol (currentSymbol newState) resources
-
-  when (currentSymbol newState == "" && nextSymbol newState == "") $
+drawCurrentFrame :: Frame -> Resources -> IO ()
+drawCurrentFrame (Frame
+    { chart = Instructions
+    , scaleAnimation = scaleAnimation
+    , alphaAnimation = alphaAnimation
+    }) resources = do
+  let scaleAmount = fst . getCurrentFrame $ scaleAnimation
+      alphaAmount = fst . getCurrentFrame $ alphaAnimation
+  preservingMatrix $ do
+    scale3 scaleAmount scaleAmount 1
+    color $ color4 0.25 1 0 alphaAmount
     drawCenteredInstructions resources
-
-  when (nextSymbol newState /= "") $
-    drawNextSymbol newState resources
-
-  color $ color4 0 0.25 1 alphaAmount
-  drawChartBorder resources
-
-  return (Action (drawChartLoop (refreshAnimationState newState)),
-      isDirty newState)
+    color $ color4 0 0.25 1 alphaAmount
+    drawChartBorder resources
 
 mainChartWidth :: Resources -> GLfloat
 mainChartWidth resources = windowWidth resources - sideBarWidth resources
@@ -163,21 +192,5 @@ drawNextSymbol (ChartState { nextSymbol = nextSymbol })
 
   destroyLayout layout
 
-refreshAnimationState :: ChartState -> ChartState
-refreshAnimationState state@ChartState
-    { entryScaleAnimation = entryScaleAnimation
-    , entryAlphaAnimation = entryAlphaAnimation
-    } = state
-    { entryScaleAnimation = getNextAnimation entryScaleAnimation
-    , entryAlphaAnimation = getNextAnimation entryAlphaAnimation
-    }
-
-isDirty :: ChartState -> Bool
-isDirty (ChartState
-    { entryScaleAnimation = entryScaleAnimation
-    , entryAlphaAnimation = entryAlphaAnimation
-    }) = any (snd . getCurrentFrame) allAnimations
-  where
-    allAnimations = [entryScaleAnimation, entryAlphaAnimation]
 
 
