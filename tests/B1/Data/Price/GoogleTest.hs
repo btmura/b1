@@ -17,7 +17,6 @@ getTestGroup = testGroup "B1.Data.Price.GoogleTest"
   , testCase "case_parseGoogleCsv_missingField" case_parseGoogleCsv_missingField
   , testCase "case_parseGoogleCsv_invalidField" case_parseGoogleCsv_invalidField
   , testCase "case_parseGoogleCsv_badFormat" case_parseGoogleCsv_badFormat
-  , testCase "case_parseGoogleCsv_noHeaders" case_parseGoogleCsv_noHeaders
   , testCase "case_parseGoogleCsv_noLines" case_parseGoogleCsv_noLines
   , testCase "case_parseGoogleCsv_nothing" case_parseGoogleCsv_nothing
   ]
@@ -74,11 +73,6 @@ case_parseGoogleCsv_invalidField =
 case_parseGoogleCsv_badFormat :: Assertion
 case_parseGoogleCsv_badFormat =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [badFormat])
-  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
-
-case_parseGoogleCsv_noHeaders :: Assertion
-case_parseGoogleCsv_noHeaders =
-  let csv = foldl (++) "" goodLines
   in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_noLines :: Assertion

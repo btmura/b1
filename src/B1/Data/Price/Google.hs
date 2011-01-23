@@ -59,7 +59,7 @@ parseGoogleCsv = maybe (Nothing, ["Invalid CSV format"]) pricesOrNothing
     . split '\n'
 
 dropHeader :: [String] -> Maybe [String]
-dropHeader ("Date,Open,High,Low,Close,Volume":rest) = Just rest
+dropHeader (_:rest) = Just rest
 dropHeader _ = Nothing
 
 parsePriceLines :: [String] -> [Maybe Price]

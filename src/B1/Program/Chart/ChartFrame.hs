@@ -92,6 +92,7 @@ drawChartFrameLoop state resources = do
     getNextState = refreshSymbolState resources
         . refreshCurrentFrame resources
 
+-- TODO: Check if the Chart's MVar is empty...
 isDirtyFrame :: Frame -> Bool
 isDirtyFrame (Frame
     { scaleAnimation = scaleAnimation
@@ -121,7 +122,8 @@ drawFrame resources state (Frame
     drawFrameBorder resources
 
     case content of
-      Chart symbol _ -> drawChart resources drawSpec symbol
+      Chart symbol priceTupleMVar -> drawChart resources drawSpec symbol
+          priceTupleMVar
       _ -> drawInstructions resources drawSpec
      
   where

@@ -5,3 +5,4 @@ module B1.Program.Chart.ChartFrameSpec
 import Graphics.Rendering.OpenGL
 
 data ChartFrameSpec = ChartFrameSpec GLfloat GLfloat GLfloat
+
