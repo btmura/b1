@@ -1,16 +1,22 @@
 module B1.Program.Chart.ChartFrame
   ( drawChartFrame
   ) where
-  
+
+import Control.Concurrent 
+import Control.Concurrent.MVar
 import Control.Monad
 import Data.Char
 import Data.Maybe
+import Data.Time.Calendar
+import Data.Time.Clock
+import Data.Time.LocalTime
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
 import B1.Data.Action
 import B1.Data.Range
+import B1.Data.Price.Google
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -24,7 +30,7 @@ import B1.Program.Chart.Resources
 
 type Symbol = String
 
-data Content = Instructions | Chart Symbol
+data Content = Instructions | Chart Symbol (MVar PriceErrorTuple)
 
 data Frame = Frame
   { content :: Content
@@ -73,16 +79,18 @@ drawChartFrameLoop state resources = do
   loadIdentity
   translateToCenter resources
 
+  nextState <- getNextState state
+
+  let allFrames = catMaybes [currentFrame nextState, previousFrame nextState]
   mapM_ (drawFrame resources nextState) allFrames
   drawNextSymbol resources nextState
 
+  let nextDirty = any isDirtyFrame allFrames
   return (Action (drawChartFrameLoop nextState), nextDirty)
 
   where
-    nextState = (refreshSymbolState resources
-        . refreshCurrentFrame resources) state
-    allFrames = catMaybes [currentFrame nextState, previousFrame nextState]
-    nextDirty = any isDirtyFrame allFrames
+    getNextState = refreshSymbolState resources
+        . refreshCurrentFrame resources
 
 isDirtyFrame :: Frame -> Bool
 isDirtyFrame (Frame
@@ -113,7 +121,7 @@ drawFrame resources state (Frame
     drawFrameBorder resources
 
     case content of
-      Chart symbol -> drawChart resources drawSpec symbol
+      Chart symbol _ -> drawChart resources drawSpec symbol
       _ -> drawInstructions resources drawSpec
      
   where
@@ -139,19 +147,19 @@ nextFrame (Just frame) = Just $ frame
   , alphaAnimation = getNextAnimation $ alphaAnimation frame
   }
 
-refreshSymbolState :: Resources -> FrameState -> FrameState
+refreshSymbolState :: Resources -> FrameState -> IO FrameState
 
 -- Append to the next symbol if the key is just a character...
 refreshSymbolState (Resources { keyPress = Just (CharKey char) })
     state@FrameState { nextSymbol = nextSymbol }
-  | isAlpha char = state { nextSymbol = nextSymbol ++ [char] }
-  | otherwise = state
+  | isAlpha char = return $ state { nextSymbol = nextSymbol ++ [char] }
+  | otherwise = return state
 
 -- BACKSPACE deletes one character in a symbol...
 refreshSymbolState (Resources { keyPress = Just (SpecialKey BACKSPACE) })
     state@FrameState { nextSymbol = nextSymbol }
-  | length nextSymbol < 1 = state
-  | otherwise = state { nextSymbol = trimmedSymbol }
+  | length nextSymbol < 1 = return state
+  | otherwise = return state { nextSymbol = trimmedSymbol }
   where
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
 
@@ -161,20 +169,48 @@ refreshSymbolState (Resources { keyPress = Just (SpecialKey ENTER) })
       { nextSymbol = nextSymbol
       , currentFrame = currentFrame
       }
-  | nextSymbol == "" = state
-  | otherwise = state
-    { currentSymbol = nextSymbol
-    , nextSymbol = ""
-    , currentFrame = newCurrentFrame (Chart nextSymbol)
-    , previousFrame = newPreviousFrame currentFrame
-    }
+  | nextSymbol == "" = return state
+  | otherwise = do
+    chartContent <- newChartContent nextSymbol
+    return state
+      { currentSymbol = nextSymbol
+      , nextSymbol = ""
+      , currentFrame = newCurrentFrame chartContent
+      , previousFrame = newPreviousFrame currentFrame
+      }
 
 -- ESC cancels the next symbol.
 refreshSymbolState (Resources { keyPress = Just (SpecialKey ESC) })
-    state = state { nextSymbol = "" }
+    state = return state { nextSymbol = "" }
 
 -- Drop all other events.
-refreshSymbolState _ state = state
+refreshSymbolState _ state = return state
+
+newChartContent :: String -> IO Content
+newChartContent symbol = do
+  priceErrorTupleMVar <- newEmptyMVar
+  forkIO $ do
+    startDate <- getStartDate
+    endDate <- getEndDate 
+    priceErrorTuple <- getGooglePrices startDate endDate symbol
+    putMVar priceErrorTupleMVar priceErrorTuple
+  return $ Chart symbol priceErrorTupleMVar
+
+getStartDate :: IO LocalTime
+getStartDate = do
+  endDate <- getEndDate
+  let yearAgo = addGregorianYearsClip (-1) (localDay endDate)
+  return endDate
+    { localDay = yearAgo
+    , localTimeOfDay = midnight
+    }
+
+getEndDate :: IO LocalTime
+getEndDate = do
+  timeZone <- getCurrentTimeZone
+  time <- getCurrentTime
+  let localTime = utcToLocalTime timeZone time 
+  return $ localTime { localTimeOfDay = midnight }
 
 newCurrentFrame :: Content -> Maybe Frame
 newCurrentFrame content = Just Frame
