@@ -20,6 +20,7 @@ getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
 case_updateWindowSize :: Assertion
 case_updateWindowSize = do
   font <- createTextureFont "noSuchFont"
+  layout <- createSimpleLayout
 
   let width = 1337
       height = 3007
@@ -27,6 +28,7 @@ case_updateWindowSize = do
 
       origResources = Resources
         { font = font
+        , layout = layout
         , keyPress = Nothing
         , windowWidth = 0
         , windowHeight = 0
@@ -35,6 +37,7 @@ case_updateWindowSize = do
 
       expectedResources = Resources
         { font = font
+        , layout = layout
         , keyPress = Nothing
         , windowWidth = realToFrac width
         , windowHeight = realToFrac height

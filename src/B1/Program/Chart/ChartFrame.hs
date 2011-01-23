@@ -203,12 +203,9 @@ drawFrameBorder resources =
      height = mainFrameHeight resources - contentPadding
 
 drawCenteredInstructions :: Resources -> IO ()
-drawCenteredInstructions resources = do
-  layout <- createSimpleLayout
-  setFontFaceSize (font resources) fontSize 72
-  setLayoutFont layout (font resources)
-  setLayoutLineLength layout layoutLineLength
-  [left, bottom, _, right, top, _] <- getLayoutBBox layout instructions
+drawCenteredInstructions resources@Resources { layout = layout }  = do
+  [left, bottom, right, top] <- prepareTextLayout resources fontSize
+      layoutLineLength instructions
 
   let textCenterX = -(left + (abs (right - left)) / 2)
       textCenterY = -(top - (abs (bottom - top)) / 2)
@@ -216,20 +213,24 @@ drawCenteredInstructions resources = do
     translate $ vector3 textCenterX textCenterY 0
     renderLayout layout instructions
 
-  destroyLayout layout
-
   where
     fontSize = 18
     layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
     instructions = "Type in symbol and press ENTER..."
 
+prepareTextLayout :: Resources -> Int -> Float -> String -> IO [GLfloat]
+prepareTextLayout (Resources { font = font, layout = layout }) fontSize
+    lineLength text = do
+  setFontFaceSize font fontSize 72
+  setLayoutFont layout font
+  setLayoutLineLength layout (realToFrac lineLength)
+  [left, bottom, _, right, top, _] <- getLayoutBBox layout text
+  return $ map realToFrac [left, bottom, right, top]
+
 drawCurrentSymbol :: Resources -> Content -> IO ()
-drawCurrentSymbol resources (Chart symbol) = do
-  layout <- createSimpleLayout
-  setFontFaceSize (font resources) fontSize 72
-  setLayoutFont layout (font resources)
-  setLayoutLineLength layout layoutLineLength
-  [left, bottom, _, right, top, _] <- getLayoutBBox layout symbol
+drawCurrentSymbol resources@Resources { layout = layout } (Chart symbol) = do
+  [left, bottom, right, top] <- prepareTextLayout resources fontSize
+      layoutLineLength symbol
 
   let textHeight = abs $ bottom - top
       textCenterX = -mainFrameWidth resources / 2 + symbolPadding
@@ -239,8 +240,6 @@ drawCurrentSymbol resources (Chart symbol) = do
     translate $ vector3 textCenterX textCenterY 0
     renderLayout layout symbol
 
-  destroyLayout layout
-
   where
     fontSize = 18
     layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
@@ -248,12 +247,10 @@ drawCurrentSymbol resources (Chart symbol) = do
 
 drawNextSymbol :: Resources -> FrameState -> IO ()
 drawNextSymbol _ (FrameState { nextSymbol = "" }) = return ()
-drawNextSymbol resources (FrameState { nextSymbol = nextSymbol }) = do
-  layout <- createSimpleLayout
-  setFontFaceSize (font resources) fontSize 72
-  setLayoutFont layout (font resources)
-  setLayoutLineLength layout layoutLineLength
-  [left, bottom, _, right, top, _] <- getLayoutBBox layout nextSymbol
+drawNextSymbol resources@Resources { layout = layout }
+    (FrameState { nextSymbol = nextSymbol }) = do
+  [left, bottom, right, top] <- prepareTextLayout resources fontSize
+      layoutLineLength nextSymbol
 
   let textWidth = abs $ right - left
       textHeight = abs $ bottom - top
@@ -282,8 +279,6 @@ drawNextSymbol resources (FrameState { nextSymbol = nextSymbol }) = do
     renderLayout layout nextSymbol
 
   blend $= Enabled
-
-  destroyLayout layout
 
   where
     fontSize = 48

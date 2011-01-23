@@ -11,6 +11,7 @@ import Graphics.UI.GLFW
 
 data Resources = Resources
   { font :: Font
+  , layout :: Layout
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
   , sideBarWidth :: GLfloat

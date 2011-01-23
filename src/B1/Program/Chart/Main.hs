@@ -39,8 +39,10 @@ createWindow = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
+  layout <- createSimpleLayout
   newIORef Resources
     { font = font
+    , layout = layout
     , keyPress = Nothing
     , windowWidth = 0
     , windowHeight = 0
