@@ -15,6 +15,7 @@ import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Chart
+import B1.Program.Chart.ChartFrameSpec
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
@@ -106,18 +107,20 @@ drawFrame resources state (Frame
     , scaleAnimation = scaleAnimation
     , alphaAnimation = alphaAnimation
     }) = do
-  let scaleAmount = fst . getCurrentFrame $ scaleAnimation
-      alphaAmount = fst . getCurrentFrame $ alphaAnimation
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
     drawFrameBorder resources
 
     case content of
-      Chart symbol -> drawChart resources (mainFrameWidth resources)
-          (mainFrameHeight resources) alphaAmount symbol
-      _ -> drawInstructions resources (mainFrameWidth resources)
-          (mainFrameHeight resources) alphaAmount
+      Chart symbol -> drawChart resources drawSpec symbol
+      _ -> drawInstructions resources drawSpec
+     
+  where
+    scaleAmount = fst . getCurrentFrame $ scaleAnimation
+    alphaAmount = fst . getCurrentFrame $ alphaAnimation
+    drawSpec = ChartFrameSpec (mainFrameWidth resources)
+        (mainFrameHeight resources) alphaAmount
 
 refreshCurrentFrame :: Resources -> FrameState -> FrameState
 refreshCurrentFrame resources

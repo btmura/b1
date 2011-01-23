@@ -6,12 +6,14 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.ChartFrameSpec
 import B1.Program.Chart.Colors
 import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 
-drawInstructions :: Resources -> GLfloat -> GLfloat -> GLfloat ->  IO ()
-drawInstructions resources@Resources { layout = layout } width height alpha = do
+drawInstructions :: Resources -> ChartFrameSpec ->  IO ()
+drawInstructions resources@Resources { layout = layout }
+    (ChartFrameSpec width _ alpha) = do
   [left, bottom, right, top] <- prepareTextLayout resources fontSize
       layoutLineLength instructions
 
