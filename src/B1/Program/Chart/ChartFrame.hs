@@ -15,8 +15,10 @@ import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Chart
+import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
+import B1.Program.Chart.Instructions
 import B1.Program.Chart.Resources
 
 type Symbol = String
@@ -111,20 +113,11 @@ drawFrame resources state (Frame
     color $ blue alphaAmount
     drawFrameBorder resources
 
-    color $ green alphaAmount
     case content of
-      Chart symbol -> drawChart resources
-          (mainFrameWidth resources) (mainFrameHeight resources) symbol
-      _ -> drawCenteredInstructions resources
-
-blue :: GLfloat -> Color4 GLfloat
-blue alpha = color4 0 0.25 1 alpha
-
-green :: GLfloat -> Color4 GLfloat
-green alpha = color4 0.25 1 0 alpha
-
-black :: GLfloat -> Color4 GLfloat
-black alpha = color4 0 0 0 alpha
+      Chart symbol -> drawChart resources (mainFrameWidth resources)
+          (mainFrameHeight resources) alphaAmount symbol
+      _ -> drawInstructions resources (mainFrameWidth resources)
+          (mainFrameHeight resources) alphaAmount
 
 refreshCurrentFrame :: Resources -> FrameState -> FrameState
 refreshCurrentFrame resources
@@ -204,22 +197,6 @@ drawFrameBorder resources =
   where
      width = mainFrameWidth resources - contentPadding
      height = mainFrameHeight resources - contentPadding
-
-drawCenteredInstructions :: Resources -> IO ()
-drawCenteredInstructions resources@Resources { layout = layout }  = do
-  [left, bottom, right, top] <- prepareTextLayout resources fontSize
-      layoutLineLength instructions
-
-  let textCenterX = -(left + (abs (right - left)) / 2)
-      textCenterY = -(top - (abs (bottom - top)) / 2)
-  preservingMatrix $ do 
-    translate $ vector3 textCenterX textCenterY 0
-    renderLayout layout instructions
-
-  where
-    fontSize = 18
-    layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
-    instructions = "Type in symbol and press ENTER..."
 
 drawNextSymbol :: Resources -> FrameState -> IO ()
 drawNextSymbol _ (FrameState { nextSymbol = "" }) = return ()
