@@ -14,7 +14,9 @@ import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
+import B1.Program.Chart.Chart
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 
 type Symbol = String
@@ -111,7 +113,8 @@ drawFrame resources state (Frame
 
     color $ green alphaAmount
     case content of
-      Chart _ -> drawCurrentSymbol resources content
+      Chart symbol -> drawChart resources
+          (mainFrameWidth resources) (mainFrameHeight resources) symbol
       _ -> drawCenteredInstructions resources
 
 blue :: GLfloat -> Color4 GLfloat
@@ -218,33 +221,6 @@ drawCenteredInstructions resources@Resources { layout = layout }  = do
     layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
     instructions = "Type in symbol and press ENTER..."
 
-prepareTextLayout :: Resources -> Int -> Float -> String -> IO [GLfloat]
-prepareTextLayout (Resources { font = font, layout = layout }) fontSize
-    lineLength text = do
-  setFontFaceSize font fontSize 72
-  setLayoutFont layout font
-  setLayoutLineLength layout (realToFrac lineLength)
-  [left, bottom, _, right, top, _] <- getLayoutBBox layout text
-  return $ map realToFrac [left, bottom, right, top]
-
-drawCurrentSymbol :: Resources -> Content -> IO ()
-drawCurrentSymbol resources@Resources { layout = layout } (Chart symbol) = do
-  [left, bottom, right, top] <- prepareTextLayout resources fontSize
-      layoutLineLength symbol
-
-  let textHeight = abs $ bottom - top
-      textCenterX = -mainFrameWidth resources / 2 + symbolPadding
-      textCenterY = mainFrameHeight resources / 2 - symbolPadding - textHeight
-          
-  preservingMatrix $ do 
-    translate $ vector3 textCenterX textCenterY 0
-    renderLayout layout symbol
-
-  where
-    fontSize = 18
-    layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
-    symbolPadding = 15
-
 drawNextSymbol :: Resources -> FrameState -> IO ()
 drawNextSymbol _ (FrameState { nextSymbol = "" }) = return ()
 drawNextSymbol resources@Resources { layout = layout }
@@ -283,5 +259,6 @@ drawNextSymbol resources@Resources { layout = layout }
   where
     fontSize = 48
     layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
+
 
 
