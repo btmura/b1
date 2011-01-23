@@ -20,7 +20,7 @@ fillRoundedRectangle = renderRoundedRectangle Polygon
 renderRoundedRectangle :: PrimitiveMode -> GLfloat -> GLfloat -> GLfloat
     -> Int -> IO ()
 renderRoundedRectangle mode width height cornerRadius cornerVertices =
-  renderPrimitive mode $ do
+  renderPrimitive mode $
     mapM_ vertex (getRoundedRectangleVertices width height
         cornerRadius cornerVertices)
 

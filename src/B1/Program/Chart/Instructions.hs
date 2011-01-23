@@ -17,8 +17,8 @@ drawInstructions resources@Resources { layout = layout }
   [left, bottom, right, top] <- prepareTextLayout resources fontSize
       layoutLineLength instructions
 
-  let textCenterX = -(left + (abs (right - left)) / 2)
-      textCenterY = -(top - (abs (bottom - top)) / 2)
+  let textCenterX = -(left + abs (right - left) / 2)
+      textCenterY = -(top - abs (bottom - top) / 2)
 
   color $ green alpha
   preservingMatrix $ do 

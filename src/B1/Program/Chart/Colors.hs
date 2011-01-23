@@ -9,11 +9,11 @@ import Graphics.Rendering.OpenGL
 import B1.Graphics.Rendering.OpenGL.Utils
 
 blue :: GLfloat -> Color4 GLfloat
-blue alpha = color4 0 0.25 1 alpha
+blue = color4 0 0.25 1 
 
 green :: GLfloat -> Color4 GLfloat
-green alpha = color4 0.25 1 0 alpha
+green = color4 0.25 1 0
 
 black :: GLfloat -> Color4 GLfloat
-black alpha = color4 0 0 0 alpha
+black = color4 0 0 0
 

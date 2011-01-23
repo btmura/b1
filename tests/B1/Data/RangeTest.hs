@@ -45,22 +45,22 @@ case_linearRange_decreasing =
 prop_gradualRange_increasing :: Float -> Float -> Int -> Property
 prop_gradualRange_increasing start end steps =
   steps >= 0 && steps < 1000 && start <= end ==>
-    all (\(x, y) -> x <= y) $ pairList (gradualRange start end steps)
+    all (uncurry (<=))  $ pairList (gradualRange start end steps)
 
 prop_gradualRange_decreasing :: Float -> Float -> Int -> Property
 prop_gradualRange_decreasing start end steps =
   steps >= 0 && steps < 1000 && start >= end ==>
-    all (\(x, y) -> x >= y) $ pairList (gradualRange start end steps)
+    all (uncurry (>=)) $ pairList (gradualRange start end steps)
 
 prop_linearRange_increasing :: Float -> Float -> Int -> Property
 prop_linearRange_increasing start end steps =
   steps >= 0 && steps < 1000 && start <= end ==>
-    all (\(x, y) -> x <= y) $ pairList (linearRange start end steps)
+    all (uncurry (<=)) $ pairList (linearRange start end steps)
 
 prop_linearRange_decreasing :: Float -> Float -> Int -> Property
 prop_linearRange_decreasing start end steps =
   steps >= 0 && steps < 1000 && start >= end ==>
-    all (\(x, y) -> x >= y) $ pairList (linearRange start end steps)
+    all (uncurry (>=)) $ pairList (linearRange start end steps)
 
 pairList :: [a] -> [(a, a)]
 pairList [] = []

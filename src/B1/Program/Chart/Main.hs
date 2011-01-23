@@ -82,11 +82,9 @@ drawLoop resourcesRef action = do
 
   control <- getKey LCTRL
   c <- getKey 'C'
-  if (control == Press && c == Press)
-    then return ()
-    else do
-      -- If the screen is not dirty, then wait for events rather than drawing
-      -- the same frame again and pegging the CPU to a 100%.
-      unless isDirty waitEvents
-      drawLoop resourcesRef nextAction
+  unless (control == Press && c == Press) $ do
+    -- If the screen is not dirty, then wait for events rather than drawing
+    -- the same frame again and pegging the CPU to a 100%.
+    unless isDirty waitEvents
+    drawLoop resourcesRef nextAction
 

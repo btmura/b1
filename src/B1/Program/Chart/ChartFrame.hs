@@ -92,21 +92,21 @@ isDirtyFrame (Frame
 
 translateToCenter :: Resources -> IO ()
 translateToCenter resources =
-  translate $ vector3 (sideBarWidth resources + (mainFrameWidth resources) / 2)
+  translate $ vector3 (sideBarWidth resources + mainFrameWidth resources / 2)
       (mainFrameHeight resources / 2) 0
 
 mainFrameWidth :: Resources -> GLfloat
 mainFrameWidth resources = windowWidth resources - sideBarWidth resources
 
 mainFrameHeight :: Resources -> GLfloat
-mainFrameHeight resources = windowHeight resources
+mainFrameHeight = windowHeight
 
 drawFrame :: Resources -> FrameState -> Frame -> IO ()
 drawFrame resources state (Frame
     { content = content
     , scaleAnimation = scaleAnimation
     , alphaAnimation = alphaAnimation
-    }) = do
+    }) = 
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
@@ -177,7 +177,7 @@ refreshSymbolState (Resources { keyPress = Just (SpecialKey ESC) })
 refreshSymbolState _ state = state
 
 newCurrentFrame :: Content -> Maybe Frame
-newCurrentFrame content = Just $ Frame
+newCurrentFrame content = Just Frame
   { content = content
   , scaleAnimation = incomingScaleAnimation
   , alphaAnimation = incomingAlphaAnimation

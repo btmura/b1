@@ -19,7 +19,7 @@ getNextAnimation (_:rest) = rest
 
 animateOnce :: [a] -> Animation (a, Dirty) 
 animateOnce [] = error "Cannot create an animation out of an empty list."
-animateOnce values = (zip (init values) (repeat True))
-    ++ (zip (repeat (last values)) (repeat False))
+animateOnce values = zip (init values) (repeat True)
+    ++ zip (repeat (last values)) (repeat False)
 
 
