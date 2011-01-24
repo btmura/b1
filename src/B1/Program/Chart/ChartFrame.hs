@@ -21,16 +21,13 @@ import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Chart
-import B1.Program.Chart.ChartFrameSpec
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Instructions
 import B1.Program.Chart.Resources
 
-type Symbol = String
-
-data Content = Instructions | Chart Symbol (MVar PriceErrorTuple)
+data Content = Instructions InstructionsState | Chart ChartState
 
 data Frame = Frame
   { content :: Content
@@ -48,8 +45,14 @@ data FrameState = FrameState
 drawChartFrame :: Resources -> IO (Action Resources Dirty, Dirty)
 drawChartFrame resources = drawChartFrameLoop initState resources
   where
+    instructionsState = InstructionsState
+      { width = 0
+      , height = 0
+      , alpha = 0
+      }
+
     instructionsFrame = Frame
-      { content = Instructions
+      { content = Instructions instructionsState
       , scaleAnimation = incomingScaleAnimation
       , alphaAnimation = incomingAlphaAnimation
       }
@@ -79,18 +82,27 @@ drawChartFrameLoop state resources = do
   loadIdentity
   translateToCenter resources
 
-  nextState <- getNextState state
+  midState <- refreshSymbolState resources state
 
-  let allFrames = catMaybes [currentFrame nextState, previousFrame nextState]
-  mapM_ (drawFrame resources nextState) allFrames
-  drawNextSymbol resources nextState
+  let drawFrameShort = drawFrame resources midState
+  maybeNextCurrentFrameState <- drawFrameShort $ currentFrame midState
+  maybeNextPreviousFrameState <- drawFrameShort $ previousFrame midState
 
-  let nextDirty = any isDirtyFrame allFrames
+  drawNextSymbol resources midState
+
+  let (nextCurrentFrame, isCurrentContentDirty) = maybeNextCurrentFrameState
+      (nextPreviousFrame, isPreviousContentDirty) = maybeNextPreviousFrameState
+      nextState = refreshFrameAnimations resources $ midState
+        { currentFrame = nextCurrentFrame
+        , previousFrame = nextPreviousFrame
+        }
+      bothFrames = [currentFrame nextState, previousFrame nextState]
+      nextDirty = any id
+        [ any isDirtyFrame (catMaybes bothFrames)
+        , isCurrentContentDirty
+        , isPreviousContentDirty
+        ]
   return (Action (drawChartFrameLoop nextState), nextDirty)
-
-  where
-    getNextState = refreshSymbolState resources
-        . refreshCurrentFrame resources
 
 -- TODO: Check if the Chart's MVar is empty...
 isDirtyFrame :: Frame -> Bool
@@ -110,30 +122,50 @@ mainFrameWidth resources = windowWidth resources - sideBarWidth resources
 mainFrameHeight :: Resources -> GLfloat
 mainFrameHeight = windowHeight
 
-drawFrame :: Resources -> FrameState -> Frame -> IO ()
-drawFrame resources state (Frame
+drawFrame :: Resources -> FrameState -> Maybe Frame
+    -> IO (Maybe Frame, Dirty)
+
+drawFrame resources state Nothing = return (Nothing, False)
+
+drawFrame resources state (Just frame@(Frame
     { content = content
     , scaleAnimation = scaleAnimation
     , alphaAnimation = alphaAnimation
-    }) = 
+    })) = 
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
     drawFrameBorder resources
-
-    case content of
-      Chart symbol priceTupleMVar -> drawChart resources drawSpec symbol
-          priceTupleMVar
-      _ -> drawInstructions resources drawSpec
-     
+    (nextContent, isDirty) <- drawFrameContent resources content alphaAmount
+    return (Just frame { content = nextContent }, isDirty)
   where
     scaleAmount = fst . getCurrentFrame $ scaleAnimation
     alphaAmount = fst . getCurrentFrame $ alphaAnimation
-    drawSpec = ChartFrameSpec (mainFrameWidth resources)
-        (mainFrameHeight resources) alphaAmount
 
-refreshCurrentFrame :: Resources -> FrameState -> FrameState
-refreshCurrentFrame resources
+drawFrameContent :: Resources -> Content -> GLfloat -> IO (Content, Dirty)
+
+drawFrameContent resources (Instructions state) alpha = do
+  (newState, isDirty) <- drawInstructions resources inputState
+  return $ (Instructions newState, isDirty)
+  where
+    inputState = state
+      { width = mainFrameWidth resources
+      , height = mainFrameHeight resources
+      , alpha = alpha
+      }
+
+drawFrameContent resources (Chart state) alpha = do
+  (newState, isDirty) <- drawChart resources inputState
+  return $ (Chart newState, isDirty)
+  where
+    inputState = state
+      { chartWidth = mainFrameWidth resources
+      , chartHeight = mainFrameHeight resources
+      , chartAlpha = alpha
+      }
+
+refreshFrameAnimations :: Resources -> FrameState -> FrameState
+refreshFrameAnimations resources
     state@FrameState
       { currentFrame = currentFrame
       , previousFrame = previousFrame
@@ -196,7 +228,13 @@ newChartContent symbol = do
     endDate <- getEndDate 
     priceErrorTuple <- getGooglePrices startDate endDate symbol
     putMVar priceErrorTupleMVar priceErrorTuple
-  return $ Chart symbol priceErrorTupleMVar
+  return $ Chart ChartState
+    { chartWidth = 0
+    , chartHeight = 0
+    , chartAlpha = 0
+    , symbol = symbol
+    , pricesMVar = priceErrorTupleMVar
+    }
 
 getStartDate :: IO LocalTime
 getStartDate = do

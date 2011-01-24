@@ -1,19 +1,27 @@
 module B1.Program.Chart.Instructions
-  ( drawInstructions
+  ( InstructionsState (..)
+  , drawInstructions
   ) where
 
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
 import B1.Graphics.Rendering.OpenGL.Utils
-import B1.Program.Chart.ChartFrameSpec
 import B1.Program.Chart.Colors
+import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 
-drawInstructions :: Resources -> ChartFrameSpec ->  IO ()
+data InstructionsState = InstructionsState
+  { width :: GLfloat
+  , height :: GLfloat
+  , alpha :: GLfloat
+  }
+
+drawInstructions :: Resources -> InstructionsState
+    -> IO (InstructionsState, Dirty)
 drawInstructions resources@Resources { layout = layout }
-    (ChartFrameSpec width _ alpha) = do
+    state@InstructionsState { width = width, alpha = alpha } = do
   [left, bottom, right, top] <- prepareTextLayout resources fontSize
       layoutLineLength instructions
 
@@ -25,9 +33,10 @@ drawInstructions resources@Resources { layout = layout }
     translate $ vector3 textCenterX textCenterY 0
     renderLayout layout instructions
 
+  return (state, False)
+
   where
     fontSize = 18
     layoutLineLength = realToFrac width
     instructions = "Type in symbol and press ENTER..."
-
 
