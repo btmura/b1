@@ -37,7 +37,8 @@ drawChart resources@Resources { layout = layout }
       , pricesMVar = pricesMVar
       }  = do
   isDirty <- isEmptyMVar pricesMVar
-  header <- getHeader symbol pricesMVar
+  priceErrorTuple <- getPriceErrorTuple pricesMVar
+  let header = getHeader symbol priceErrorTuple
   [left, bottom, right, top] <- prepareTextLayout resources fontSize
       layoutLineLength header
 
@@ -57,18 +58,24 @@ drawChart resources@Resources { layout = layout }
     layoutLineLength = realToFrac width
     symbolPadding = 15
 
-getHeader :: String -> MVar PriceErrorTuple -> IO String
-getHeader symbol priceErrorTupleMVar = do
-  maybePriceErrorTuple <- tryTakeMVar priceErrorTupleMVar
-  case maybePriceErrorTuple of
+getPriceErrorTuple :: MVar PriceErrorTuple -> IO (Maybe PriceErrorTuple)
+getPriceErrorTuple pricesMVar = do
+  maybePrices <- tryTakeMVar pricesMVar
+  case maybePrices of
     Just priceErrorTuple -> do
-      tryPutMVar priceErrorTupleMVar priceErrorTuple
-      case priceErrorTuple of
-        (Just (currentPrice:_), _) ->
-          return $ printf "%s %0.2f" symbol (close currentPrice)
-        (Nothing, (error:_)) ->
-          return $ symbol ++ " [Error: " ++ error ++ "]"
-        _ ->
-          return $ symbol ++ " ?"
-    _ -> return $ symbol
+      tryPutMVar pricesMVar priceErrorTuple
+      return $ Just priceErrorTuple
+    _ -> return Nothing
+
+getHeader :: String -> Maybe PriceErrorTuple -> String
+
+getHeader symbol (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
+  printf "%s  %0.2f  %+0.2f" symbol (close todaysPrice) change
+  where
+    change = close todaysPrice - close yesterdaysPrice
+
+getHeader symbol (Just (_, errors)) =
+  symbol ++ " [Error: " ++ concat errors ++ "]"
+
+getHeader symbol _ = symbol
 
