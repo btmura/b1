@@ -159,8 +159,8 @@ drawFrameContent resources (Chart state) alpha = do
   return $ (Chart newState, isDirty)
   where
     inputState = state
-      { chartWidth = mainFrameWidth resources
-      , chartHeight = mainFrameHeight resources
+      { chartWidth = mainFrameWidth resources - contentPadding
+      , chartHeight = mainFrameHeight resources - contentPadding
       , chartAlpha = alpha
       }
 

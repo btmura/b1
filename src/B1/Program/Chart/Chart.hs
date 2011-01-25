@@ -42,21 +42,30 @@ drawChart resources@Resources { layout = layout }
   [left, bottom, right, top] <- prepareTextLayout resources fontSize
       layoutLineLength header
 
+  -- Draw header text
   let textHeight = abs $ bottom - top
       textCenterX = -(width / 2) + symbolPadding
       textCenterY = height / 2 - symbolPadding - textHeight
-
   color $ green alpha
   preservingMatrix $ do 
     translate $ vector3 textCenterX textCenterY 0
     renderLayout layout header
+
+  -- Draw line under the header text
+  let textUnderlineY = textCenterY - symbolPadding
+  color $ blue alpha
+  preservingMatrix $ do
+    translate $ vector3 0 textUnderlineY 0
+    renderPrimitive Lines $ do
+      vertex $ vertex2 (-(width / 2)) 0
+      vertex $ vertex2 (width / 2) 0
 
   return (state, isDirty)
 
   where
     fontSize = 18
     layoutLineLength = realToFrac width
-    symbolPadding = 15
+    symbolPadding = 10
 
 getPriceErrorTuple :: MVar PriceErrorTuple -> IO (Maybe PriceErrorTuple)
 getPriceErrorTuple pricesMVar = do
