@@ -234,6 +234,7 @@ newChartContent symbol = do
     , chartAlpha = 0
     , symbol = symbol
     , pricesMVar = priceErrorTupleMVar
+    , headerState = newHeaderState
     }
 
 getStartDate :: IO LocalTime

@@ -2,16 +2,21 @@ module B1.Program.Chart.Chart
   ( ChartState(..)
   , Symbol
   , drawChart
+  , newHeaderState
   ) where
 
 import Control.Concurrent.MVar
+import Data.Maybe
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Text.Printf
 
 import B1.Data.Price
 import B1.Data.Price.Google
+import B1.Data.Range
+import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
@@ -25,6 +30,7 @@ data ChartState = ChartState
   , chartAlpha :: GLfloat -- ^ Alpha of the chart set by the caller.
   , symbol :: String
   , pricesMVar :: MVar PriceErrorTuple
+  , headerState :: HeaderState
   }
 
 drawChart :: Resources -> ChartState -> IO (ChartState, Dirty)
@@ -35,37 +41,21 @@ drawChart resources@Resources { layout = layout }
       , chartAlpha = alpha
       , symbol = symbol
       , pricesMVar = pricesMVar
+      , headerState = headerState
       }  = do
-  isDirty <- isEmptyMVar pricesMVar
-  priceErrorTuple <- getPriceErrorTuple pricesMVar
-  let header = getHeader symbol priceErrorTuple
-  [left, bottom, right, top] <- prepareTextLayout resources fontSize
-      layoutLineLength header
+  isPricesDirty <- isEmptyMVar pricesMVar
+  maybePrices <- getPriceErrorTuple pricesMVar
 
-  -- Draw header text
-  let textHeight = abs $ bottom - top
-      textCenterX = -(width / 2) + symbolPadding
-      textCenterY = height / 2 - symbolPadding - textHeight
-  color $ green alpha
-  preservingMatrix $ do 
-    translate $ vector3 textCenterX textCenterY 0
-    renderLayout layout header
-
-  -- Draw line under the header text
-  let textUnderlineY = textCenterY - symbolPadding
-  color $ blue alpha
   preservingMatrix $ do
-    translate $ vector3 0 textUnderlineY 0
-    renderPrimitive Lines $ do
-      vertex $ vertex2 (-(width / 2)) 0
-      vertex $ vertex2 (width / 2) 0
+    -- Start from the upper left corner
+    translate $ vector3 (-(width / 2)) (height / 2) 0
 
-  return (state, isDirty)
+    (nextHeaderState, isHeaderDirty) <- drawHeader resources state headerState
+        maybePrices
 
-  where
-    fontSize = 18
-    layoutLineLength = realToFrac width
-    symbolPadding = 10
+    let nextState = state { headerState = nextHeaderState }
+        isDirty = isPricesDirty || isHeaderDirty
+    return (nextState, isDirty)
 
 getPriceErrorTuple :: MVar PriceErrorTuple -> IO (Maybe PriceErrorTuple)
 getPriceErrorTuple pricesMVar = do
@@ -76,15 +66,70 @@ getPriceErrorTuple pricesMVar = do
       return $ Just priceErrorTuple
     _ -> return Nothing
 
-getHeader :: String -> Maybe PriceErrorTuple -> String
+data HeaderState = HeaderState
+  { isStatusShowing :: Bool
+  , statusAlphaAnimation :: Animation (GLfloat, Dirty)
+  }
 
-getHeader symbol (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
-  printf "%s  %0.2f  %+0.2f" symbol (close todaysPrice) change
+newHeaderState :: HeaderState
+newHeaderState = HeaderState
+  { isStatusShowing = False
+  , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
+  }
+
+drawHeader :: Resources -> ChartState -> HeaderState
+    -> Maybe PriceErrorTuple -> IO (HeaderState, Dirty)
+drawHeader resources@Resources { layout = layout }
+    ChartState
+      { chartWidth = width
+      , chartAlpha = alpha
+      , symbol = symbol 
+      }
+    headerState@HeaderState
+      { isStatusShowing = isStatusShowing
+      , statusAlphaAnimation = statusAlphaAnimation
+      }
+    maybePrices = do
+
+  [symbolLeft, bottom, symbolRight, top] <- prepareTextLayout resources
+      fontSize layoutLineLength symbol
+
+  let symbolWidth = abs $ symbolRight - symbolLeft 
+      textHeight = abs $ bottom - top
+      headerHeight = padding + textHeight + padding
+      status = getStatus maybePrices
+      statusAlpha = fst $ getCurrentFrame statusAlphaAnimation
+
+  preservingMatrix $ do
+    translate $ vector3 padding (-padding - textHeight) 0
+    color $ green alpha
+    renderLayout layout symbol
+
+    translate $ vector3 symbolWidth 0 0
+    color $ green $ min alpha statusAlpha
+    renderLayout layout status
+
+    let nextIsStatusShowing = isJust maybePrices
+        nextStatusAlphaAnimation = if nextIsStatusShowing
+          then getNextAnimation statusAlphaAnimation
+          else statusAlphaAnimation
+        nextHeaderState = headerState
+          { isStatusShowing = nextIsStatusShowing
+          , statusAlphaAnimation = nextStatusAlphaAnimation
+          }
+    return (nextHeaderState, snd $ getCurrentFrame nextStatusAlphaAnimation)
+
   where
-    change = close todaysPrice - close yesterdaysPrice
+    fontSize = 18
+    layoutLineLength = realToFrac width
+    padding = 10
 
-getHeader symbol (Just (_, errors)) =
-  symbol ++ " [Error: " ++ concat errors ++ "]"
+getStatus :: Maybe PriceErrorTuple -> String
 
-getHeader symbol _ = symbol
+getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
+  printf "  %0.2f  %+0.2f" todaysClose todaysChange
+  where
+    todaysClose = close todaysPrice
+    todaysChange = todaysClose - close yesterdaysPrice
 
+getStatus _ = ""
