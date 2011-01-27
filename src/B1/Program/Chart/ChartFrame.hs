@@ -2,14 +2,9 @@ module B1.Program.Chart.ChartFrame
   ( drawChartFrame
   ) where
 
-import Control.Concurrent 
-import Control.Concurrent.MVar
 import Control.Monad
 import Data.Char
 import Data.Maybe
-import Data.Time.Calendar
-import Data.Time.Clock
-import Data.Time.LocalTime
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
@@ -20,14 +15,16 @@ import B1.Data.Price.Google
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
-import B1.Program.Chart.Chart
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
-import B1.Program.Chart.Instructions
 import B1.Program.Chart.Resources
+import B1.Program.Chart.Symbol
 
-data Content = Instructions InstructionsState | Chart ChartState
+import qualified B1.Program.Chart.Chart as C
+import qualified B1.Program.Chart.Instructions as I
+
+data Content = Instructions | Chart Symbol C.ChartState
 
 data Frame = Frame
   { content :: Content
@@ -45,14 +42,8 @@ data FrameState = FrameState
 drawChartFrame :: Resources -> IO (Action Resources Dirty, Dirty)
 drawChartFrame resources = drawChartFrameLoop initState resources
   where
-    instructionsState = InstructionsState
-      { width = 0
-      , height = 0
-      , alpha = 0
-      }
-
     instructionsFrame = Frame
-      { content = Instructions instructionsState
+      { content = Instructions
       , scaleAnimation = incomingScaleAnimation
       , alphaAnimation = incomingAlphaAnimation
       }
@@ -144,24 +135,25 @@ drawFrame resources state (Just frame@(Frame
 
 drawFrameContent :: Resources -> Content -> GLfloat -> IO (Content, Dirty)
 
-drawFrameContent resources (Instructions state) alpha = do
-  (newState, isDirty) <- drawInstructions resources inputState
-  return $ (Instructions newState, isDirty)
+drawFrameContent resources Instructions alpha = do
+  output <- I.drawInstructions resources input
+  return $ (Instructions, I.isDirty output)
   where
-    inputState = state
-      { width = mainFrameWidth resources
-      , height = mainFrameHeight resources
-      , alpha = alpha
+    input = I.InstructionsInput
+      { I.width = mainFrameWidth resources
+      , I.alpha = alpha
       }
 
-drawFrameContent resources (Chart state) alpha = do
-  (newState, isDirty) <- drawChart resources inputState
-  return $ (Chart newState, isDirty)
+drawFrameContent resources (Chart symbol state) alpha = do
+  output <- C.drawChart resources input
+  return $ (Chart symbol (C.outputState output), C.isDirty output)
   where
-    inputState = state
-      { chartWidth = mainFrameWidth resources - contentPadding
-      , chartHeight = mainFrameHeight resources - contentPadding
-      , chartAlpha = alpha
+    input = C.ChartInput
+      { C.width = mainFrameWidth resources - contentPadding
+      , C.height = mainFrameHeight resources - contentPadding
+      , C.alpha = alpha
+      , C.symbol = symbol
+      , C.inputState = state
       }
 
 refreshFrameAnimations :: Resources -> FrameState -> FrameState
@@ -220,38 +212,10 @@ refreshSymbolState (Resources { keyPress = Just (SpecialKey ESC) })
 -- Drop all other events.
 refreshSymbolState _ state = return state
 
-newChartContent :: String -> IO Content
+newChartContent :: Symbol -> IO Content
 newChartContent symbol = do
-  priceErrorTupleMVar <- newEmptyMVar
-  forkIO $ do
-    startDate <- getStartDate
-    endDate <- getEndDate 
-    priceErrorTuple <- getGooglePrices startDate endDate symbol
-    putMVar priceErrorTupleMVar priceErrorTuple
-  return $ Chart ChartState
-    { chartWidth = 0
-    , chartHeight = 0
-    , chartAlpha = 0
-    , symbol = symbol
-    , pricesMVar = priceErrorTupleMVar
-    , headerState = newHeaderState
-    }
-
-getStartDate :: IO LocalTime
-getStartDate = do
-  endDate <- getEndDate
-  let yearAgo = addGregorianYearsClip (-1) (localDay endDate)
-  return endDate
-    { localDay = yearAgo
-    , localTimeOfDay = midnight
-    }
-
-getEndDate :: IO LocalTime
-getEndDate = do
-  timeZone <- getCurrentTimeZone
-  time <- getCurrentTime
-  let localTime = utcToLocalTime timeZone time 
-  return $ localTime { localTimeOfDay = midnight }
+  state <- C.newChartState symbol
+  return $ Chart symbol state
 
 newCurrentFrame :: Content -> Maybe Frame
 newCurrentFrame content = Just Frame
@@ -279,10 +243,10 @@ drawFrameBorder resources =
      height = mainFrameHeight resources - contentPadding
 
 drawNextSymbol :: Resources -> FrameState -> IO ()
-drawNextSymbol _ (FrameState { nextSymbol = "" }) = return ()
-drawNextSymbol resources@Resources { layout = layout }
-    (FrameState { nextSymbol = nextSymbol }) = do
-  [left, bottom, right, top] <- prepareTextLayout resources fontSize
+drawNextSymbol _ FrameState { nextSymbol = "" } = return ()
+drawNextSymbol resources
+    FrameState { nextSymbol = nextSymbol } = do
+  [left, bottom, right, top] <- prepareLayoutText resources fontSize
       layoutLineLength nextSymbol
 
   let textWidth = abs $ right - left
@@ -309,7 +273,7 @@ drawNextSymbol resources@Resources { layout = layout }
 
     color $ green 1
     translate $ vector3 textCenterX textCenterY 0
-    renderLayout layout nextSymbol
+    renderLayoutText resources nextSymbol
 
   blend $= Enabled
 

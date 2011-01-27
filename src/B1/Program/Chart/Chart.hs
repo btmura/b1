@@ -1,12 +1,19 @@
 module B1.Program.Chart.Chart
-  ( ChartState(..)
+  ( ChartInput(..)
+  , ChartOutput(..)
+  , ChartState
   , Symbol
   , drawChart
-  , newHeaderState
+  , newChartState
   ) where
 
+import Control.Concurrent 
 import Control.Concurrent.MVar
 import Data.Maybe
+import Data.Time.Calendar
+import Data.Time.Clock
+import Data.Time.LocalTime
+import Graphics.Rendering.FTGL
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Text.Printf
@@ -21,27 +28,68 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
+import B1.Program.Chart.Symbol
 
-type Symbol = String
+import qualified B1.Program.Chart.Header as H
 
-data ChartState = ChartState
-  { chartWidth :: GLfloat -- ^ Width of the chart set by the caller.
-  , chartHeight :: GLfloat -- ^ Height of the chart set by the caller.
-  , chartAlpha :: GLfloat -- ^ Alpha of the chart set by the caller.
-  , symbol :: String
-  , pricesMVar :: MVar PriceErrorTuple
-  , headerState :: HeaderState
+data ChartInput = ChartInput
+  { width :: GLfloat
+  , height :: GLfloat
+  , alpha :: GLfloat
+  , symbol :: Symbol
+  , inputState :: ChartState
   }
 
-drawChart :: Resources -> ChartState -> IO (ChartState, Dirty)
-drawChart resources@Resources { layout = layout }
-    state@ChartState
-      { chartWidth = width
-      , chartHeight = height
-      , chartAlpha = alpha
+data ChartOutput = ChartOutput
+  { outputState :: ChartState
+  , isDirty :: Dirty
+  }
+
+data ChartState = ChartState
+  { pricesMVar :: MVar PriceErrorTuple
+  , headerState :: H.HeaderState
+  }
+
+newChartState :: Symbol -> IO ChartState
+newChartState symbol = do
+  pricesMVar <- newEmptyMVar
+  forkIO $ do
+    startDate <- getStartDate
+    endDate <- getEndDate 
+    prices <- getGooglePrices startDate endDate symbol
+    putMVar pricesMVar prices
+  return $ ChartState
+    { pricesMVar = pricesMVar
+    , headerState = H.newHeaderState
+    }
+
+getStartDate :: IO LocalTime
+getStartDate = do
+  endDate <- getEndDate
+  let yearAgo = addGregorianYearsClip (-1) (localDay endDate)
+  return endDate
+    { localDay = yearAgo
+    , localTimeOfDay = midnight
+    }
+
+getEndDate :: IO LocalTime
+getEndDate = do
+  timeZone <- getCurrentTimeZone
+  time <- getCurrentTime
+  let localTime = utcToLocalTime timeZone time 
+  return $ localTime { localTimeOfDay = midnight }
+
+drawChart :: Resources -> ChartInput -> IO ChartOutput
+drawChart resources
+    ChartInput
+      { width = width
+      , height = height
+      , alpha = alpha
       , symbol = symbol
-      , pricesMVar = pricesMVar
-      , headerState = headerState
+      , inputState = inputState@ChartState
+        { pricesMVar = pricesMVar
+        , headerState = headerState
+        }
       }  = do
   isPricesDirty <- isEmptyMVar pricesMVar
   maybePrices <- getPriceErrorTuple pricesMVar
@@ -50,12 +98,22 @@ drawChart resources@Resources { layout = layout }
     -- Start from the upper left corner
     translate $ vector3 (-(width / 2)) (height / 2) 0
 
-    (nextHeaderState, isHeaderDirty) <- drawHeader resources state headerState
-        maybePrices
+    let headerInput = H.HeaderInput
+          { H.width = width
+          , H.alpha = alpha
+          , H.symbol = symbol
+          , H.maybePrices = maybePrices
+          , H.inputState = headerState
+          }
 
-    let nextState = state { headerState = nextHeaderState }
-        isDirty = isPricesDirty || isHeaderDirty
-    return (nextState, isDirty)
+    headerOutput <- H.drawHeader resources headerInput 
+
+    let outputState = inputState { headerState = H.outputState headerOutput }
+        isDirty = isPricesDirty || H.isDirty headerOutput
+    return ChartOutput
+      { outputState = outputState
+      , isDirty = isDirty
+      }
 
 getPriceErrorTuple :: MVar PriceErrorTuple -> IO (Maybe PriceErrorTuple)
 getPriceErrorTuple pricesMVar = do
@@ -66,70 +124,3 @@ getPriceErrorTuple pricesMVar = do
       return $ Just priceErrorTuple
     _ -> return Nothing
 
-data HeaderState = HeaderState
-  { isStatusShowing :: Bool
-  , statusAlphaAnimation :: Animation (GLfloat, Dirty)
-  }
-
-newHeaderState :: HeaderState
-newHeaderState = HeaderState
-  { isStatusShowing = False
-  , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
-  }
-
-drawHeader :: Resources -> ChartState -> HeaderState
-    -> Maybe PriceErrorTuple -> IO (HeaderState, Dirty)
-drawHeader resources@Resources { layout = layout }
-    ChartState
-      { chartWidth = width
-      , chartAlpha = alpha
-      , symbol = symbol 
-      }
-    headerState@HeaderState
-      { isStatusShowing = isStatusShowing
-      , statusAlphaAnimation = statusAlphaAnimation
-      }
-    maybePrices = do
-
-  [symbolLeft, bottom, symbolRight, top] <- prepareTextLayout resources
-      fontSize layoutLineLength symbol
-
-  let symbolWidth = abs $ symbolRight - symbolLeft 
-      textHeight = abs $ bottom - top
-      headerHeight = padding + textHeight + padding
-      status = getStatus maybePrices
-      statusAlpha = fst $ getCurrentFrame statusAlphaAnimation
-
-  preservingMatrix $ do
-    translate $ vector3 padding (-padding - textHeight) 0
-    color $ green alpha
-    renderLayout layout symbol
-
-    translate $ vector3 symbolWidth 0 0
-    color $ green $ min alpha statusAlpha
-    renderLayout layout status
-
-    let nextIsStatusShowing = isJust maybePrices
-        nextStatusAlphaAnimation = if nextIsStatusShowing
-          then getNextAnimation statusAlphaAnimation
-          else statusAlphaAnimation
-        nextHeaderState = headerState
-          { isStatusShowing = nextIsStatusShowing
-          , statusAlphaAnimation = nextStatusAlphaAnimation
-          }
-    return (nextHeaderState, snd $ getCurrentFrame nextStatusAlphaAnimation)
-
-  where
-    fontSize = 18
-    layoutLineLength = realToFrac width
-    padding = 10
-
-getStatus :: Maybe PriceErrorTuple -> String
-
-getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
-  printf "  %0.2f  %+0.2f" todaysClose todaysChange
-  where
-    todaysClose = close todaysPrice
-    todaysChange = todaysClose - close yesterdaysPrice
-
-getStatus _ = ""

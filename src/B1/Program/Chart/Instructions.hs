@@ -1,5 +1,6 @@
 module B1.Program.Chart.Instructions
-  ( InstructionsState (..)
+  ( InstructionsInput(..)
+  , InstructionsOutput(..)
   , drawInstructions
   ) where
 
@@ -12,17 +13,22 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 
-data InstructionsState = InstructionsState
+data InstructionsInput = InstructionsInput
   { width :: GLfloat
-  , height :: GLfloat
   , alpha :: GLfloat
   }
 
-drawInstructions :: Resources -> InstructionsState
-    -> IO (InstructionsState, Dirty)
-drawInstructions resources@Resources { layout = layout }
-    state@InstructionsState { width = width, alpha = alpha } = do
-  [left, bottom, right, top] <- prepareTextLayout resources fontSize
+data InstructionsOutput = InstructionsOutput
+  { isDirty :: Dirty
+  }
+
+drawInstructions :: Resources -> InstructionsInput -> IO InstructionsOutput
+drawInstructions resources
+    InstructionsInput
+      { width = width
+      , alpha = alpha
+      } = do
+  [left, bottom, right, top] <- prepareLayoutText resources fontSize
       layoutLineLength instructions
 
   let textCenterX = -(left + abs (right - left) / 2)
@@ -31,9 +37,9 @@ drawInstructions resources@Resources { layout = layout }
   color $ green alpha
   preservingMatrix $ do 
     translate $ vector3 textCenterX textCenterY 0
-    renderLayout layout instructions
+    renderLayoutText resources instructions
 
-  return (state, False)
+  return $ InstructionsOutput { isDirty = False }
 
   where
     fontSize = 18
