@@ -46,7 +46,7 @@ data ChartOutput = ChartOutput
   }
 
 data ChartState = ChartState
-  { pricesMVar :: MVar PriceErrorTuple
+  { pricesMVar :: MVar Prices
   , headerState :: H.HeaderState
   }
 
@@ -92,7 +92,7 @@ drawChart resources
         }
       }  = do
   isPricesDirty <- isEmptyMVar pricesMVar
-  maybePrices <- getPriceErrorTuple pricesMVar
+  maybePrices <- getPrices pricesMVar
 
   preservingMatrix $ do
     -- Start from the upper left corner
@@ -115,12 +115,12 @@ drawChart resources
       , isDirty = isDirty
       }
 
-getPriceErrorTuple :: MVar PriceErrorTuple -> IO (Maybe PriceErrorTuple)
-getPriceErrorTuple pricesMVar = do
+getPrices :: MVar Prices -> IO (Maybe Prices)
+getPrices pricesMVar = do
   maybePrices <- tryTakeMVar pricesMVar
   case maybePrices of
-    Just priceErrorTuple -> do
-      tryPutMVar pricesMVar priceErrorTuple
-      return $ Just priceErrorTuple
+    Just prices -> do
+      tryPutMVar pricesMVar prices
+      return $ Just prices
     _ -> return Nothing
 

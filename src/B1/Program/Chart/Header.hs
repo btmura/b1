@@ -27,7 +27,7 @@ data HeaderInput = HeaderInput
   { width :: GLfloat
   , alpha :: GLfloat
   , symbol :: Symbol
-  , maybePrices :: Maybe PriceErrorTuple
+  , maybePrices :: Maybe Prices
   , inputState :: HeaderState
   }
 
@@ -101,7 +101,7 @@ drawHeader resources
     layoutLineLength = realToFrac width
     padding = 10
 
-getStatus :: Maybe PriceErrorTuple -> String
+getStatus :: Maybe Prices -> String
 
 getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
   printf "  %0.2f  %+0.2f" todaysClose todaysChange
@@ -109,4 +109,6 @@ getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) =
     todaysClose = close todaysPrice
     todaysChange = todaysClose - close yesterdaysPrice
 
-getStatus _ = ""
+getStatus (Just (Nothing, errors)) = "  [" ++ concat errors ++ "]"
+
+getStatus Nothing = ""

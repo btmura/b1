@@ -1,5 +1,5 @@
 module B1.Data.Price.Google
-  ( PriceErrorTuple
+  ( Prices
   , getGooglePrices
   , parseGoogleCsv
   ) where
@@ -15,12 +15,12 @@ import System.Locale
 import B1.Data.Price
 import B1.Data.String.Utils
 
-type PriceErrorTuple = (Maybe [Price], [String])
+type Prices = (Maybe [Price], [String])
 
 -- | Get price information using Google Finance.
 -- Returns a tuple of Nothing and a list of error messages if tthere was a
 -- network problem or parsing issue.
-getGooglePrices :: LocalTime -> LocalTime -> String -> IO PriceErrorTuple
+getGooglePrices :: LocalTime -> LocalTime -> String -> IO Prices
 getGooglePrices startDate endDate symbol = priceErrorTuple
   where
     formatDate = formatTime defaultTimeLocale "%m/%d/%y"
@@ -35,24 +35,24 @@ getGooglePrices startDate endDate symbol = priceErrorTuple
       exceptionOrResult <- try $ simpleHTTP (getRequest url)
       return $ either handleGetException handleGetResult exceptionOrResult
 
-handleGetException :: SomeException -> PriceErrorTuple
+handleGetException :: SomeException -> Prices
 handleGetException exception = (Nothing, [show exception])
 
-handleGetResult :: Either ConnError (Response String) -> PriceErrorTuple
+handleGetResult :: Either ConnError (Response String) -> Prices
 handleGetResult = either handleConError handleResponse 
 
-handleConError :: ConnError -> PriceErrorTuple
+handleConError :: ConnError -> Prices
 handleConError connError = (Nothing, [show connError])
 
-handleResponse :: Response String -> PriceErrorTuple
+handleResponse :: Response String -> Prices
 handleResponse response =
   case rspCode response of
     (2, 0, 0) -> parseGoogleCsv (rspBody response) 
-    _ -> (Nothing, ["Response code: " ++ show (rspCode response)])
+    (x, y, z) -> (Nothing, ["Response error code: " ++ show x ++ show y ++ show z])
 
 -- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
-parseGoogleCsv :: String -> PriceErrorTuple
+parseGoogleCsv :: String -> Prices
 parseGoogleCsv = maybe (Nothing, ["Invalid CSV format"]) pricesOrNothing
     . maybe Nothing (Just . parsePriceLines)
     . dropHeader
