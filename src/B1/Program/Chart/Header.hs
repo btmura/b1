@@ -76,16 +76,15 @@ drawHeader resources
     renderLayoutText resources symbol
 
     let status = getStatus maybePrices
-        statusAlpha = fst $ getCurrentFrame statusAlphaAnimation
+        statusAlpha = fst $ current statusAlphaAnimation
 
     translate $ vector3 symbolWidth 0 0
     color $ green $ min alpha statusAlpha
     renderLayoutText resources status
 
     let nextIsStatusShowing = isJust maybePrices
-        nextStatusAlphaAnimation = if nextIsStatusShowing
-          then getNextAnimation statusAlphaAnimation
-          else statusAlphaAnimation
+        nextStatusAlphaAnimation =
+          (if nextIsStatusShowing then next else id) statusAlphaAnimation
         outputState = inputState
           { isStatusShowing = nextIsStatusShowing
           , statusAlphaAnimation = nextStatusAlphaAnimation
@@ -93,7 +92,7 @@ drawHeader resources
 
     return HeaderOutput
       { outputState = outputState
-      , isDirty = snd $ getCurrentFrame nextStatusAlphaAnimation
+      , isDirty = snd $ current nextStatusAlphaAnimation
       , height = headerHeight
       }
 

@@ -1,21 +1,21 @@
 module B1.Program.Chart.Animation
   ( Animation
-  , getCurrentFrame
-  , getNextAnimation
   , animateOnce
+  , current
+  , next
   ) where
   
 import B1.Program.Chart.Dirty
 
 type Animation a = [a]
 
-getCurrentFrame :: Animation a -> a
-getCurrentFrame [] = error "Animation does not have any frames."
-getCurrentFrame (first:_) = first
+current :: Animation a -> a
+current [] = error "Animation does not have any frames."
+current (first:_) = first
 
-getNextAnimation :: Animation a -> Animation a
-getNextAnimation [] = []
-getNextAnimation (_:rest) = rest
+next :: Animation a -> Animation a
+next [] = []
+next (_:rest) = rest
 
 animateOnce :: [a] -> Animation (a, Dirty) 
 animateOnce [] = error "Cannot create an animation out of an empty list."

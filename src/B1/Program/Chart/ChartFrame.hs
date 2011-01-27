@@ -100,7 +100,7 @@ isDirtyFrame :: Frame -> Bool
 isDirtyFrame (Frame
     { scaleAnimation = scaleAnimation
     , alphaAnimation = alphaAnimation
-    }) = any (snd . getCurrentFrame) [scaleAnimation, alphaAnimation]
+    }) = any (snd . current) [scaleAnimation, alphaAnimation]
 
 translateToCenter :: Resources -> IO ()
 translateToCenter resources =
@@ -130,8 +130,8 @@ drawFrame resources state (Just frame@(Frame
     (nextContent, isDirty) <- drawFrameContent resources content alphaAmount
     return (Just frame { content = nextContent }, isDirty)
   where
-    scaleAmount = fst . getCurrentFrame $ scaleAnimation
-    alphaAmount = fst . getCurrentFrame $ alphaAnimation
+    scaleAmount = fst . current $ scaleAnimation
+    alphaAmount = fst . current $ alphaAnimation
 
 drawFrameContent :: Resources -> Content -> GLfloat -> IO (Content, Dirty)
 
@@ -169,8 +169,8 @@ refreshFrameAnimations resources
 nextFrame :: Maybe Frame -> Maybe Frame
 nextFrame Nothing = Nothing
 nextFrame (Just frame) = Just $ frame
-  { scaleAnimation = getNextAnimation $ scaleAnimation frame
-  , alphaAnimation = getNextAnimation $ alphaAnimation frame
+  { scaleAnimation = next $ scaleAnimation frame
+  , alphaAnimation = next $ alphaAnimation frame
   }
 
 refreshSymbolState :: Resources -> FrameState -> IO FrameState
