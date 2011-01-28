@@ -17,16 +17,41 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen = drawScreenLoop
     S.SideBarInput
     F.FrameInput
-      { F.inputState = F.newFrameState
+      { F.width = 0
+      , F.height = 0
+      , F.inputState = F.newFrameState
       } 
 
 drawScreenLoop :: S.SideBarInput -> F.FrameInput
     -> Resources -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop sideBarInput frameInput resources = do
-  sideBarOutput <- S.drawSideBar resources sideBarInput
-  frameOutput <- F.drawChartFrame resources frameInput
-  let nextSideBarInput = S.SideBarInput
-      nextFrameInput = F.FrameInput { F.inputState = F.outputState frameOutput }
+  loadIdentity
+
+  sideBarOutput <- preservingMatrix $ do
+    S.drawSideBar resources sideBarInput
+
+  frameOutput <- preservingMatrix $ do
+    translate $ vector3 frameTranslateX frameTranslateY 0
+    F.drawChartFrame resources revisedFrameInput
+
+  let nextSideBarInput = sideBarInput
+      nextFrameInput = frameInput { F.inputState = F.outputState frameOutput }
       nextDirty =  S.isDirty sideBarOutput || F.isDirty frameOutput
   return (Action (drawScreenLoop S.SideBarInput nextFrameInput), nextDirty)
+
+  where
+    revisedFrameInput = frameInput
+      { F.width = mainFrameWidth resources
+      , F.height = mainFrameHeight resources
+      }
+
+    frameTranslateX = sideBarWidth resources + mainFrameWidth resources / 2
+    frameTranslateY = mainFrameHeight resources / 2
+
+mainFrameWidth :: Resources -> GLfloat
+mainFrameWidth resources = windowWidth resources - sideBarWidth resources
+
+mainFrameHeight :: Resources -> GLfloat
+mainFrameHeight = windowHeight
+
 

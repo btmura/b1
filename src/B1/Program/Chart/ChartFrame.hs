@@ -29,7 +29,9 @@ import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.Instructions as I
 
 data FrameInput = FrameInput
-  { inputState :: FrameState
+  { width :: GLfloat
+  , height :: GLfloat
+  , inputState :: FrameState
   }
 
 data FrameOutput = FrameOutput
@@ -77,17 +79,15 @@ outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources FrameInput { inputState = state } = do
-  loadIdentity
-  translateToCenter resources
-
+drawChartFrame resources frameInput@FrameInput { inputState = state } = do
   midState <- refreshSymbolState resources state
 
-  let drawFrameShort = drawFrame resources midState
+  let revisedFrameInput = frameInput { inputState = midState }
+      drawFrameShort = drawFrame resources revisedFrameInput
   maybeNextCurrentFrameState <- drawFrameShort $ currentFrame midState
   maybeNextPreviousFrameState <- drawFrameShort $ previousFrame midState
 
-  drawNextSymbol resources midState
+  drawNextSymbol resources revisedFrameInput 
 
   let (nextCurrentFrame, isCurrentContentDirty) = maybeNextCurrentFrameState
       (nextPreviousFrame, isPreviousContentDirty) = maybeNextPreviousFrameState
@@ -113,55 +113,53 @@ isDirtyFrame (Frame
     , alphaAnimation = alphaAnimation
     }) = any (snd . current) [scaleAnimation, alphaAnimation]
 
-translateToCenter :: Resources -> IO ()
-translateToCenter resources =
-  translate $ vector3 (sideBarWidth resources + mainFrameWidth resources / 2)
-      (mainFrameHeight resources / 2) 0
-
-mainFrameWidth :: Resources -> GLfloat
-mainFrameWidth resources = windowWidth resources - sideBarWidth resources
-
-mainFrameHeight :: Resources -> GLfloat
-mainFrameHeight = windowHeight
-
-drawFrame :: Resources -> FrameState -> Maybe Frame
+drawFrame :: Resources -> FrameInput -> Maybe Frame
     -> IO (Maybe Frame, Dirty)
 
-drawFrame resources state Nothing = return (Nothing, False)
+drawFrame resources _ Nothing = return (Nothing, False)
 
-drawFrame resources state (Just frame@(Frame
-    { content = content
-    , scaleAnimation = scaleAnimation
-    , alphaAnimation = alphaAnimation
-    })) = 
+drawFrame resources frameInput 
+    (Just frame@Frame
+      { content = content
+      , scaleAnimation = scaleAnimation
+      , alphaAnimation = alphaAnimation
+      }) = 
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
-    drawFrameBorder resources
-    (nextContent, isDirty) <- drawFrameContent resources content alphaAmount
+    drawFrameBorder resources frameInput
+    (nextContent, isDirty) <- drawFrameContent resources frameInput
+        content alphaAmount
     return (Just frame { content = nextContent }, isDirty)
   where
     scaleAmount = fst . current $ scaleAnimation
     alphaAmount = fst . current $ alphaAnimation
 
-drawFrameContent :: Resources -> Content -> GLfloat -> IO (Content, Dirty)
+drawFrameContent :: Resources -> FrameInput -> Content -> GLfloat
+    -> IO (Content, Dirty)
 
-drawFrameContent resources Instructions alpha = do
+drawFrameContent resources FrameInput { width = width } Instructions alpha = do
   output <- I.drawInstructions resources input
   return $ (Instructions, I.isDirty output)
   where
     input = I.InstructionsInput
-      { I.width = mainFrameWidth resources
+      { I.width = width
       , I.alpha = alpha
       }
 
-drawFrameContent resources (Chart symbol state) alpha = do
+drawFrameContent resources
+    FrameInput
+      { width = width
+      , height = height
+     }
+    (Chart symbol state)
+    alpha = do
   output <- C.drawChart resources input
   return $ (Chart symbol (C.outputState output), C.isDirty output)
   where
     input = C.ChartInput
-      { C.width = mainFrameWidth resources - contentPadding
-      , C.height = mainFrameHeight resources - contentPadding
+      { C.width = width - contentPadding
+      , C.height = height - contentPadding
       , C.alpha = alpha
       , C.symbol = symbol
       , C.inputState = state
@@ -246,17 +244,25 @@ contentPadding = 10::GLfloat
 cornerRadius = 10::GLfloat
 cornerVertices = 5::Int
 
-drawFrameBorder :: Resources -> IO ()
-drawFrameBorder resources =
+drawFrameBorder :: Resources -> FrameInput -> IO ()
+drawFrameBorder resources
+    FrameInput
+      { width = maxWidth
+      , height = maxHeight
+      } =
   drawRoundedRectangle width height cornerRadius cornerVertices
   where
-     width = mainFrameWidth resources - contentPadding
-     height = mainFrameHeight resources - contentPadding
+     width = maxWidth - contentPadding
+     height = maxHeight - contentPadding
 
-drawNextSymbol :: Resources -> FrameState -> IO ()
-drawNextSymbol _ FrameState { nextSymbol = "" } = return ()
+drawNextSymbol :: Resources -> FrameInput -> IO ()
+drawNextSymbol _
+    FrameInput { inputState = FrameState { nextSymbol = "" } } = return ()
 drawNextSymbol resources
-    FrameState { nextSymbol = nextSymbol } = do
+    FrameInput
+      { width = width
+      , inputState = FrameState { nextSymbol = nextSymbol }
+      } = do
   [left, bottom, right, top] <- prepareLayoutText resources fontSize
       layoutLineLength nextSymbol
 
@@ -290,7 +296,7 @@ drawNextSymbol resources
 
   where
     fontSize = 48
-    layoutLineLength = realToFrac $ mainFrameWidth resources - contentPadding
+    layoutLineLength = realToFrac $ width - contentPadding
 
 
 
