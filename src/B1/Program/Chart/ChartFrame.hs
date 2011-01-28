@@ -1,5 +1,9 @@
 module B1.Program.Chart.ChartFrame
-  ( drawChartFrame
+  ( FrameInput(..)
+  , FrameOutput(..)
+  , FrameState
+  , drawChartFrame
+  , newFrameState
   ) where
 
 import Control.Monad
@@ -24,12 +28,13 @@ import B1.Program.Chart.Symbol
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.Instructions as I
 
-data Content = Instructions | Chart Symbol C.ChartState
+data FrameInput = FrameInput
+  { inputState :: FrameState
+  }
 
-data Frame = Frame
-  { content :: Content
-  , scaleAnimation :: Animation (GLfloat, Dirty)
-  , alphaAnimation :: Animation (GLfloat, Dirty)
+data FrameOutput = FrameOutput
+  { outputState :: FrameState
+  , isDirty :: Dirty
   }
 
 data FrameState = FrameState
@@ -39,21 +44,25 @@ data FrameState = FrameState
   , previousFrame :: Maybe Frame
   }
 
-drawChartFrame :: Resources -> IO (Action Resources Dirty, Dirty)
-drawChartFrame resources = drawChartFrameLoop initState resources
-  where
-    instructionsFrame = Frame
-      { content = Instructions
-      , scaleAnimation = incomingScaleAnimation
-      , alphaAnimation = incomingAlphaAnimation
-      }
+data Frame = Frame
+  { content :: Content
+  , scaleAnimation :: Animation (GLfloat, Dirty)
+  , alphaAnimation :: Animation (GLfloat, Dirty)
+  }
 
-    initState = FrameState
-      { currentSymbol = ""
-      , nextSymbol = ""
-      , currentFrame = Just instructionsFrame 
-      , previousFrame = Nothing
-      }
+data Content = Instructions | Chart Symbol C.ChartState
+
+newFrameState :: FrameState
+newFrameState = FrameState
+  { currentSymbol = ""
+  , nextSymbol = ""
+  , currentFrame = Just Frame
+    { content = Instructions
+    , scaleAnimation = incomingScaleAnimation
+    , alphaAnimation = incomingAlphaAnimation
+    }
+  , previousFrame = Nothing
+  }
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
 incomingScaleAnimation = animateOnce $ linearRange 1 1 30
@@ -67,9 +76,8 @@ outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 30
 outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
-drawChartFrameLoop :: FrameState -> Resources
-    -> IO (Action Resources Dirty, Dirty)
-drawChartFrameLoop state resources = do
+drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
+drawChartFrame resources FrameInput { inputState = state } = do
   loadIdentity
   translateToCenter resources
 
@@ -93,7 +101,10 @@ drawChartFrameLoop state resources = do
         , isCurrentContentDirty
         , isPreviousContentDirty
         ]
-  return (Action (drawChartFrameLoop nextState), nextDirty)
+  return FrameOutput
+    { outputState = nextState
+    , isDirty = nextDirty
+    } 
 
 -- TODO: Check if the Chart's MVar is empty...
 isDirtyFrame :: Frame -> Bool

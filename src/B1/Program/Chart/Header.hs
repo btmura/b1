@@ -33,7 +33,7 @@ data HeaderInput = HeaderInput
 
 data HeaderOutput = HeaderOutput
   { outputState :: HeaderState
-  , isDirty :: Bool
+  , isDirty :: Dirty
   , height :: GLfloat
   }
 

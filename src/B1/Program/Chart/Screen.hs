@@ -7,31 +7,26 @@ import Graphics.Rendering.OpenGL
 import B1.Data.Action
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
-import B1.Program.Chart.ChartFrame
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
+import qualified B1.Program.Chart.ChartFrame as F
+import qualified B1.Program.Chart.SideBar as S
+
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
-drawScreen resources = 
-  return (Action (drawScreenLoop drawSideBar drawChartFrame), True)
+drawScreen = drawScreenLoop
+    S.SideBarInput
+    F.FrameInput
+      { F.inputState = F.newFrameState
+      } 
 
-drawScreenLoop :: (Resources -> IO (Action Resources Dirty, Dirty))
-    -> (Resources -> IO (Action Resources Dirty, Dirty))
+drawScreenLoop :: S.SideBarInput -> F.FrameInput
     -> Resources -> IO (Action Resources Dirty, Dirty)
-drawScreenLoop sideBarAction mainChartAction input = do
-  (Action nextSideBarAction, sideBarDirty) <- sideBarAction input
-  (Action nextMainChartAction, mainChartDirty) <- mainChartAction input
-  return (Action (drawScreenLoop nextSideBarAction nextMainChartAction),
-      sideBarDirty || mainChartDirty)
-
-drawSideBar :: Resources -> IO (Action Resources Dirty, Dirty)
-drawSideBar resources = do
-  let sideBarHeight = realToFrac (windowHeight resources)
-
-  loadIdentity
-  translate $ vector3 (sideBarWidth resources / 2) (sideBarHeight / 2) 0
-  scale3 (sideBarWidth resources / 2) (sideBarHeight / 2) 1
-  color $ color4 0 0 1 0.5
-  drawSquarePlaceholder
-  return (Action drawSideBar, False)
+drawScreenLoop sideBarInput frameInput resources = do
+  sideBarOutput <- S.drawSideBar resources sideBarInput
+  frameOutput <- F.drawChartFrame resources frameInput
+  let nextSideBarInput = S.SideBarInput
+      nextFrameInput = F.FrameInput { F.inputState = F.outputState frameOutput }
+      nextDirty =  S.isDirty sideBarOutput || F.isDirty frameOutput
+  return (Action (drawScreenLoop S.SideBarInput nextFrameInput), nextDirty)
 
