@@ -8,7 +8,7 @@ import Graphics.Rendering.OpenGL
 
 import B1.Program.Chart.Resources
 
-prepareLayoutText :: Resources -> Int -> Float -> String -> IO [GLfloat]
+prepareLayoutText :: Resources -> Int -> GLfloat -> String -> IO [GLfloat]
 prepareLayoutText (Resources { font = font, layout = layout }) fontSize
     lineLength text = do
   setFontFaceSize font fontSize 72

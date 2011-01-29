@@ -108,8 +108,18 @@ drawChart resources
 
     headerOutput <- H.drawHeader resources headerInput 
 
-    let outputState = inputState { headerState = H.outputState headerOutput }
-        isDirty = isPricesDirty || H.isDirty headerOutput
+    let H.HeaderOutput
+          { H.outputState = outputHeaderState
+          , H.isDirty = isHeaderDirty
+          , H.height = headerHeight
+          } = headerOutput
+
+    -- Draw a line under the header
+    translate $ vector3 0 (-headerHeight) 0
+    drawDivider width alpha
+
+    let outputState = inputState { headerState = outputHeaderState }
+        isDirty = isPricesDirty || isHeaderDirty
     return ChartOutput
       { outputState = outputState
       , isDirty = isDirty
@@ -123,4 +133,12 @@ getPrices pricesMVar = do
       tryPutMVar pricesMVar prices
       return $ Just prices
     _ -> return Nothing
+
+drawDivider :: GLfloat -> GLfloat -> IO ()
+drawDivider width alpha = do
+  color $ blue alpha 
+  renderPrimitive Lines $ do
+    vertex $ vertex2 0 0
+    vertex $ vertex2 width 0
+
 
