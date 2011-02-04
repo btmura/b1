@@ -14,12 +14,12 @@ import Text.Printf
 import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Range
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 
@@ -62,31 +62,29 @@ drawHeader resources
         , statusAlphaAnimation = statusAlphaAnimation
         }
       } = do
-  [symbolRight, symbolBottom, symbolLeft, symbolTop] <- prepareLayoutText
-      resources fontSize headerLineLength symbol
-  let symbolWidth = abs $ symbolRight - symbolLeft
-      symbolHeight = abs $ symbolBottom - symbolTop
-      headerHeight = padding + symbolHeight + padding
-      buttonWidth = headerHeight
-      buttonHeight = headerHeight
-  preservingMatrix $ do
-    translate $ vector3 padding (-padding - symbolHeight) 0
-    color $ green alpha
-    renderLayoutText resources symbol
 
-  let status = getStatus maybePrices
+  symbolBoundingBox <- measureText symbolTextSpec
+  statusBoundingBox <- measureText statusTextSpec
+
+  let symbolWidth = boxWidth symbolBoundingBox
+      symbolHeight = boxHeight symbolBoundingBox
+
+      statusHeight = boxHeight symbolBoundingBox
       statusAlpha = fst $ current statusAlphaAnimation
-      statusLineLength = headerLineLength - symbolWidth - buttonWidth
-  [statusRight, statusBottom, statusLeft, statusTop] <- prepareLayoutText
-      resources fontSize statusLineLength status
-  preservingMatrix $ do
-    translate $ vector3 (padding + symbolWidth) (-padding - symbolHeight) 0
-    color $ green $ min alpha statusAlpha
-    renderLayoutText resources status
+
+      headerHeight = padding + (max symbolHeight statusHeight) + padding
+      symbolY = (-headerHeight - symbolHeight) / 2
+      statusY = (-headerHeight - statusHeight) / 2
 
   preservingMatrix $ do
-    translate $ vector3 (width - buttonWidth) 0 0
-    drawTextButton resources buttonWidth buttonHeight "+" alpha
+    translate $ vector3 padding symbolY 0
+    color $ green alpha
+    renderText symbolTextSpec
+
+  preservingMatrix $ do
+    translate $ vector3 (padding + symbolWidth) statusY 0
+    color $ green $ min alpha statusAlpha
+    renderText statusTextSpec
 
   let nextIsStatusShowing = isJust maybePrices
       nextStatusAlphaAnimation =
@@ -103,8 +101,9 @@ drawHeader resources
     }
 
   where
-    fontSize = 18
-    headerLineLength = realToFrac width
+    headerTextSpec = TextSpec (font resources) 18
+    symbolTextSpec = headerTextSpec symbol
+    statusTextSpec = headerTextSpec $ getStatus maybePrices
     padding = 10
 
 getStatus :: Maybe Prices -> String
@@ -119,20 +118,3 @@ getStatus (Just (Nothing, errors)) = "  [" ++ concat errors ++ "]"
 
 getStatus Nothing = ""
 
-drawTextButton :: Resources -> GLfloat -> GLfloat -> String -> GLfloat -> IO ()
-drawTextButton resources width height text alpha = do
-  preservingMatrix $ do
-    [right, bottom, left, top] <- prepareLayoutText resources
-        fontSize (realToFrac (width*2)) text
-
-    let textWidth = abs $ right - left
-        textHeight = abs $ bottom - top
-        textTranslateX = width / 2 - textWidth / 2
-        textTranslateY = (-height) / 2 - textHeight / 2
-
-    translate $ vector3 textTranslateX textTranslateY 0
-    color $ white alpha
-    renderLayoutText resources text
-  where
-    fontSize = 18
-    padding = 10

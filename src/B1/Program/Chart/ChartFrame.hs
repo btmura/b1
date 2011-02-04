@@ -16,12 +16,12 @@ import Graphics.UI.GLFW
 import B1.Data.Action
 import B1.Data.Range
 import B1.Data.Price.Google
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 
@@ -259,27 +259,17 @@ drawNextSymbol :: Resources -> FrameInput -> IO ()
 drawNextSymbol _
     FrameInput { inputState = FrameState { nextSymbol = "" } } = return ()
 drawNextSymbol resources
-    FrameInput
-      { width = width
-      , inputState = FrameState { nextSymbol = nextSymbol }
-      } = do
-  [left, bottom, right, top] <- prepareLayoutText resources fontSize
-      layoutLineLength nextSymbol
+    FrameInput { inputState = FrameState { nextSymbol = nextSymbol } } = do
 
-  let textWidth = abs $ right - left
-      textHeight = abs $ bottom - top
-
-      textBubblePadding = 15
-      textBubbleWidth = textWidth + textBubblePadding*2
-      textBubbleHeight = textHeight + textBubblePadding*2
-
-      textCenterX = -(left + textWidth / 2)
-      textCenterY = -(top - textHeight / 2)
-
-  -- Disable blending or else the background won't work.
-  blend $= Disabled
+  boundingBox <- measureText textSpec
+  let textBubbleWidth = boxWidth boundingBox + textBubblePadding * 2
+      textBubbleHeight = boxHeight boundingBox + textBubblePadding * 2
+      (centerX, centerY) = boxCenter boundingBox
 
   preservingMatrix $ do 
+    -- Disable blending or else the background won't work.
+    blend $= Disabled
+
     color $ black 1
     fillRoundedRectangle textBubbleWidth textBubbleHeight
         cornerRadius cornerVertices
@@ -288,15 +278,13 @@ drawNextSymbol resources
     drawRoundedRectangle textBubbleWidth textBubbleHeight
         cornerRadius cornerVertices
 
-    color $ green 1
-    translate $ vector3 textCenterX textCenterY 0
-    renderLayoutText resources nextSymbol
+    -- Renable the blending now...
+    blend $= Enabled
 
-  blend $= Enabled
+    color $ green 1
+    translate $ vector3 (-centerX) (-centerY) 0
+    renderText textSpec
 
   where
-    fontSize = 48
-    layoutLineLength = realToFrac $ width - contentPadding
-
-
-
+    textSpec = TextSpec (font resources) 48  nextSymbol
+    textBubblePadding = 15

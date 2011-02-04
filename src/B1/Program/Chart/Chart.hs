@@ -21,12 +21,12 @@ import Text.Printf
 import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Range
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 

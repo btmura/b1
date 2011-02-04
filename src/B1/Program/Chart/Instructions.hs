@@ -7,10 +7,10 @@ module B1.Program.Chart.Instructions
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.FtglUtils
 import B1.Program.Chart.Resources
 
 data InstructionsInput = InstructionsInput
@@ -28,21 +28,17 @@ drawInstructions resources
       { width = width
       , alpha = alpha
       } = do
-  [left, bottom, right, top] <- prepareLayoutText resources fontSize
-      layoutLineLength instructions
-
-  let textCenterX = -(left + abs (right - left) / 2)
-      textCenterY = -(top - abs (bottom - top) / 2)
 
   color $ green alpha
+
+  boundingBox <- measureText textSpec
+  let (centerX, centerY) = boxCenter boundingBox
   preservingMatrix $ do 
-    translate $ vector3 textCenterX textCenterY 0
-    renderLayoutText resources instructions
+    translate $ vector3 (-centerX) (-centerY) 0
+    renderText textSpec
 
   return $ InstructionsOutput { isDirty = False }
 
   where
-    fontSize = 18
-    layoutLineLength = realToFrac width
-    instructions = "Type in symbol and press ENTER..."
+    textSpec = TextSpec (font resources) 18 "Type in symbol and press ENTER..."
 
