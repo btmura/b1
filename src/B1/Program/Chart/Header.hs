@@ -7,8 +7,10 @@ module B1.Program.Chart.Header
   ) where
 
 import Data.Maybe
+import Data.Time
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
+import System.Locale
 import Text.Printf
 
 import B1.Data.Price
@@ -109,10 +111,11 @@ drawHeader resources
 getStatus :: Maybe Prices -> String
 
 getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
-  printf "  %0.2f  %+0.2f" todaysClose todaysChange
+  printf "  %0.2f  %+0.2f  %s" todaysClose todaysChange date
   where
     todaysClose = close todaysPrice
     todaysChange = todaysClose - close yesterdaysPrice
+    date = formatTime defaultTimeLocale "%-m/%-d/%y" (endTime todaysPrice)
 
 getStatus (Just (Nothing, errors)) = "  [" ++ concat errors ++ "]"
 
