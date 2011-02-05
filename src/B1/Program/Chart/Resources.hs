@@ -1,5 +1,6 @@
 module B1.Program.Chart.Resources
   ( Resources (..)
+  , newResources
   , updateKeyPress
   , updateMousePosition
   , updateMouseButton
@@ -20,6 +21,17 @@ data Resources = Resources
   , mousePosition :: (GLfloat, GLfloat)
   , leftMouseButtonPressed :: Bool
   } deriving (Show, Eq)
+
+newResources :: Font -> Resources
+newResources font = Resources
+  { font = font
+  , windowWidth = 0
+  , windowHeight = 0
+  , sideBarWidth = 0
+  , keyPress = Nothing
+  , mousePosition = (0, 0)
+  , leftMouseButtonPressed = False
+  }
 
 updateKeyPress :: Maybe Key -> Resources -> Resources
 updateKeyPress maybeKeyPress resources = resources

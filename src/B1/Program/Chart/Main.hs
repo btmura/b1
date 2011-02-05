@@ -50,15 +50,7 @@ loadTextures = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  newIORef Resources
-    { font = font
-    , windowWidth = 0
-    , windowHeight = 0
-    , sideBarWidth = 175
-    , keyPress = Nothing
-    , mousePosition = (0, 0)
-    , leftMouseButtonPressed = False
-    }
+  newIORef $ (newResources font) { sideBarWidth = 175 }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
 myWindowSizeCallback resourcesRef size@(Size width height) = do

@@ -22,7 +22,7 @@ getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
 
 case_updateMouseButton :: Assertion
 case_updateMouseButton = do
-  origResources <- newResources
+  origResources <- createResources
   let expectedResources = origResources
         { leftMouseButtonPressed = True
         }
@@ -31,7 +31,7 @@ case_updateMouseButton = do
 
 case_updateMousePosition :: Assertion
 case_updateMousePosition = do
-  origResources <- newResources
+  origResources <- createResources
   let position = (1337, 3007)
       glPosition = Position 1337 3007
       expectedResources = origResources
@@ -42,7 +42,7 @@ case_updateMousePosition = do
 
 case_updateWindowSize :: Assertion
 case_updateWindowSize = do
-  origResources <- newResources
+  origResources <- createResources
   let width = 1337
       height = 3007
       size = Size width height
@@ -52,10 +52,10 @@ case_updateWindowSize = do
         }
   assertEqual "" expectedResources (updateWindowSize size origResources) 
 
-newResources :: IO Resources
-newResources = do
+createResources :: IO Resources
+createResources = do
   font <- createTextureFont "noSuchFont"
-  return $  Resources
+  return $ Resources
     { font = font
     , windowWidth = 0
     , windowHeight = 0
