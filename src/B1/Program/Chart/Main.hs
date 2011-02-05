@@ -17,6 +17,7 @@ main :: IO ()
 main = do
   initialize
   createWindow
+  loadTextures
 
   resourcesRef <- createInitialResources
   windowSizeCallback $= myWindowSizeCallback resourcesRef
@@ -33,6 +34,13 @@ createWindow = do
 
   blendFunc $= (SrcAlpha, One)
   blend $= Enabled
+
+loadTextures :: IO ()
+loadTextures = do
+  textureBinding Texture2D $= Just (TextureObject 0)
+  textureFilter Texture2D $= ((Linear', Nothing), Linear')
+  addLoadResult <- loadTexture2D "res/add.tga" [BuildMipMaps]
+  putStrLn $ "Loading texture 0: " ++ show addLoadResult
 
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.

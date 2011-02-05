@@ -1,6 +1,7 @@
 module B1.Graphics.Rendering.OpenGL.Utils
   ( color3
   , color4
+  , normal3
   , scale3
   , texCoord2
   , vector3
@@ -15,6 +16,9 @@ color3 = Color3
 
 color4 :: GLfloat -> GLfloat -> GLfloat -> GLfloat -> Color4 GLfloat
 color4 = Color4
+
+normal3 :: GLfloat -> GLfloat -> GLfloat -> Normal3 GLfloat
+normal3 = Normal3
 
 scale3 :: GLfloat -> GLfloat -> GLfloat -> IO ()
 scale3 = scale

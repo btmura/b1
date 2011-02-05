@@ -74,7 +74,8 @@ drawHeader resources
       statusHeight = boxHeight symbolBoundingBox
       statusAlpha = fst $ current statusAlphaAnimation
 
-      headerHeight = padding + (max symbolHeight statusHeight) + padding
+      textHeight = max symbolHeight statusHeight
+      headerHeight = padding + textHeight + padding
       symbolY = (-headerHeight - symbolHeight) / 2
       statusY = (-headerHeight - statusHeight) / 2
 
@@ -87,6 +88,10 @@ drawHeader resources
     translate $ vector3 (padding + symbolWidth) statusY 0
     color $ green $ min alpha statusAlpha
     renderText statusTextSpec
+
+  preservingMatrix $ do
+    translate $ vector3 (width - headerHeight / 2) (-headerHeight / 2) 0
+    drawHeaderButton textHeight textHeight 0 alpha
 
   let nextIsStatusShowing = isJust maybePrices
       nextStatusAlphaAnimation =
@@ -120,4 +125,24 @@ getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) =
 getStatus (Just (Nothing, errors)) = "  [" ++ concat errors ++ "]"
 
 getStatus Nothing = ""
+
+drawHeaderButton :: GLfloat -> GLfloat -> Int -> GLfloat -> IO ()
+drawHeaderButton width height textureNumber alpha = 
+  preservingMatrix $ do
+    texture Texture2D $= Enabled
+    textureBinding Texture2D $= Just (TextureObject 
+        (fromIntegral textureNumber))
+    scale3 (width / 2) (height / 2) 1
+    color $ white alpha
+    renderPrimitive Quads $ do
+      normal $ normal3 0 0 1
+      texCoord $ texCoord2 0 0
+      vertex $ vertex2 (-1) (-1)
+      texCoord $ texCoord2 0 1
+      vertex $ vertex2 (-1) 1
+      texCoord $ texCoord2 1 1
+      vertex $ vertex2 1 1
+      texCoord $ texCoord2 1 0
+      vertex $ vertex2 1 (-1)
+    texture Texture2D $= Disabled
 
