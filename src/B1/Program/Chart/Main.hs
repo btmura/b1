@@ -23,6 +23,8 @@ main = do
   windowSizeCallback $= myWindowSizeCallback resourcesRef
   keyCallback $= myKeyCallback resourcesRef
   mousePosCallback $= myMousePosCallback resourcesRef
+  mouseButtonCallback $= myMouseButtonCallback resourcesRef
+
   drawLoop resourcesRef drawScreen
 
   closeWindow
@@ -55,6 +57,7 @@ createInitialResources = do
     , sideBarWidth = 175
     , keyPress = Nothing
     , mousePosition = (0, 0)
+    , leftMouseButtonPressed = False
     }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
@@ -78,6 +81,11 @@ myKeyCallback resourcesRef key state = do
 myMousePosCallback :: IORef Resources -> Position -> IO ()
 myMousePosCallback resourcesRef position =
   modifyIORef resourcesRef $ updateMousePosition position
+
+myMouseButtonCallback :: IORef Resources -> MouseButton -> KeyButtonState
+    -> IO ()
+myMouseButtonCallback resourcesRef button state = do
+  modifyIORef resourcesRef $ updateMouseButton button state
 
 drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))
     -> IO ()

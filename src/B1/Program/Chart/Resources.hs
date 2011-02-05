@@ -2,6 +2,7 @@ module B1.Program.Chart.Resources
   ( Resources (..)
   , updateKeyPress
   , updateMousePosition
+  , updateMouseButton
   , updateWindowSize
   ) where
 
@@ -17,6 +18,7 @@ data Resources = Resources
   , sideBarWidth :: GLfloat
   , keyPress :: Maybe Key
   , mousePosition :: (GLfloat, GLfloat)
+  , leftMouseButtonPressed :: Bool
   } deriving (Show, Eq)
 
 updateKeyPress :: Maybe Key -> Resources -> Resources
@@ -27,6 +29,15 @@ updateKeyPress maybeKeyPress resources = resources
 updateMousePosition :: Position -> Resources -> Resources
 updateMousePosition (Position x y) resources = resources
   { mousePosition = (fromIntegral x, fromIntegral y)
+  }
+
+updateMouseButton :: MouseButton -> KeyButtonState -> Resources -> Resources
+updateMouseButton ButtonLeft Press resources = resources
+  { leftMouseButtonPressed = True
+  }
+
+updateMouseButton _ _ resources = resources
+  { leftMouseButtonPressed = False
   }
 
 updateWindowSize :: Size -> Resources -> Resources

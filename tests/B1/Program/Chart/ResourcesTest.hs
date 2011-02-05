@@ -5,6 +5,7 @@ module B1.Program.Chart.ResourcesTest
 import Data.Maybe
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
+import Graphics.UI.GLFW
 import Test.Framework
 import qualified Test.Framework.Providers.API
 import Test.Framework.Providers.HUnit
@@ -14,9 +15,19 @@ import B1.Program.Chart.Resources
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
-  [ testCase "case_updateMousePosition" case_updateMousePosition
+  [ testCase "case_updateMouseButton" case_updateMouseButton
+  , testCase "case_updateMousePosition" case_updateMousePosition
   , testCase "case_updateWindowSize" case_updateWindowSize
   ]
+
+case_updateMouseButton :: Assertion
+case_updateMouseButton = do
+  origResources <- newResources
+  let expectedResources = origResources
+        { leftMouseButtonPressed = True
+        }
+  assertEqual "" expectedResources
+      (updateMouseButton ButtonLeft Press origResources)
 
 case_updateMousePosition :: Assertion
 case_updateMousePosition = do
@@ -51,6 +62,7 @@ newResources = do
     , sideBarWidth = 0
     , keyPress = Nothing
     , mousePosition = (0, 0)
+    , leftMouseButtonPressed = False
     }
 
 
