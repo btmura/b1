@@ -14,36 +14,43 @@ import B1.Program.Chart.Resources
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
-  [ testCase "case_updateWindowSize" case_updateWindowSize
+  [ testCase "case_updateMousePosition" case_updateMousePosition
+  , testCase "case_updateWindowSize" case_updateWindowSize
   ]
+
+case_updateMousePosition :: Assertion
+case_updateMousePosition = do
+  origResources <- newResources
+  let position = (1337, 3007)
+      glPosition = Position 1337 3007
+      expectedResources = origResources
+        { mousePosition = position
+        }
+  assertEqual "" expectedResources
+      (updateMousePosition glPosition origResources)
 
 case_updateWindowSize :: Assertion
 case_updateWindowSize = do
-  font <- createTextureFont "noSuchFont"
-  layout <- createSimpleLayout
-
+  origResources <- newResources
   let width = 1337
       height = 3007
       size = Size width height
-
-      origResources = Resources
-        { font = font
-        , layout = layout
-        , keyPress = Nothing
-        , windowWidth = 0
-        , windowHeight = 0
-        , sideBarWidth = 0
-        }
-
-      expectedResources = Resources
-        { font = font
-        , layout = layout
-        , keyPress = Nothing
-        , windowWidth = realToFrac width
+      expectedResources = origResources
+        { windowWidth = realToFrac width
         , windowHeight = realToFrac height
-        , sideBarWidth = 0
         }
- 
   assertEqual "" expectedResources (updateWindowSize size origResources) 
-  where
- 
+
+newResources :: IO Resources
+newResources = do
+  font <- createTextureFont "noSuchFont"
+  return $  Resources
+    { font = font
+    , windowWidth = 0
+    , windowHeight = 0
+    , sideBarWidth = 0
+    , keyPress = Nothing
+    , mousePosition = (0, 0)
+    }
+
+

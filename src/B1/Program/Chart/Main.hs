@@ -22,6 +22,7 @@ main = do
   resourcesRef <- createInitialResources
   windowSizeCallback $= myWindowSizeCallback resourcesRef
   keyCallback $= myKeyCallback resourcesRef
+  mousePosCallback $= myMousePosCallback resourcesRef
   drawLoop resourcesRef drawScreen
 
   closeWindow
@@ -47,14 +48,13 @@ loadTextures = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  layout <- createSimpleLayout
   newIORef Resources
     { font = font
-    , layout = layout
-    , keyPress = Nothing
     , windowWidth = 0
     , windowHeight = 0
     , sideBarWidth = 175
+    , keyPress = Nothing
+    , mousePosition = (0, 0)
     }
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
@@ -74,6 +74,10 @@ myKeyCallback :: IORef Resources -> Key -> KeyButtonState -> IO ()
 myKeyCallback resourcesRef key state = do
   let maybeKey = if state == Press then Just key else Nothing
   modifyIORef resourcesRef $ updateKeyPress maybeKey
+
+myMousePosCallback :: IORef Resources -> Position -> IO ()
+myMousePosCallback resourcesRef position =
+  modifyIORef resourcesRef $ updateMousePosition position
 
 drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))
     -> IO ()
