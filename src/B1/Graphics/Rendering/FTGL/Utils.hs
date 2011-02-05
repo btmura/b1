@@ -5,6 +5,7 @@ module B1.Graphics.Rendering.FTGL.Utils
   , Text
   , TextSpec(..)
   , boxCenter
+  , boxContains
   , boxWidth
   , boxHeight
   , measureText
@@ -14,6 +15,7 @@ module B1.Graphics.Rendering.FTGL.Utils
 import Graphics.Rendering.FTGL
 import qualified Graphics.Rendering.OpenGL as GL
 
+-- TODO: Extract Point and BoundingBox functions to separate modules.
 type Point = (GL.GLfloat, GL.GLfloat) 
 
 data BoundingBox = 
@@ -31,6 +33,10 @@ boxCenter box@(BoundingBox (left, top) _) = (centerX, centerY)
   where
     centerX = left + boxWidth box / 2
     centerY = top - boxHeight box / 2
+
+boxContains :: BoundingBox -> Point -> Bool
+boxContains box@(BoundingBox (left, top) (right, bottom)) (x, y) =
+  x >= left && x <= right && y >= top && y <= bottom
 
 dpi = 72
 

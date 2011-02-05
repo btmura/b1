@@ -76,7 +76,7 @@ myMousePosCallback resourcesRef position =
 
 myMouseButtonCallback :: IORef Resources -> MouseButton -> KeyButtonState
     -> IO ()
-myMouseButtonCallback resourcesRef button state = do
+myMouseButtonCallback resourcesRef button state =
   modifyIORef resourcesRef $ updateMouseButton button state
 
 drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))

@@ -6,6 +6,7 @@ module B1.Program.Chart.Header
   , newHeaderState
   ) where
 
+import Control.Monad
 import Data.Maybe
 import Data.Time
 import Graphics.Rendering.FTGL
@@ -53,7 +54,11 @@ newHeaderState = HeaderState
 -- | Draws header starting from the upper left corner to the bottom
 -- right corner.
 drawHeader :: Resources -> HeaderInput -> IO HeaderOutput
-drawHeader resources
+drawHeader Resources
+      { font = font
+      , mousePosition = mousePosition
+      , leftMouseButtonPressed = leftMouseButtonPressed
+      }
     HeaderInput
       { width = width
       , alpha = alpha
@@ -93,6 +98,13 @@ drawHeader resources
     translate $ vector3 (width - headerHeight / 2) (-headerHeight / 2) 0
     drawHeaderButton textHeight textHeight 0 alpha
 
+  -- TODO: Improve bounding box coordinates...
+  let addHitBox = BoundingBox (0, 0) (500, 500)
+  when (leftMouseButtonPressed
+      && alpha >= 1
+      && boxContains addHitBox mousePosition) $ 
+    putStrLn $ "Add: " ++ symbol
+
   let nextIsStatusShowing = isJust maybePrices
       nextStatusAlphaAnimation =
         (if nextIsStatusShowing then next else id) statusAlphaAnimation
@@ -108,7 +120,7 @@ drawHeader resources
     }
 
   where
-    headerTextSpec = TextSpec (font resources) 18
+    headerTextSpec = TextSpec font 18
     symbolTextSpec = headerTextSpec symbol
     statusTextSpec = headerTextSpec $ getStatus maybePrices
     padding = 10
