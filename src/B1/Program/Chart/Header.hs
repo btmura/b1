@@ -100,8 +100,8 @@ drawHeader Resources
         (-headerHeight / 2) 0
     drawHeaderButton textHeight textHeight 0 alpha
 
-  -- TODO: Improve bounding box coordinates...
-  let addHitBox = Box (0, 0) (500, 500)
+  let addHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
+          (boxRight bounds, boxTop bounds + headerHeight)
   when (leftMouseButtonPressed
       && alpha >= 1
       && boxContains addHitBox mousePosition) $ 

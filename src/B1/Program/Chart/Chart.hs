@@ -98,7 +98,7 @@ drawChart resources
     translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
 
     let headerInput = H.HeaderInput
-          { H.bounds = zeroBoxHeight bounds
+          { H.bounds = bounds
           , H.alpha = alpha
           , H.symbol = symbol
           , H.maybePrices = maybePrices

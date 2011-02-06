@@ -3,10 +3,11 @@ module B1.Graphics.Rendering.OpenGL.Box
   , boxCenter
   , boxContains
   , boxShrink
+  , boxTop
+  , boxRight
   , boxWidth
   , boxHeight
   , zeroBox
-  , zeroBoxHeight
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -32,6 +33,12 @@ boxShrink :: Box -> GLfloat -> Box
 boxShrink (Box (left, top) (right, bottom)) shrink =
   Box (left + shrink, top + shrink) (right - shrink, bottom - shrink)
 
+boxTop :: Box -> GLfloat
+boxTop (Box (_, top) (_, _)) = top
+
+boxRight :: Box -> GLfloat
+boxRight (Box (_, _) (right, _)) = right
+
 boxWidth :: Box -> GLfloat
 boxWidth (Box (left, _) (right, _)) = abs $ right - left
 
@@ -41,5 +48,3 @@ boxHeight (Box (_, top) (_, bottom)) = abs $ bottom - top
 zeroBox :: Box
 zeroBox = Box (0, 0) (0, 0)
 
-zeroBoxHeight :: Box -> Box
-zeroBoxHeight (Box (left, _) (right, _)) = Box (left, 0) (right, 0)
