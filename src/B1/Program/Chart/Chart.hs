@@ -22,6 +22,7 @@ import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Range
 import B1.Graphics.Rendering.FTGL.Utils
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -33,8 +34,7 @@ import B1.Program.Chart.Symbol
 import qualified B1.Program.Chart.Header as H
 
 data ChartInput = ChartInput
-  { width :: GLfloat
-  , height :: GLfloat
+  { bounds :: Box
   , alpha :: GLfloat
   , symbol :: Symbol
   , inputState :: ChartState
@@ -82,8 +82,7 @@ getEndDate = do
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources
     ChartInput
-      { width = width
-      , height = height
+      { bounds = bounds
       , alpha = alpha
       , symbol = symbol
       , inputState = inputState@ChartState
@@ -96,10 +95,10 @@ drawChart resources
 
   preservingMatrix $ do
     -- Start from the upper left corner
-    translate $ vector3 (-(width / 2)) (height / 2) 0
+    translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
 
     let headerInput = H.HeaderInput
-          { H.width = width
+          { H.bounds = zeroBoxHeight bounds
           , H.alpha = alpha
           , H.symbol = symbol
           , H.maybePrices = maybePrices
@@ -116,7 +115,7 @@ drawChart resources
 
     -- Draw a line under the header
     translate $ vector3 0 (-headerHeight) 0
-    drawDivider width alpha
+    drawDivider (boxWidth bounds) alpha
 
     let outputState = inputState { headerState = outputHeaderState }
         isDirty = isPricesDirty || isHeaderDirty

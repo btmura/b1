@@ -28,7 +28,7 @@ import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 
 data HeaderInput = HeaderInput
-  { width :: GLfloat
+  { bounds :: Box
   , alpha :: GLfloat
   , symbol :: Symbol
   , maybePrices :: Maybe Prices
@@ -61,7 +61,7 @@ drawHeader Resources
       , leftMouseButtonPressed = leftMouseButtonPressed
       }
     HeaderInput
-      { width = width
+      { bounds = bounds
       , alpha = alpha
       , symbol = symbol
       , maybePrices = maybePrices
@@ -96,7 +96,8 @@ drawHeader Resources
     renderText statusTextSpec
 
   preservingMatrix $ do
-    translate $ vector3 (width - headerHeight / 2) (-headerHeight / 2) 0
+    translate $ vector3 (boxWidth bounds - headerHeight / 2)
+        (-headerHeight / 2) 0
     drawHeaderButton textHeight textHeight 0 alpha
 
   -- TODO: Improve bounding box coordinates...

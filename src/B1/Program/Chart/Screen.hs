@@ -5,6 +5,7 @@ module B1.Program.Chart.Screen
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Action
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Dirty
@@ -17,8 +18,7 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen = drawScreenLoop
     S.SideBarInput
     F.FrameInput
-      { F.width = 0
-      , F.height = 0
+      { F.bounds = zeroBox
       , F.inputState = F.newFrameState
       } 
 
@@ -40,9 +40,11 @@ drawScreenLoop sideBarInput frameInput resources = do
   return (Action (drawScreenLoop S.SideBarInput nextFrameInput), nextDirty)
 
   where
+    frameLeft = sideBarWidth resources
+    frameRight = frameLeft + mainFrameWidth resources
+    frameBottom = mainFrameHeight resources
     revisedFrameInput = frameInput
-      { F.width = mainFrameWidth resources
-      , F.height = mainFrameHeight resources
+      { F.bounds = Box (frameLeft, 0) (frameRight, frameBottom)
       }
 
     frameTranslateX = sideBarWidth resources + mainFrameWidth resources / 2
@@ -53,5 +55,3 @@ mainFrameWidth resources = windowWidth resources - sideBarWidth resources
 
 mainFrameHeight :: Resources -> GLfloat
 mainFrameHeight = windowHeight
-
-

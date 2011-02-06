@@ -30,8 +30,7 @@ import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.Instructions as I
 
 data FrameInput = FrameInput
-  { width :: GLfloat
-  , height :: GLfloat
+  { bounds :: Box
   , inputState :: FrameState
   }
 
@@ -139,28 +138,23 @@ drawFrame resources frameInput
 drawFrameContent :: Resources -> FrameInput -> Content -> GLfloat
     -> IO (Content, Dirty)
 
-drawFrameContent resources FrameInput { width = width } Instructions alpha = do
+drawFrameContent resources FrameInput { bounds = bounds }
+    Instructions alpha = do
   output <- I.drawInstructions resources input
   return $ (Instructions, I.isDirty output)
   where
     input = I.InstructionsInput
-      { I.width = width
+      { I.bounds = bounds
       , I.alpha = alpha
       }
 
-drawFrameContent resources
-    FrameInput
-      { width = width
-      , height = height
-     }
-    (Chart symbol state)
-    alpha = do
+drawFrameContent resources FrameInput { bounds = bounds }
+    (Chart symbol state) alpha = do
   output <- C.drawChart resources input
   return $ (Chart symbol (C.outputState output), C.isDirty output)
   where
     input = C.ChartInput
-      { C.width = width - contentPadding
-      , C.height = height - contentPadding
+      { C.bounds = boxShrink bounds contentPadding
       , C.alpha = alpha
       , C.symbol = symbol
       , C.inputState = state
@@ -241,20 +235,16 @@ newPreviousFrame (Just frame) = Just $ frame
   , alphaAnimation = outgoingAlphaAnimation
   }
 
-contentPadding = 10::GLfloat
+contentPadding = 5::GLfloat -- ^ Padding on one side.
 cornerRadius = 10::GLfloat
 cornerVertices = 5::Int
 
 drawFrameBorder :: Resources -> FrameInput -> IO ()
-drawFrameBorder resources
-    FrameInput
-      { width = maxWidth
-      , height = maxHeight
-      } =
+drawFrameBorder resources FrameInput { bounds = bounds } =
   drawRoundedRectangle width height cornerRadius cornerVertices
   where
-     width = maxWidth - contentPadding
-     height = maxHeight - contentPadding
+     width = boxWidth bounds - contentPadding * 2
+     height = boxHeight bounds - contentPadding * 2
 
 drawNextSymbol :: Resources -> FrameInput -> IO ()
 drawNextSymbol _

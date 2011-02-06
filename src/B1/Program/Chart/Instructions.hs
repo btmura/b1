@@ -15,7 +15,7 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 data InstructionsInput = InstructionsInput
-  { width :: GLfloat
+  { bounds :: Box
   , alpha :: GLfloat
   }
 
@@ -24,16 +24,13 @@ data InstructionsOutput = InstructionsOutput
   }
 
 drawInstructions :: Resources -> InstructionsInput -> IO InstructionsOutput
-drawInstructions resources
-    InstructionsInput
-      { width = width
-      , alpha = alpha
-      } = do
+drawInstructions Resources { font = font }
+    InstructionsInput { alpha = alpha } = do
 
   color $ green alpha
 
-  boundingBox <- measureText textSpec
-  let (centerX, centerY) = boxCenter boundingBox
+  textBounds <- measureText textSpec
+  let (centerX, centerY) = boxCenter textBounds
   preservingMatrix $ do 
     translate $ vector3 (-centerX) (-centerY) 0
     renderText textSpec
@@ -41,5 +38,5 @@ drawInstructions resources
   return $ InstructionsOutput { isDirty = False }
 
   where
-    textSpec = TextSpec (font resources) 18 "Type in symbol and press ENTER..."
+    textSpec = TextSpec font 18 "Type in symbol and press ENTER..."
 
