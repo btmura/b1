@@ -40,10 +40,21 @@ createWindow = do
 
 loadTextures :: IO ()
 loadTextures = do
-  textureBinding Texture2D $= Just (TextureObject 0)
+  mapM_ (uncurry bindTexture) (zip [0 ..] fileNames)
+  texture Texture2D $= Disabled
+  where
+    fileNames =
+      [ "res/add-normal.tga"
+      , "res/add-hover.tga"
+      , "res/add-press.tga"
+      ]
+
+bindTexture :: Int -> String -> IO ()
+bindTexture textureNumber fileName = do
+  textureBinding Texture2D $= Just (TextureObject (fromIntegral textureNumber))
   textureFilter Texture2D $= ((Linear', Nothing), Linear')
-  addLoadResult <- loadTexture2D "res/add.tga" [BuildMipMaps]
-  putStrLn $ "Loading texture 0: " ++ show addLoadResult
+  loadResult <- loadTexture2D fileName [BuildMipMaps]
+  putStrLn $ "Loading texture " ++ fileName ++ ": " ++ show loadResult
 
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.

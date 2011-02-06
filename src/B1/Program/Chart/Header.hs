@@ -95,17 +95,22 @@ drawHeader Resources
     color $ green $ min alpha statusAlpha
     renderText statusTextSpec
 
+  -- TODO: Improve texture choosing...
+  let addHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
+          (boxRight bounds, boxTop bounds + headerHeight)
+      addButtonHover = alpha >= 1 && boxContains addHitBox mousePosition
+      addButtonClicked = addButtonHover && leftMouseButtonPressed
+      addTextureNumber = if addButtonClicked
+          then 2
+          else if addButtonHover then 1 else 0
+
   preservingMatrix $ do
     translate $ vector3 (boxWidth bounds - headerHeight / 2)
         (-headerHeight / 2) 0
-    drawHeaderButton textHeight textHeight 0 alpha
+    drawHeaderButton headerHeight headerHeight addTextureNumber alpha
 
-  let addHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
-          (boxRight bounds, boxTop bounds + headerHeight)
-  when (leftMouseButtonPressed
-      && alpha >= 1
-      && boxContains addHitBox mousePosition) $ 
-    putStrLn $ "Add: " ++ symbol
+  when addButtonClicked $
+     putStrLn $ "Add: " ++ symbol
 
   let nextIsStatusShowing = isJust maybePrices
       nextStatusAlphaAnimation =
