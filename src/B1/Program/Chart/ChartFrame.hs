@@ -17,6 +17,7 @@ import B1.Data.Action
 import B1.Data.Range
 import B1.Data.Price.Google
 import B1.Graphics.Rendering.FTGL.Utils
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation

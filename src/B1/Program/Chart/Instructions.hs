@@ -8,6 +8,7 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 
 import B1.Graphics.Rendering.FTGL.Utils
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty

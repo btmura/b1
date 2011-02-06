@@ -18,6 +18,7 @@ import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Range
 import B1.Graphics.Rendering.FTGL.Utils
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -70,13 +71,13 @@ drawHeader Resources
         }
       } = do
 
-  symbolBoundingBox <- measureText symbolTextSpec
-  statusBoundingBox <- measureText statusTextSpec
+  symbolBox <- measureText symbolTextSpec
+  statusBox <- measureText statusTextSpec
 
-  let symbolWidth = boxWidth symbolBoundingBox
-      symbolHeight = boxHeight symbolBoundingBox
+  let symbolWidth = boxWidth symbolBox
+      symbolHeight = boxHeight symbolBox
 
-      statusHeight = boxHeight symbolBoundingBox
+      statusHeight = boxHeight symbolBox
       statusAlpha = fst $ current statusAlphaAnimation
 
       textHeight = max symbolHeight statusHeight
@@ -99,7 +100,7 @@ drawHeader Resources
     drawHeaderButton textHeight textHeight 0 alpha
 
   -- TODO: Improve bounding box coordinates...
-  let addHitBox = BoundingBox (0, 0) (500, 500)
+  let addHitBox = Box (0, 0) (500, 500)
   when (leftMouseButtonPressed
       && alpha >= 1
       && boxContains addHitBox mousePosition) $ 
