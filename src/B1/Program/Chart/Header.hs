@@ -39,6 +39,7 @@ data HeaderOutput = HeaderOutput
   { outputState :: HeaderState
   , isDirty :: Dirty
   , height :: GLfloat
+  , addedSymbol :: Maybe Symbol
   }
 
 data HeaderState = HeaderState
@@ -109,9 +110,6 @@ drawHeader Resources
         (-headerHeight / 2) 0
     drawHeaderButton headerHeight headerHeight addTextureNumber alpha
 
-  when addButtonClicked $
-     putStrLn $ "Add: " ++ symbol
-
   let nextIsStatusShowing = isJust maybePrices
       nextStatusAlphaAnimation =
         (if nextIsStatusShowing then next else id) statusAlphaAnimation
@@ -119,11 +117,14 @@ drawHeader Resources
         { isStatusShowing = nextIsStatusShowing
         , statusAlphaAnimation = nextStatusAlphaAnimation
         }
+      nextIsDirty = snd $ current nextStatusAlphaAnimation
+      nextAddedSymbol = if addButtonClicked then Just symbol else Nothing
 
   return HeaderOutput
     { outputState = outputState
-    , isDirty = snd $ current nextStatusAlphaAnimation
+    , isDirty = nextIsDirty
     , height = headerHeight
+    , addedSymbol = nextAddedSymbol
     }
 
   where

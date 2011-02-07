@@ -43,6 +43,7 @@ data ChartInput = ChartInput
 data ChartOutput = ChartOutput
   { outputState :: ChartState
   , isDirty :: Dirty
+  , addedSymbol :: Maybe Symbol
   }
 
 data ChartState = ChartState
@@ -111,6 +112,7 @@ drawChart resources
           { H.outputState = outputHeaderState
           , H.isDirty = isHeaderDirty
           , H.height = headerHeight
+          , H.addedSymbol = addedSymbol
           } = headerOutput
 
     -- Draw a line under the header
@@ -122,6 +124,7 @@ drawChart resources
     return ChartOutput
       { outputState = outputState
       , isDirty = isDirty
+      , addedSymbol = addedSymbol
       }
 
 getPrices :: MVar Prices -> IO (Maybe Prices)

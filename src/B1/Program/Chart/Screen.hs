@@ -17,6 +17,9 @@ import qualified B1.Program.Chart.SideBar as S
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen = drawScreenLoop
     S.SideBarInput
+      { S.newSymbol = Nothing
+      , S.inputState = S.newSideBarState
+      }
     F.FrameInput
       { F.bounds = zeroBox
       , F.inputState = F.newFrameState
@@ -35,9 +38,14 @@ drawScreenLoop sideBarInput frameInput resources = do
     F.drawChartFrame resources revisedFrameInput
 
   let nextSideBarInput = sideBarInput
-      nextFrameInput = frameInput { F.inputState = F.outputState frameOutput }
+        { S.newSymbol = F.addedSymbol frameOutput
+        , S.inputState = S.outputState sideBarOutput
+        }
+      nextFrameInput = frameInput
+        { F.inputState = F.outputState frameOutput
+        }
       nextDirty =  S.isDirty sideBarOutput || F.isDirty frameOutput
-  return (Action (drawScreenLoop S.SideBarInput nextFrameInput), nextDirty)
+  return (Action (drawScreenLoop nextSideBarInput nextFrameInput), nextDirty)
 
   where
     frameLeft = sideBarWidth resources

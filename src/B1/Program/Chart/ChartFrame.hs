@@ -37,6 +37,7 @@ data FrameInput = FrameInput
 data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
+  , addedSymbol :: Maybe Symbol
   }
 
 data FrameState = FrameState
@@ -89,8 +90,10 @@ drawChartFrame resources frameInput@FrameInput { inputState = state } = do
 
   drawNextSymbol resources revisedFrameInput 
 
-  let (nextCurrentFrame, isCurrentContentDirty) = maybeNextCurrentFrameState
-      (nextPreviousFrame, isPreviousContentDirty) = maybeNextPreviousFrameState
+  let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol) =
+          maybeNextCurrentFrameState
+      (nextPreviousFrame, isPreviousContentDirty, _) =
+          maybeNextPreviousFrameState
       nextState = refreshFrameAnimations resources $ midState
         { currentFrame = nextCurrentFrame
         , previousFrame = nextPreviousFrame
@@ -104,6 +107,7 @@ drawChartFrame resources frameInput@FrameInput { inputState = state } = do
   return FrameOutput
     { outputState = nextState
     , isDirty = nextDirty
+    , addedSymbol = nextAddedSymbol
     } 
 
 -- TODO: Check if the Chart's MVar is empty...
@@ -114,9 +118,9 @@ isDirtyFrame (Frame
     }) = any (snd . current) [scaleAnimation, alphaAnimation]
 
 drawFrame :: Resources -> FrameInput -> Maybe Frame
-    -> IO (Maybe Frame, Dirty)
+    -> IO (Maybe Frame, Dirty, Maybe Symbol)
 
-drawFrame resources _ Nothing = return (Nothing, False)
+drawFrame resources _ Nothing = return (Nothing, False, Nothing)
 
 drawFrame resources frameInput 
     (Just frame@Frame
@@ -128,20 +132,20 @@ drawFrame resources frameInput
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
     drawFrameBorder resources frameInput
-    (nextContent, isDirty) <- drawFrameContent resources frameInput
-        content alphaAmount
-    return (Just frame { content = nextContent }, isDirty)
+    (nextContent, isDirty, addedSymbol) <- drawFrameContent resources
+        frameInput content alphaAmount
+    return (Just frame { content = nextContent }, isDirty, addedSymbol)
   where
     scaleAmount = fst . current $ scaleAnimation
     alphaAmount = fst . current $ alphaAnimation
 
 drawFrameContent :: Resources -> FrameInput -> Content -> GLfloat
-    -> IO (Content, Dirty)
+    -> IO (Content, Dirty, Maybe Symbol)
 
 drawFrameContent resources FrameInput { bounds = bounds }
     Instructions alpha = do
   output <- I.drawInstructions resources input
-  return $ (Instructions, I.isDirty output)
+  return $ (Instructions, I.isDirty output, Nothing)
   where
     input = I.InstructionsInput
       { I.bounds = bounds
@@ -151,7 +155,8 @@ drawFrameContent resources FrameInput { bounds = bounds }
 drawFrameContent resources FrameInput { bounds = bounds }
     (Chart symbol state) alpha = do
   output <- C.drawChart resources input
-  return $ (Chart symbol (C.outputState output), C.isDirty output)
+  return $ (Chart symbol (C.outputState output), C.isDirty output,
+      C.addedSymbol output)
   where
     input = C.ChartInput
       { C.bounds = boxShrink bounds contentPadding
