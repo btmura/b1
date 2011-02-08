@@ -17,7 +17,8 @@ import qualified B1.Program.Chart.SideBar as S
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen = drawScreenLoop
     S.SideBarInput
-      { S.newSymbol = Nothing
+      { S.bounds = zeroBox
+      , S.newSymbol = Nothing
       , S.inputState = S.newSideBarState
       }
     F.FrameInput
@@ -30,12 +31,11 @@ drawScreenLoop :: S.SideBarInput -> F.FrameInput
 drawScreenLoop sideBarInput frameInput resources = do
   loadIdentity
 
-  sideBarOutput <- preservingMatrix $ do
-    S.drawSideBar resources sideBarInput
+  sideBarOutput <- preservingMatrix $
+    S.drawSideBar resources sideBarInputWithBounds
 
-  frameOutput <- preservingMatrix $ do
-    translate $ vector3 frameTranslateX frameTranslateY 0
-    F.drawChartFrame resources revisedFrameInput
+  frameOutput <- preservingMatrix $
+    F.drawChartFrame resources frameInputWithBounds
 
   let nextSideBarInput = sideBarInput
         { S.newSymbol = F.addedSymbol frameOutput
@@ -48,18 +48,19 @@ drawScreenLoop sideBarInput frameInput resources = do
   return (Action (drawScreenLoop nextSideBarInput nextFrameInput), nextDirty)
 
   where
-    frameLeft = sideBarWidth resources
-    frameRight = frameLeft + mainFrameWidth resources
-    frameBottom = mainFrameHeight resources
-    revisedFrameInput = frameInput
-      { F.bounds = Box (frameLeft, 0) (frameRight, frameBottom)
+    height = windowHeight resources
+
+    sideBarRight = sideBarWidth resources
+    sideBarInputWithBounds = sideBarInput
+      { S.bounds = Box (0, 0) (sideBarRight, height)
       }
 
-    frameTranslateX = sideBarWidth resources + mainFrameWidth resources / 2
-    frameTranslateY = mainFrameHeight resources / 2
+    frameLeft = sideBarWidth resources
+    frameRight = frameLeft + mainFrameWidth resources
+    frameInputWithBounds = frameInput
+      { F.bounds = Box (frameLeft, 0) (frameRight, height)
+      }
 
 mainFrameWidth :: Resources -> GLfloat
 mainFrameWidth resources = windowWidth resources - sideBarWidth resources
 
-mainFrameHeight :: Resources -> GLfloat
-mainFrameHeight = windowHeight

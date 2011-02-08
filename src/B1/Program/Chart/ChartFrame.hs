@@ -122,13 +122,15 @@ drawFrame :: Resources -> FrameInput -> Maybe Frame
 
 drawFrame resources _ Nothing = return (Nothing, False, Nothing)
 
-drawFrame resources frameInput 
+drawFrame resources
+    frameInput@FrameInput { bounds = bounds }
     (Just frame@Frame
       { content = content
       , scaleAnimation = scaleAnimation
       , alphaAnimation = alphaAnimation
       }) = 
   preservingMatrix $ do
+    translateToCenter bounds
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
     drawFrameBorder resources frameInput
@@ -255,7 +257,10 @@ drawNextSymbol :: Resources -> FrameInput -> IO ()
 drawNextSymbol _
     FrameInput { inputState = FrameState { nextSymbol = "" } } = return ()
 drawNextSymbol resources
-    FrameInput { inputState = FrameState { nextSymbol = nextSymbol } } = do
+    FrameInput
+      { bounds = bounds
+      , inputState = FrameState { nextSymbol = nextSymbol }
+      } = do
 
   boundingBox <- measureText textSpec
   let textBubbleWidth = boxWidth boundingBox + textBubblePadding * 2
@@ -263,6 +268,8 @@ drawNextSymbol resources
       (centerX, centerY) = boxCenter boundingBox
 
   preservingMatrix $ do 
+    translateToCenter bounds
+
     -- Disable blending or else the background won't work.
     blend $= Disabled
 

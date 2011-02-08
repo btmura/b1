@@ -9,6 +9,7 @@ module B1.Program.Chart.SideBar
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
+import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Dirty
@@ -16,7 +17,8 @@ import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 
 data SideBarInput = SideBarInput
-  { newSymbol :: Maybe Symbol
+  { bounds :: Box
+  , newSymbol :: Maybe Symbol
   , inputState :: SideBarState
   }
 
@@ -39,7 +41,8 @@ drawSideBar
       , sideBarWidth = sideBarWidth
       }
     SideBarInput
-      { newSymbol = newSymbol
+      { bounds = bounds
+      , newSymbol = newSymbol
       , inputState = SideBarState { symbols = currentSymbols }
       } = do
   loadIdentity
