@@ -242,6 +242,7 @@ newPreviousFrame (Just frame) = Just $ frame
   , alphaAnimation = outgoingAlphaAnimation
   }
 
+-- TODO: Share this globally...
 contentPadding = 5::GLfloat -- ^ Padding on one side.
 cornerRadius = 10::GLfloat
 cornerVertices = 5::Int

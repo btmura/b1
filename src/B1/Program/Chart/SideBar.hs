@@ -12,6 +12,7 @@ import Graphics.Rendering.OpenGL
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
@@ -45,13 +46,12 @@ drawSideBar
       , newSymbol = newSymbol
       , inputState = SideBarState { symbols = currentSymbols }
       } = do
-  loadIdentity
-
-  let sideBarHeight = realToFrac windowHeight
-  translate $ vector3 (sideBarWidth / 2) (sideBarHeight / 2) 0
-  scale3 (sideBarWidth / 2) (sideBarHeight / 2) 1
-  color $ color4 0 0 1 0.5
-  drawSquarePlaceholder
+  preservingMatrix $ do
+    loadIdentity
+    translate $ vector3 (boxWidth bounds / 2 + padding / 2)
+        (boxHeight bounds - padding - summaryHeight / 2) 0
+    color $ blue 1
+    drawRoundedRectangle summaryWidth summaryHeight cornerRadius cornerVertices
 
   let nextSymbols = currentSymbols ++ catMaybes [newSymbol]
       nextState = SideBarState
@@ -61,4 +61,10 @@ drawSideBar
     { isDirty = False
     , outputState = nextState
     }
+  where
+    padding = 5
+    summaryWidth = boxWidth bounds - padding * 2
+    summaryHeight = 100
+    cornerRadius = 10
+    cornerVertices = 5
 
