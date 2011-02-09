@@ -75,7 +75,7 @@ drawSideBar
         { symbols = newSymbols
         }
   return SideBarOutput
-    { isDirty = False
+    { isDirty = isJust newSymbol
     , outputState = nextState
     }
   where

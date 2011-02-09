@@ -28,7 +28,11 @@ drawScreen = drawScreenLoop
 
 drawScreenLoop :: S.SideBarInput -> F.FrameInput
     -> Resources -> IO (Action Resources Dirty, Dirty)
-drawScreenLoop sideBarInput frameInput resources = do
+drawScreenLoop
+    sideBarInput@S.SideBarInput
+      { S.inputState = S.SideBarState { S.symbols = symbols }
+      }
+    frameInput resources = do
   loadIdentity
 
   sideBarOutput <- preservingMatrix $
@@ -48,17 +52,18 @@ drawScreenLoop sideBarInput frameInput resources = do
   return (Action (drawScreenLoop nextSideBarInput nextFrameInput), nextDirty)
 
   where
-    sideBarWidth = 150
+    sideBarWidth =
+      case symbols of
+        [] -> 0
+        _ -> 150
+
     height = windowHeight resources
 
-    sideBarRight = sideBarWidth 
     sideBarInputWithBounds = sideBarInput
-      { S.bounds = Box (0, 0) (sideBarRight, height)
+      { S.bounds = Box (0, 0) (sideBarWidth, height)
       }
 
-    frameLeft = sideBarWidth
-    frameRight = frameLeft + windowWidth resources - sideBarWidth
     frameInputWithBounds = frameInput
-      { F.bounds = Box (frameLeft, 0) (frameRight, height)
+      { F.bounds = Box (sideBarWidth, 0) (windowWidth resources, height)
       }
 
