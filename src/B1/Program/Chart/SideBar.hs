@@ -9,6 +9,7 @@ module B1.Program.Chart.SideBar
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
@@ -38,7 +39,8 @@ newSideBarState  = SideBarState { symbols = [] }
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
 drawSideBar
     Resources 
-      { windowHeight = windowHeight
+      { font = font
+      , windowHeight = windowHeight
       , sideBarWidth = sideBarWidth
       }
     SideBarInput
@@ -46,16 +48,32 @@ drawSideBar
       , newSymbol = newSymbol
       , inputState = SideBarState { symbols = currentSymbols }
       } = do
+  let newSymbols = currentSymbols ++ catMaybes [newSymbol]
+
   preservingMatrix $ do
     loadIdentity
     translate $ vector3 (boxWidth bounds / 2 + padding / 2)
         (boxHeight bounds - padding - summaryHeight / 2) 0
-    color $ blue 1
-    drawRoundedRectangle summaryWidth summaryHeight cornerRadius cornerVertices
 
-  let nextSymbols = currentSymbols ++ catMaybes [newSymbol]
-      nextState = SideBarState
-        { symbols = nextSymbols
+    mapM_ (\symbol -> do
+      color $ green 1
+      let textSpec = TextSpec font 10 symbol
+          headerPadding = 10
+      textBounds <- measureText textSpec
+      preservingMatrix $ do
+        translate $ vector3 (-summaryWidth / 2 + headerPadding)
+          (summaryHeight / 2 - boxHeight textBounds - headerPadding) 0
+        renderText textSpec
+
+      color $ blue 1
+      drawRoundedRectangle summaryWidth summaryHeight cornerRadius
+          cornerVertices
+
+      translate $ vector3 0 (-summaryHeight - padding) 0
+      ) newSymbols
+
+  let nextState = SideBarState
+        { symbols = newSymbols
         }
   return SideBarOutput
     { isDirty = False
