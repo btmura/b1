@@ -20,7 +20,7 @@ import B1.Program.Chart.Symbol
 
 data SideBarInput = SideBarInput
   { bounds :: Box
-  , newSymbol :: Maybe Symbol
+  , maybeNewSymbol :: Maybe Symbol
   , inputState :: SideBarState
   }
 
@@ -44,10 +44,11 @@ drawSideBar
       }
     SideBarInput
       { bounds = bounds
-      , newSymbol = newSymbol
+      , maybeNewSymbol = maybeNewSymbol
       , inputState = SideBarState { symbols = currentSymbols }
       } = do
-  let newSymbols = currentSymbols ++ catMaybes [newSymbol]
+
+  let newSymbols = refreshSymbols currentSymbols maybeNewSymbol
 
   preservingMatrix $ do
     loadIdentity
@@ -75,7 +76,7 @@ drawSideBar
         { symbols = newSymbols
         }
   return SideBarOutput
-    { isDirty = isJust newSymbol
+    { isDirty = isJust maybeNewSymbol
     , outputState = nextState
     }
   where
@@ -84,4 +85,15 @@ drawSideBar
     summaryHeight = 100
     cornerRadius = 10
     cornerVertices = 5
+
+refreshSymbols :: [Symbol] -> Maybe Symbol -> [Symbol]
+refreshSymbols currentSymbols maybeSymbol
+  | alreadyAdded = currentSymbols
+  | otherwise = currentSymbols ++ catMaybes [maybeSymbol]
+  where
+    alreadyAdded =
+      case maybeSymbol of
+        Just symbol -> any (== symbol) currentSymbols
+        _ -> False
+
 

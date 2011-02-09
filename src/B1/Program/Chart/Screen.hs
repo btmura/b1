@@ -18,7 +18,7 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen = drawScreenLoop
     S.SideBarInput
       { S.bounds = zeroBox
-      , S.newSymbol = Nothing
+      , S.maybeNewSymbol = Nothing
       , S.inputState = S.newSideBarState
       }
     F.FrameInput
@@ -42,7 +42,7 @@ drawScreenLoop
     F.drawChartFrame resources frameInputWithBounds
 
   let nextSideBarInput = sideBarInput
-        { S.newSymbol = F.addedSymbol frameOutput
+        { S.maybeNewSymbol = F.addedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput
