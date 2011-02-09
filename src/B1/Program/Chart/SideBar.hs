@@ -41,7 +41,6 @@ drawSideBar
     Resources 
       { font = font
       , windowHeight = windowHeight
-      , sideBarWidth = sideBarWidth
       }
     SideBarInput
       { bounds = bounds

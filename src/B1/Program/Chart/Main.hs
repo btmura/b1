@@ -61,7 +61,7 @@ bindTexture textureNumber fileName = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  newIORef $ (newResources font) { sideBarWidth = 175 }
+  newIORef $ newResources font
 
 myWindowSizeCallback :: IORef Resources -> Size -> IO ()
 myWindowSizeCallback resourcesRef size@(Size width height) = do

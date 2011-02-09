@@ -59,7 +59,6 @@ createResources = do
     { font = font
     , windowWidth = 0
     , windowHeight = 0
-    , sideBarWidth = 0
     , keyPress = Nothing
     , mousePosition = (0, 0)
     , leftMouseButtonPressed = False

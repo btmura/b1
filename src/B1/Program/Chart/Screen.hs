@@ -48,19 +48,17 @@ drawScreenLoop sideBarInput frameInput resources = do
   return (Action (drawScreenLoop nextSideBarInput nextFrameInput), nextDirty)
 
   where
+    sideBarWidth = 150
     height = windowHeight resources
 
-    sideBarRight = sideBarWidth resources
+    sideBarRight = sideBarWidth 
     sideBarInputWithBounds = sideBarInput
       { S.bounds = Box (0, 0) (sideBarRight, height)
       }
 
-    frameLeft = sideBarWidth resources
-    frameRight = frameLeft + mainFrameWidth resources
+    frameLeft = sideBarWidth
+    frameRight = frameLeft + windowWidth resources - sideBarWidth
     frameInputWithBounds = frameInput
       { F.bounds = Box (frameLeft, 0) (frameRight, height)
       }
-
-mainFrameWidth :: Resources -> GLfloat
-mainFrameWidth resources = windowWidth resources - sideBarWidth resources
 

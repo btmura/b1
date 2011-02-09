@@ -16,7 +16,6 @@ data Resources = Resources
   { font :: Font
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
-  , sideBarWidth :: GLfloat
   , keyPress :: Maybe Key
   , mousePosition :: (GLfloat, GLfloat)
   , leftMouseButtonPressed :: Bool
@@ -27,7 +26,6 @@ newResources font = Resources
   { font = font
   , windowWidth = 0
   , windowHeight = 0
-  , sideBarWidth = 0
   , keyPress = Nothing
   , mousePosition = (0, 0)
   , leftMouseButtonPressed = False
