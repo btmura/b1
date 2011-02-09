@@ -53,12 +53,11 @@ drawSideBar
   preservingMatrix $ do
     loadIdentity
     translate $ vector3 (boxWidth bounds / 2 + padding / 2)
-        (boxHeight bounds - padding - summaryHeight / 2) 0
+        (boxHeight bounds - topPadding - summaryHeight / 2) 0
 
     mapM_ (\symbol -> do
       color $ green 1
       let textSpec = TextSpec font 10 symbol
-          headerPadding = 10
       textBounds <- measureText textSpec
       preservingMatrix $ do
         translate $ vector3 (-summaryWidth / 2 + headerPadding)
@@ -80,10 +79,12 @@ drawSideBar
     , outputState = nextState
     }
   where
+    topPadding = 10
     padding = 5
+    headerPadding = 5
     summaryWidth = boxWidth bounds - padding * 2
     summaryHeight = 100
-    cornerRadius = 10
+    cornerRadius = 5
     cornerVertices = 5
 
 refreshSymbols :: [Symbol] -> Maybe Symbol -> [Symbol]
