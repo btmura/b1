@@ -185,27 +185,35 @@ nextFrame (Just frame) = Just $ frame
   }
 
 refreshSymbolState :: Resources -> FrameState -> IO FrameState
+refreshSymbolState resources
+  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey 
+  | checkKeyPress (SpecialKey ENTER) = handleEnterKey 
+  | checkKeyPress (SpecialKey ESC) = handleEscapeKey 
+  | isJust maybeLetterKey = handleCharKey $ fromJust maybeLetterKey
+  | otherwise = handleNoKey
+  where
+    checkKeyPress = isKeyPressed resources
+    maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
 -- Append to the next symbol if the key is just a character...
-refreshSymbolState (Resources { keyPress = Just (CharKey char) })
-    state@FrameState { nextSymbol = nextSymbol }
+handleCharKey :: Key -> FrameState -> IO FrameState
+handleCharKey (CharKey char) state@FrameState { nextSymbol = nextSymbol }
   | isAlpha char = return $ state { nextSymbol = nextSymbol ++ [char] }
   | otherwise = return state
+handleCharKey _ state = return state
 
 -- BACKSPACE deletes one character in a symbol...
-refreshSymbolState (Resources { keyPress = Just (SpecialKey BACKSPACE) })
-    state@FrameState { nextSymbol = nextSymbol }
+handleBackspaceKey state@FrameState { nextSymbol = nextSymbol }
   | length nextSymbol < 1 = return state
   | otherwise = return state { nextSymbol = trimmedSymbol }
   where
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
 
 -- ENTER makes the next symbol the current symbol.
-refreshSymbolState (Resources { keyPress = Just (SpecialKey ENTER) })
-    state@FrameState
-      { nextSymbol = nextSymbol
-      , currentFrame = currentFrame
-      }
+handleEnterKey state@FrameState
+    { nextSymbol = nextSymbol
+    , currentFrame = currentFrame
+    }
   | nextSymbol == "" = return state
   | otherwise = do
     chartContent <- newChartContent nextSymbol
@@ -217,11 +225,9 @@ refreshSymbolState (Resources { keyPress = Just (SpecialKey ENTER) })
       }
 
 -- ESC cancels the next symbol.
-refreshSymbolState (Resources { keyPress = Just (SpecialKey ESC) })
-    state = return state { nextSymbol = "" }
+handleEscapeKey state = return state { nextSymbol = "" }
 
--- Drop all other events.
-refreshSymbolState _ state = return state
+handleNoKey state = return state
 
 newChartContent :: Symbol -> IO Content
 newChartContent symbol = do

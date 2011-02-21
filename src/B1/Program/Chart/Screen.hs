@@ -30,7 +30,7 @@ drawScreenLoop :: S.SideBarInput -> F.FrameInput
     -> Resources -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop
     sideBarInput@S.SideBarInput
-      { S.inputState = S.SideBarState { S.symbols = symbols }
+      { S.inputState = S.SideBarState { S.slots = slots }
       }
     frameInput resources = do
   loadIdentity
@@ -53,17 +53,17 @@ drawScreenLoop
 
   where
     sideBarWidth =
-      case symbols of
+      case slots of
         [] -> 0
         _ -> 150
 
     height = windowHeight resources
 
     sideBarInputWithBounds = sideBarInput
-      { S.bounds = Box (0, 0) (sideBarWidth, height)
+      { S.bounds = Box (0, height) (sideBarWidth, 0)
       }
 
     frameInputWithBounds = frameInput
-      { F.bounds = Box (sideBarWidth, 0) (windowWidth resources, height)
+      { F.bounds = Box (sideBarWidth, height) (windowWidth resources, 0)
       }
 

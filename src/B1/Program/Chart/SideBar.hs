@@ -18,6 +18,8 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Symbol
 
+import qualified B1.Program.Chart.MiniChart as M
+
 data SideBarInput = SideBarInput
   { bounds :: Box
   , maybeNewSymbol :: Maybe Symbol
@@ -30,71 +32,73 @@ data SideBarOutput = SideBarOutput
   }
 
 data SideBarState = SideBarState
-  { symbols :: [Symbol]
+  { slots :: [Slot]
   }
 
+data Slot = Slot
+  { slotBounds :: Box
+  , symbol :: Symbol
+  , miniChartState :: M.MiniChartState
+  } deriving (Show)
+
 newSideBarState :: SideBarState
-newSideBarState  = SideBarState { symbols = [] }
+newSideBarState  = SideBarState
+  { slots = []
+  }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
-drawSideBar
-    Resources 
-      { font = font
-      , windowHeight = windowHeight
-      }
+drawSideBar resources
     SideBarInput
       { bounds = bounds
       , maybeNewSymbol = maybeNewSymbol
-      , inputState = SideBarState { symbols = currentSymbols }
+      , inputState = SideBarState { slots = slots }
       } = do
 
-  let newSymbols = refreshSymbols currentSymbols maybeNewSymbol
+  let nextSlotBounds = getNextSlotBounds bounds slots
+      nextSlots = addSymbol maybeNewSymbol nextSlotBounds slots
 
-  preservingMatrix $ do
-    loadIdentity
-    translate $ vector3 (boxWidth bounds / 2 + padding / 2)
-        (boxHeight bounds - topPadding - summaryHeight / 2) 0
+  outputStates <- mapM (M.drawMiniChart resources
+      . createMiniChartInput bounds) nextSlots
 
-    mapM_ (\symbol -> do
-      color $ green 1
-      let textSpec = TextSpec font 10 symbol
-      textBounds <- measureText textSpec
-      preservingMatrix $ do
-        translate $ vector3 (-summaryWidth / 2 + headerPadding)
-          (summaryHeight / 2 - boxHeight textBounds - headerPadding) 0
-        renderText textSpec
-
-      color $ blue 1
-      drawRoundedRectangle summaryWidth summaryHeight cornerRadius
-          cornerVertices
-
-      translate $ vector3 0 (-summaryHeight - padding) 0
-      ) newSymbols
-
-  let nextState = SideBarState
-        { symbols = newSymbols
-        }
+  let nextState = SideBarState { slots = nextSlots } 
+      isSideBarDirty = isJust maybeNewSymbol || any M.isDirty outputStates
   return SideBarOutput
-    { isDirty = isJust maybeNewSymbol
+    { isDirty = isSideBarDirty
     , outputState = nextState
     }
-  where
-    topPadding = 10
-    padding = 5
-    headerPadding = 5
-    summaryWidth = boxWidth bounds - padding * 2
-    summaryHeight = 100
-    cornerRadius = 5
-    cornerVertices = 5
 
-refreshSymbols :: [Symbol] -> Maybe Symbol -> [Symbol]
-refreshSymbols currentSymbols maybeSymbol
-  | alreadyAdded = currentSymbols
-  | otherwise = currentSymbols ++ catMaybes [maybeSymbol]
+getNextSlotBounds :: Box -> [Slot] -> Box
+getNextSlotBounds (Box (left, top) (right, _)) slots = 
+  Box (left, slotTop) (right, slotBottom)
   where
-    alreadyAdded =
-      case maybeSymbol of
-        Just symbol -> any (== symbol) currentSymbols
-        _ -> False
+    slotTop = case slots of
+      [] -> top
+      _ -> (boxBottom . slotBounds . last) slots
+    slotHeight = 100
+    slotBottom = slotTop - slotHeight
 
+addSymbol :: Maybe Symbol -> Box -> [Slot] -> [Slot]
+addSymbol Nothing _ slots = slots
+addSymbol (Just symbol) bounds slots =
+  slots ++ [newSlot]
+  where
+    newSlot = Slot
+      { slotBounds = bounds
+      , symbol = symbol
+      , miniChartState = M.newMiniChartState
+      }
+
+createMiniChartInput :: Box -> Slot -> M.MiniChartInput
+createMiniChartInput
+  (Box (left, _) (right, _))
+  Slot
+    { slotBounds = Box (_, top) (_, bottom)
+    , symbol = symbol
+    , miniChartState = miniChartState
+    } =
+  M.MiniChartInput
+    { M.bounds = Box (left, top) (right, bottom)
+    , M.symbol = symbol
+    , M.inputState = miniChartState
+    }
 

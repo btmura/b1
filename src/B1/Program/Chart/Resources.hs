@@ -1,9 +1,13 @@
 module B1.Program.Chart.Resources
   ( Resources (..)
   , newResources
-  , updateKeyPress
+  , updateKeysPressed
+  , isKeyPressed
+  , getKeyPressed
+  , updateMouseButtonsPressed
+  , isMouseButtonClicked
   , updateMousePosition
-  , updateMouseButton
+  , invertMousePositionY
   , updateWindowSize
   ) where
 
@@ -16,9 +20,11 @@ data Resources = Resources
   { font :: Font
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
-  , keyPress :: Maybe Key
+  , keysPressed :: [Key]
+  , previousKeysPressed :: [Key]
+  , mouseButtonsPressed :: [MouseButton]
+  , previousMouseButtonsPressed :: [MouseButton]
   , mousePosition :: (GLfloat, GLfloat)
-  , leftMouseButtonPressed :: Bool
   } deriving (Show, Eq)
 
 newResources :: Font -> Resources
@@ -26,29 +32,68 @@ newResources font = Resources
   { font = font
   , windowWidth = 0
   , windowHeight = 0
-  , keyPress = Nothing
+  , keysPressed = []
+  , previousKeysPressed = []
+  , mouseButtonsPressed = []
+  , previousMouseButtonsPressed = []
   , mousePosition = (0, 0)
-  , leftMouseButtonPressed = False
   }
 
-updateKeyPress :: Maybe Key -> Resources -> Resources
-updateKeyPress maybeKeyPress resources = resources
-  { keyPress = maybeKeyPress
+updateKeysPressed :: [Key] -> Resources -> Resources
+updateKeysPressed keysPressed
+    resources@Resources { keysPressed = previousKeysPressed } = resources
+  { keysPressed = keysPressed
+  , previousKeysPressed = previousKeysPressed
   }
+
+isKeyPressed :: Resources -> Key -> Bool
+isKeyPressed
+    resources@Resources
+      { keysPressed = keysPressed
+      , previousKeysPressed = previousKeysPressed
+      }
+    key = any (== key) keysPressed
+        && not (any (== key) previousKeysPressed)
+
+getKeyPressed :: Resources -> [Key] -> Maybe Key
+getKeyPressed resources keys =
+  case pressedKeys of
+    (first:_) -> Just first
+    otherwise -> Nothing
+  where
+    presses = map (isKeyPressed resources) keys
+    indexedPresses = zip keys presses
+    pressedKeys = map fst $ filter snd indexedPresses 
+
+updateMouseButtonsPressed :: [MouseButton] -> Resources -> Resources
+updateMouseButtonsPressed buttonsPressed
+    resources@Resources { mouseButtonsPressed = previousButtonsPressed } =
+  resources
+    { mouseButtonsPressed = buttonsPressed
+    , previousMouseButtonsPressed = previousButtonsPressed
+    }
+
+isMouseButtonClicked :: Resources -> MouseButton -> Bool
+isMouseButtonClicked
+    resources@Resources
+      { mouseButtonsPressed = buttonsPressed
+      , previousMouseButtonsPressed = previousButtonsPressed
+      }
+    button = any (== button) buttonsPressed
+        && not (any (== button) previousButtonsPressed)
 
 updateMousePosition :: Position -> Resources -> Resources
 updateMousePosition (Position x y) resources = resources
   { mousePosition = (fromIntegral x, fromIntegral y)
   }
 
-updateMouseButton :: MouseButton -> KeyButtonState -> Resources -> Resources
-updateMouseButton ButtonLeft Press resources = resources
-  { leftMouseButtonPressed = True
-  }
-
-updateMouseButton _ _ resources = resources
-  { leftMouseButtonPressed = False
-  }
+invertMousePositionY :: Resources -> Resources
+invertMousePositionY
+    resources@Resources
+      { windowHeight = windowHeight
+      , mousePosition = (x, y)
+      } = 
+  resources { mousePosition = (x, windowHeight - y) }
 
 updateWindowSize :: Size -> Resources -> Resources
 updateWindowSize (Size width height) resources = resources

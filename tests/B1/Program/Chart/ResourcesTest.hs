@@ -7,27 +7,19 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 import Test.Framework
-import qualified Test.Framework.Providers.API
 import Test.Framework.Providers.HUnit
 import Test.HUnit
+
+import qualified Test.Framework.Providers.API
 
 import B1.Program.Chart.Resources
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Program.Chart.ResourcesTest"
-  [ testCase "case_updateMouseButton" case_updateMouseButton
-  , testCase "case_updateMousePosition" case_updateMousePosition
+  [ testCase "case_updateMousePosition" case_updateMousePosition
+  , testCase "case_invertMousePositionY" case_invertMousePositionY
   , testCase "case_updateWindowSize" case_updateWindowSize
   ]
-
-case_updateMouseButton :: Assertion
-case_updateMouseButton = do
-  origResources <- createResources
-  let expectedResources = origResources
-        { leftMouseButtonPressed = True
-        }
-  assertEqual "" expectedResources
-      (updateMouseButton ButtonLeft Press origResources)
 
 case_updateMousePosition :: Assertion
 case_updateMousePosition = do
@@ -39,6 +31,19 @@ case_updateMousePosition = do
         }
   assertEqual "" expectedResources
       (updateMousePosition glPosition origResources)
+
+case_invertMousePositionY :: Assertion
+case_invertMousePositionY = do
+  baseResources <- createResources
+  let origResources = baseResources
+        { windowWidth = 1337
+        , windowHeight = 3007
+        , mousePosition = (42, 1007)
+        }
+      expectedResources = origResources
+        { mousePosition = (42, 2000) 
+        }
+  assertEqual "" expectedResources (invertMousePositionY origResources)
 
 case_updateWindowSize :: Assertion
 case_updateWindowSize = do
@@ -55,13 +60,5 @@ case_updateWindowSize = do
 createResources :: IO Resources
 createResources = do
   font <- createTextureFont "noSuchFont"
-  return $ Resources
-    { font = font
-    , windowWidth = 0
-    , windowHeight = 0
-    , keyPress = Nothing
-    , mousePosition = (0, 0)
-    , leftMouseButtonPressed = False
-    }
-
+  return $ newResources font
 

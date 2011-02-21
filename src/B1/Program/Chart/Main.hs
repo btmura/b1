@@ -21,9 +21,7 @@ main = do
 
   resourcesRef <- createInitialResources
   windowSizeCallback $= myWindowSizeCallback resourcesRef
-  keyCallback $= myKeyCallback resourcesRef
   mousePosCallback $= myMousePosCallback resourcesRef
-  mouseButtonCallback $= myMouseButtonCallback resourcesRef
 
   drawLoop resourcesRef drawScreen
 
@@ -69,6 +67,7 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   modifyIORef resourcesRef $ updateWindowSize size
 
   -- Use orthographic projection, since it is easier to position text.
+  -- (0, 0) is lower left corner of the screen.
   matrixMode $= Projection
   loadIdentity
   ortho2D 0 (realToFrac width) 0 (realToFrac height)
@@ -76,29 +75,23 @@ myWindowSizeCallback resourcesRef size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
-myKeyCallback :: IORef Resources -> Key -> KeyButtonState -> IO ()
-myKeyCallback resourcesRef key state = do
-  let maybeKey = if state == Press then Just key else Nothing
-  modifyIORef resourcesRef $ updateKeyPress maybeKey
-
 myMousePosCallback :: IORef Resources -> Position -> IO ()
-myMousePosCallback resourcesRef position =
-  modifyIORef resourcesRef $ updateMousePosition position
-
-myMouseButtonCallback :: IORef Resources -> MouseButton -> KeyButtonState
-    -> IO ()
-myMouseButtonCallback resourcesRef button state =
-  modifyIORef resourcesRef $ updateMouseButton button state
+myMousePosCallback resourcesRef position = do
+  modifyIORef resourcesRef $
+      (invertMousePositionY . updateMousePosition position)
 
 drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))
     -> IO ()
 drawLoop resourcesRef action = do
   clear [ColorBuffer, DepthBuffer]
-  resources <- readIORef resourcesRef
-  (Action nextAction, isDirty) <- action resources
 
-  -- Reset the key pressed after each frame.
-  modifyIORef resourcesRef $ updateKeyPress Nothing
+  -- TODO: Use >>= syntax?
+  refreshMouseButtonsPressed resourcesRef
+  refreshKeysPressed resourcesRef
+  resources <- readIORef resourcesRef
+
+  -- putStrLn $ show resources
+  (Action nextAction, isDirty) <- action resources
 
   swapBuffers
   sleep 0.001
@@ -110,4 +103,30 @@ drawLoop resourcesRef action = do
     -- the same frame again and pegging the CPU to a 100%.
     unless isDirty waitEvents
     drawLoop resourcesRef nextAction
+
+refreshMouseButtonsPressed :: IORef Resources -> IO ()
+refreshMouseButtonsPressed resourcesRef =
+  updatePressed resourcesRef getMouseButton buttons updateMouseButtonsPressed
+  where
+    buttons =
+      [ ButtonLeft
+      , ButtonRight
+      ]
+
+refreshKeysPressed :: IORef Resources -> IO ()
+refreshKeysPressed resourcesRef =
+  updatePressed resourcesRef getKey keys updateKeysPressed
+  where
+    alphaKeys = map CharKey ['A'..'Z']
+    specialKeys = map SpecialKey [ENTER, BACKSPACE, ESC]
+    keys = alphaKeys ++ specialKeys
+
+updatePressed :: IORef Resources -> (a -> IO KeyButtonState) -> [a]
+    -> ([a] -> Resources -> Resources) -> IO ()
+updatePressed resourcesRef ioFunction values updater = do
+  states <- mapM ioFunction values
+  let indexedStates = zip values states
+      matchingStates = filter ((== Press) . snd) indexedStates
+      matchingValues = map fst matchingStates
+  modifyIORef resourcesRef $ updater matchingValues
 

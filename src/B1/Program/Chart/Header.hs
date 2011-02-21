@@ -11,6 +11,7 @@ import Data.Maybe
 import Data.Time
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
+import Graphics.UI.GLFW
 import System.Locale
 import Text.Printf
 
@@ -56,10 +57,9 @@ newHeaderState = HeaderState
 -- | Draws header starting from the upper left corner to the bottom
 -- right corner.
 drawHeader :: Resources -> HeaderInput -> IO HeaderOutput
-drawHeader Resources
+drawHeader resources@Resources
       { font = font
       , mousePosition = mousePosition
-      , leftMouseButtonPressed = leftMouseButtonPressed
       }
     HeaderInput
       { bounds = bounds
@@ -98,9 +98,10 @@ drawHeader Resources
 
   -- TODO: Improve texture choosing...
   let addHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
-          (boxRight bounds, boxTop bounds + headerHeight)
+          (boxRight bounds, boxTop bounds - headerHeight)
       addButtonHover = alpha >= 1 && boxContains addHitBox mousePosition
-      addButtonClicked = addButtonHover && leftMouseButtonPressed
+      addButtonClicked = addButtonHover
+          && isMouseButtonClicked resources ButtonLeft
       addTextureNumber = if addButtonClicked
           then 2
           else if addButtonHover then 1 else 0

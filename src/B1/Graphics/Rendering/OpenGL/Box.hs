@@ -31,11 +31,11 @@ boxCenter box@(Box (left, top) _) = (centerX, centerY)
 
 boxContains :: Box -> Point -> Bool
 boxContains box@(Box (left, top) (right, bottom)) (x, y) =
-  x >= left && x <= right && y >= top && y <= bottom
+  x >= left && x <= right && y <= top && y >= bottom
 
 boxShrink :: Box -> GLfloat -> Box
 boxShrink (Box (left, top) (right, bottom)) shrink =
-  Box (left + shrink, top + shrink) (right - shrink, bottom - shrink)
+  Box (left + shrink, top - shrink) (right - shrink, bottom + shrink)
 
 boxLeft :: Box -> GLfloat
 boxLeft (Box (left, _) (_, _)) = left
@@ -60,7 +60,7 @@ translateToCenter bounds =
   translate $ vector3 translateX translateY 0
   where
     translateX = boxLeft bounds + boxWidth bounds / 2
-    translateY = boxTop bounds + boxHeight bounds / 2
+    translateY = boxTop bounds - boxHeight bounds / 2
 
 zeroBox :: Box
 zeroBox = Box (0, 0) (0, 0)
