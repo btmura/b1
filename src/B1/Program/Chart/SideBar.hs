@@ -39,7 +39,7 @@ data Slot = Slot
   { slotBounds :: Box
   , symbol :: Symbol
   , miniChartState :: M.MiniChartState
-  } deriving (Show)
+  } 
 
 newSideBarState :: SideBarState
 newSideBarState  = SideBarState
@@ -60,7 +60,9 @@ drawSideBar resources
   outputStates <- mapM (M.drawMiniChart resources
       . createMiniChartInput bounds) nextSlots
 
-  let nextState = SideBarState { slots = nextSlots } 
+  let nextNextSlots = map (uncurry updateMiniChartState) 
+          (zip nextSlots outputStates)
+      nextState = SideBarState { slots = nextNextSlots } 
       isSideBarDirty = isJust maybeNewSymbol || any M.isDirty outputStates
   return SideBarOutput
     { isDirty = isSideBarDirty
@@ -101,4 +103,9 @@ createMiniChartInput
     , M.symbol = symbol
     , M.inputState = miniChartState
     }
+
+updateMiniChartState :: Slot -> M.MiniChartOutput -> Slot
+updateMiniChartState slot
+    M.MiniChartOutput { M.outputState = nextState } =
+  slot { miniChartState = nextState }
 
