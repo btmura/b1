@@ -59,8 +59,10 @@ drawScreenLoop
 
     height = windowHeight resources
 
+    sideBarTopPadding = 10
+
     sideBarInputWithBounds = sideBarInput
-      { S.bounds = Box (0, height) (sideBarWidth, 0)
+      { S.bounds = Box (0, height - sideBarTopPadding) (sideBarWidth, 0)
       }
 
     frameInputWithBounds = frameInput

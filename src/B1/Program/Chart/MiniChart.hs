@@ -37,8 +37,8 @@ data MiniChartState = MiniChartState
 
 newMiniChartState :: MiniChartState
 newMiniChartState = MiniChartState
-  { alphaAnimation = animateOnce $ linearRange 0 1 10
-  , scaleAnimation = animateOnce $ linearRange 1.5 1 10
+  { alphaAnimation = animateOnce $ linearRange 0 1 20
+  , scaleAnimation = animateOnce $ linearRange 1 1 20
   }
 
 drawMiniChart :: Resources -> MiniChartInput -> IO MiniChartOutput

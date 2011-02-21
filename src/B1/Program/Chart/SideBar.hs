@@ -36,7 +36,7 @@ data SideBarState = SideBarState
   }
 
 data Slot = Slot
-  { slotBounds :: Box
+  { height :: GLfloat
   , symbol :: Symbol
   , miniChartState :: M.MiniChartState
   } 
@@ -54,55 +54,49 @@ drawSideBar resources
       , inputState = SideBarState { slots = slots }
       } = do
 
-  let nextSlotBounds = getNextSlotBounds bounds slots
-      nextSlots = addSymbol maybeNewSymbol nextSlotBounds slots
+  let updatedSlots = addSymbol maybeNewSymbol slots
+      indices = [0 .. length updatedSlots - 1]
 
-  outputStates <- mapM (M.drawMiniChart resources
-      . createMiniChartInput bounds) nextSlots
+  outputStates <- mapM (drawSlot resources bounds updatedSlots) indices
 
-  let nextNextSlots = map (uncurry updateMiniChartState) 
-          (zip nextSlots outputStates)
-      nextState = SideBarState { slots = nextNextSlots } 
+  let nextSlots = map (uncurry updateMiniChartState) 
+          (zip updatedSlots outputStates)
+      nextState = SideBarState { slots = nextSlots } 
       isSideBarDirty = isJust maybeNewSymbol || any M.isDirty outputStates
   return SideBarOutput
     { isDirty = isSideBarDirty
     , outputState = nextState
     }
 
-getNextSlotBounds :: Box -> [Slot] -> Box
-getNextSlotBounds (Box (left, top) (right, _)) slots = 
-  Box (left, slotTop) (right, slotBottom)
+addSymbol :: Maybe Symbol -> [Slot] -> [Slot]
+addSymbol Nothing slots = slots
+addSymbol (Just newSymbol) slots
+  | alreadyAdded = slots
+  | otherwise = slots ++ [newSlot]
   where
-    slotTop = case slots of
-      [] -> top
-      _ -> (boxBottom . slotBounds . last) slots
-    slotHeight = 100
-    slotBottom = slotTop - slotHeight
-
-addSymbol :: Maybe Symbol -> Box -> [Slot] -> [Slot]
-addSymbol Nothing _ slots = slots
-addSymbol (Just symbol) bounds slots =
-  slots ++ [newSlot]
-  where
+    alreadyAdded = any ((== newSymbol) . symbol) slots
     newSlot = Slot
-      { slotBounds = bounds
-      , symbol = symbol
+      { height = 100
+      , symbol = newSymbol
       , miniChartState = M.newMiniChartState
       }
 
-createMiniChartInput :: Box -> Slot -> M.MiniChartInput
-createMiniChartInput
-  (Box (left, _) (right, _))
-  Slot
-    { slotBounds = Box (_, top) (_, bottom)
-    , symbol = symbol
-    , miniChartState = miniChartState
-    } =
-  M.MiniChartInput
-    { M.bounds = Box (left, top) (right, bottom)
-    , M.symbol = symbol
-    , M.inputState = miniChartState
-    }
+drawSlot :: Resources -> Box -> [Slot] -> Int -> IO M.MiniChartOutput
+drawSlot resources (Box (left, top) (right, bottom)) slots index =
+  M.drawMiniChart resources input
+  where
+    slotsAbove = take index slots
+    heightAbove = sum $ map height slotsAbove
+    slot = slots !! index
+    slotHeight = height slot
+    slotTop = top - heightAbove
+    slotBottom = slotTop - slotHeight
+    slotBounds = Box (left, slotTop) (right, slotBottom)
+    input = M.MiniChartInput
+      { M.bounds = slotBounds
+      , M.symbol = symbol slot
+      , M.inputState = miniChartState slot
+      }
 
 updateMiniChartState :: Slot -> M.MiniChartOutput -> Slot
 updateMiniChartState slot
