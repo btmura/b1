@@ -26,13 +26,14 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
+import B1.Program.Chart.StockData
 import B1.Program.Chart.Symbol
 
 data HeaderInput = HeaderInput
   { bounds :: Box
   , alpha :: GLfloat
   , symbol :: Symbol
-  , maybePrices :: Maybe Prices
+  , stockData :: StockData
   , inputState :: HeaderState
   }
 
@@ -65,7 +66,7 @@ drawHeader resources@Resources
       { bounds = bounds
       , alpha = alpha
       , symbol = symbol
-      , maybePrices = maybePrices
+      , stockData = stockData
       , inputState = inputState@HeaderState
         { isStatusShowing = isStatusShowing
         , statusAlphaAnimation = statusAlphaAnimation
@@ -73,6 +74,9 @@ drawHeader resources@Resources
       } = do
 
   symbolBox <- measureText symbolTextSpec
+
+  maybePriceData <- getStockPriceData stockData
+  let statusTextSpec = headerTextSpec $ getStatus maybePriceData
   statusBox <- measureText statusTextSpec
 
   let symbolWidth = boxWidth symbolBox
@@ -111,7 +115,8 @@ drawHeader resources@Resources
         (-headerHeight / 2) 0
     drawHeaderButton headerHeight headerHeight addTextureNumber alpha
 
-  let nextIsStatusShowing = isJust maybePrices
+
+  let nextIsStatusShowing = isJust maybePriceData
       nextStatusAlphaAnimation =
         (if nextIsStatusShowing then next else id) statusAlphaAnimation
       outputState = inputState
@@ -131,19 +136,20 @@ drawHeader resources@Resources
   where
     headerTextSpec = TextSpec font 18
     symbolTextSpec = headerTextSpec symbol
-    statusTextSpec = headerTextSpec $ getStatus maybePrices
     padding = 10
 
-getStatus :: Maybe Prices -> String
+getStatus :: Maybe StockPriceData -> String
 
-getStatus (Just (Just (todaysPrice:yesterdaysPrice:_), _)) = 
-  printf "  %0.2f  %+0.2f  %s" todaysClose todaysChange date
-  where
-    todaysClose = close todaysPrice
-    todaysChange = todaysClose - close yesterdaysPrice
-    date = formatTime defaultTimeLocale "%-m/%-d/%y" (endTime todaysPrice)
-
-getStatus (Just (Nothing, errors)) = "  [" ++ concat errors ++ "]"
+getStatus (Just priceData) =
+  case prices priceData of
+    (Just (todaysPrice:yesterdaysPrice:_), _) ->
+        let todaysClose = close todaysPrice
+            todaysChange = todaysClose - close yesterdaysPrice
+            date = formatTime defaultTimeLocale "%-m/%-d/%y"
+                (endTime todaysPrice)
+        in printf "  %0.2f  %+0.2f  %s" todaysClose todaysChange date
+    (Nothing, errors) -> "  [" ++ concat errors ++ "]"
+    _ -> " [ Not enough data ]"
 
 getStatus Nothing = ""
 

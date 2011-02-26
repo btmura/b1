@@ -7,19 +7,13 @@ module B1.Program.Chart.Chart
   , newChartState
   ) where
 
-import Control.Concurrent 
-import Control.Concurrent.MVar
 import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock
-import Data.Time.LocalTime
-import Graphics.Rendering.FTGL
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Text.Printf
 
-import B1.Data.Price
-import B1.Data.Price.Google
 import B1.Data.Range
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
@@ -29,6 +23,7 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
+import B1.Program.Chart.StockData
 import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.Header as H
@@ -47,38 +42,17 @@ data ChartOutput = ChartOutput
   }
 
 data ChartState = ChartState
-  { pricesMVar :: MVar Prices
+  { stockData :: StockData
   , headerState :: H.HeaderState
   }
 
 newChartState :: Symbol -> IO ChartState
 newChartState symbol = do
-  pricesMVar <- newEmptyMVar
-  forkIO $ do
-    startDate <- getStartDate
-    endDate <- getEndDate 
-    prices <- getGooglePrices startDate endDate symbol
-    putMVar pricesMVar prices
+  stockData <- newStockData symbol
   return $ ChartState
-    { pricesMVar = pricesMVar
+    { stockData = stockData
     , headerState = H.newHeaderState
     }
-
-getStartDate :: IO LocalTime
-getStartDate = do
-  endDate <- getEndDate
-  let yearAgo = addGregorianYearsClip (-1) (localDay endDate)
-  return endDate
-    { localDay = yearAgo
-    , localTimeOfDay = midnight
-    }
-
-getEndDate :: IO LocalTime
-getEndDate = do
-  timeZone <- getCurrentTimeZone
-  time <- getCurrentTime
-  let localTime = utcToLocalTime timeZone time 
-  return $ localTime { localTimeOfDay = midnight }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources
@@ -87,13 +61,10 @@ drawChart resources
       , alpha = alpha
       , symbol = symbol
       , inputState = inputState@ChartState
-        { pricesMVar = pricesMVar
+        { stockData = stockData
         , headerState = headerState
         }
-      }  = do
-  isPricesDirty <- isEmptyMVar pricesMVar
-  maybePrices <- getPrices pricesMVar
-
+      }  = 
   preservingMatrix $ do
     -- Start from the upper left corner
     translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
@@ -102,7 +73,7 @@ drawChart resources
           { H.bounds = bounds
           , H.alpha = alpha
           , H.symbol = symbol
-          , H.maybePrices = maybePrices
+          , H.stockData = stockData
           , H.inputState = headerState
           }
 
@@ -120,21 +91,12 @@ drawChart resources
     drawDivider (boxWidth bounds) alpha
 
     let outputState = inputState { headerState = outputHeaderState }
-        isDirty = isPricesDirty || isHeaderDirty
+        isDirty = isHeaderDirty
     return ChartOutput
       { outputState = outputState
       , isDirty = isDirty
       , addedSymbol = addedSymbol
       }
-
-getPrices :: MVar Prices -> IO (Maybe Prices)
-getPrices pricesMVar = do
-  maybePrices <- tryTakeMVar pricesMVar
-  case maybePrices of
-    Just prices -> do
-      tryPutMVar pricesMVar prices
-      return $ Just prices
-    _ -> return Nothing
 
 drawDivider :: GLfloat -> GLfloat -> IO ()
 drawDivider width alpha = do
