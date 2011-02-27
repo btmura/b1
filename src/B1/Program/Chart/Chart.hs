@@ -51,7 +51,7 @@ newChartState symbol = do
   stockData <- newStockData symbol
   return $ ChartState
     { stockData = stockData
-    , headerState = H.newHeaderState
+    , headerState = H.newHeaderState H.LongStatus
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
@@ -66,11 +66,11 @@ drawChart resources
         }
       }  = 
   preservingMatrix $ do
-    -- Start from the upper left corner
-    translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
+    loadIdentity
 
     let headerInput = H.HeaderInput
           { H.bounds = bounds
+          , H.fontSize = 18
           , H.alpha = alpha
           , H.symbol = symbol
           , H.stockData = stockData
@@ -87,7 +87,9 @@ drawChart resources
           } = headerOutput
 
     -- Draw a line under the header
-    translate $ vector3 0 (-headerHeight) 0
+    translateToCenter bounds
+    translate $ vector3 (-(boxWidth bounds / 2))
+        (boxHeight bounds / 2 - headerHeight) 0
     drawDivider (boxWidth bounds) alpha
 
     let outputState = inputState { headerState = outputHeaderState }

@@ -54,9 +54,9 @@ drawSideBar resources
       , inputState = SideBarState { slots = slots }
       } = do
 
-  let updatedSlots = addSymbol maybeNewSymbol slots
-      indices = [0 .. length updatedSlots - 1]
+  updatedSlots <- addSymbol maybeNewSymbol slots
 
+  let indices = [0 .. length updatedSlots - 1]
   outputStates <- mapM (drawSlot resources bounds updatedSlots) indices
 
   let nextSlots = map (uncurry updateMiniChartState) 
@@ -68,19 +68,21 @@ drawSideBar resources
     , outputState = nextState
     }
 
-addSymbol :: Maybe Symbol -> [Slot] -> [Slot]
-addSymbol Nothing slots = slots
-addSymbol (Just newSymbol) slots
-  | alreadyAdded = slots
-  | otherwise = slots ++ [newSlot]
+addSymbol :: Maybe Symbol -> [Slot] -> IO [Slot]
+addSymbol Nothing slots = return $ slots
+addSymbol (Just newSymbol) slots =
+  if alreadyAdded
+    then return $ slots
+    else do
+      miniChartState <- M.newMiniChartState newSymbol
+      return $ slots ++ [Slot
+        { height = 100
+        , symbol = newSymbol
+        , miniChartState = miniChartState
+        }]
   where
     alreadyAdded = any ((== newSymbol) . symbol) slots
-    newSlot = Slot
-      { height = 100
-      , symbol = newSymbol
-      , miniChartState = M.newMiniChartState
-      }
-
+    
 drawSlot :: Resources -> Box -> [Slot] -> Int -> IO M.MiniChartOutput
 drawSlot resources (Box (left, top) (right, bottom)) slots index =
   M.drawMiniChart resources input

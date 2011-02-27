@@ -16,8 +16,11 @@ import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.Symbol
 import B1.Program.Chart.Resources
+import B1.Program.Chart.StockData
+import B1.Program.Chart.Symbol
+
+import qualified B1.Program.Chart.Header as H
 
 data MiniChartInput = MiniChartInput
   { bounds :: Box
@@ -31,22 +34,33 @@ data MiniChartOutput = MiniChartOutput
   }
 
 data MiniChartState = MiniChartState
-  { alphaAnimation :: Animation (GLfloat, Dirty)
+  { stockData :: StockData
+  , headerState :: H.HeaderState
+  , alphaAnimation :: Animation (GLfloat, Dirty)
   , scaleAnimation :: Animation (GLfloat, Dirty)
   }
 
-newMiniChartState :: MiniChartState
-newMiniChartState = MiniChartState
-  { alphaAnimation = animateOnce $ linearRange 0 1 20
-  , scaleAnimation = animateOnce $ linearRange 1 1 20
-  }
+newMiniChartState :: Symbol -> IO MiniChartState
+newMiniChartState symbol = do
+  stockData <- newStockData symbol
+  return $ MiniChartState
+    { stockData = stockData
+    , headerState = H.newHeaderState H.ShortStatus
+    , alphaAnimation = animateOnce $ linearRange 0 1 20
+    , scaleAnimation = animateOnce $ linearRange 1 1 20
+    }
 
 drawMiniChart :: Resources -> MiniChartInput -> IO MiniChartOutput
 drawMiniChart resources
     MiniChartInput
       { bounds = bounds
       , symbol = symbol
-      , inputState = inputState
+      , inputState = inputState@MiniChartState
+        { stockData = stockData
+        , headerState = headerState
+        , alphaAnimation = alphaAnimation
+        , scaleAnimation = scaleAnimation
+        }
       } = do
   preservingMatrix $ do
     loadIdentity
@@ -58,28 +72,36 @@ drawMiniChart resources
       drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
           cornerRadius cornerVertices
 
-      color $ green alpha
-      textBounds <- measureText textSpec
-      translate $ vector3
-          (-(boxWidth bounds / 2 - padding * 2))
-          (boxHeight bounds / 2 - padding * 2 - boxHeight textBounds) 0
-      renderText textSpec
+      let headerInput = H.HeaderInput
+            { H.bounds = bounds
+            , H.fontSize = 10
+            , H.alpha = alpha
+            , H.symbol = symbol
+            , H.stockData = stockData
+            , H.inputState = headerState
+            }
 
-  return $ MiniChartOutput
-    { isDirty = alphaDirty || scaleDirty
-    , outputState = inputState
-      { alphaAnimation = next $ alphaAnimation inputState
-      , scaleAnimation = next $ scaleAnimation inputState
-      }
-    }
+      headerOutput <- H.drawHeader resources headerInput
+
+      let H.HeaderOutput
+            { H.outputState = outputHeaderState
+            , H.isDirty = isHeaderDirty
+            } = headerOutput
+
+      return $ MiniChartOutput
+        { isDirty = alphaDirty || scaleDirty || isHeaderDirty
+        , outputState = inputState
+          { headerState = outputHeaderState
+          , alphaAnimation = next alphaAnimation 
+          , scaleAnimation = next scaleAnimation
+          }
+        }
   where
-    (alpha, alphaDirty) = current $ alphaAnimation inputState
-    (scale, scaleDirty) = current $ scaleAnimation inputState
+    (alpha, alphaDirty) = current alphaAnimation 
+    (scale, scaleDirty) = current scaleAnimation 
 
     cornerRadius = 5
     cornerVertices = 5
     padding = 5
     paddedBox = boxShrink bounds padding
-
-    textSpec = TextSpec (font resources) 10 symbol
 
