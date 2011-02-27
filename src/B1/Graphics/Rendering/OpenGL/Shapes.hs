@@ -1,5 +1,6 @@
 module B1.Graphics.Rendering.OpenGL.Shapes
-  ( drawRoundedRectangle
+  ( drawHorizontalRule
+  , drawRoundedRectangle
   , fillRoundedRectangle
   , drawSquarePlaceholder
   ) where
@@ -80,4 +81,11 @@ drawSquarePlaceholder = do
     vertex $ vertex2 1 (-1)
     vertex $ vertex2 (-1) (-1)
     vertex $ vertex2 1 1
+
+-- | Draws a horizontal rule of width around (0, 0).
+drawHorizontalRule :: GLfloat -> IO ()
+drawHorizontalRule width =
+  renderPrimitive Lines $ do
+    vertex $ vertex2 (-width / 2) 0
+    vertex $ vertex2 (width / 2) 0
 

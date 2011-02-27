@@ -68,7 +68,7 @@ drawMiniChart resources
     let headerInput = H.HeaderInput
           { H.bounds = paddedBox
           , H.fontSize = 10
-          , H.padding = 8
+          , H.padding = 5
           , H.alpha = alpha
           , H.symbol = symbol
           , H.stockData = stockData
@@ -79,9 +79,14 @@ drawMiniChart resources
 
     let H.HeaderOutput
           { H.outputState = outputHeaderState
+          , H.height = headerHeight
           , H.clickedSymbol = maybeRemovedSymbol
           , H.isDirty = isHeaderDirty
           } = headerOutput
+
+    translate $ vector3 0 (boxHeight paddedBox / 2 - headerHeight) 0
+    color $ blue alpha
+    drawHorizontalRule (boxWidth paddedBox)
 
     return $ MiniChartOutput
       { isDirty = isHeaderDirty

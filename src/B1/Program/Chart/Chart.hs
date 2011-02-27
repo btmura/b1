@@ -86,9 +86,9 @@ drawChart resources
           } = headerOutput
 
     -- Draw a line under the header
-    translate $ vector3 (-(boxWidth bounds / 2))
-        (boxHeight bounds / 2 - headerHeight) 0
-    drawDivider (boxWidth bounds) alpha
+    translate $ vector3 0 (boxHeight bounds / 2 - headerHeight) 0
+    color $ blue alpha 
+    drawHorizontalRule (boxWidth bounds) 
 
     let outputState = inputState { headerState = outputHeaderState }
         isDirty = isHeaderDirty
@@ -97,12 +97,4 @@ drawChart resources
       , isDirty = isDirty
       , addedSymbol = addedSymbol
       }
-
-drawDivider :: GLfloat -> GLfloat -> IO ()
-drawDivider width alpha = do
-  color $ blue alpha 
-  renderPrimitive Lines $ do
-    vertex $ vertex2 0 0
-    vertex $ vertex2 width 0
-
 
