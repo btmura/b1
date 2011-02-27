@@ -45,7 +45,7 @@ newMiniChartState symbol = do
   stockData <- newStockData symbol
   return $ MiniChartState
     { stockData = stockData
-    , headerState = H.newHeaderState H.ShortStatus
+    , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
     , alphaAnimation = animateOnce $ linearRange 0 1 20
     , scaleAnimation = animateOnce $ linearRange 1 1 20
     }

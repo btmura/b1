@@ -51,7 +51,7 @@ newChartState symbol = do
   stockData <- newStockData symbol
   return $ ChartState
     { stockData = stockData
-    , headerState = H.newHeaderState H.LongStatus
+    , headerState = H.newHeaderState H.LongStatus H.AddButton
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput

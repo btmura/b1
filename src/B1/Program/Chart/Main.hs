@@ -45,6 +45,9 @@ loadTextures = do
       [ "res/add-normal.tga"
       , "res/add-hover.tga"
       , "res/add-press.tga"
+      , "res/remove-normal.tga"
+      , "res/remove-hover.tga"
+      , "res/remove-press.tga"
       ]
 
 bindTexture :: Int -> String -> IO ()

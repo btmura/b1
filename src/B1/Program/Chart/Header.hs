@@ -2,6 +2,7 @@ module B1.Program.Chart.Header
   ( HeaderInput(..)
   , HeaderOutput(..)
   , HeaderState
+  , HeaderButton(..)
   , HeaderStatusStyle(..)
   , drawHeader
   , newHeaderState
@@ -47,22 +48,27 @@ data HeaderOutput = HeaderOutput
   }
 
 data HeaderState = HeaderState
-  { getStatus :: StockData -> IO String
+  { button :: HeaderButton
+  , getStatus :: StockData -> IO String
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
   }
 
 data HeaderStatusStyle = ShortStatus | LongStatus
 
-newHeaderState :: HeaderStatusStyle -> HeaderState
-newHeaderState statusStyle = HeaderState
-  { getStatus =
-      case statusStyle of
-        ShortStatus -> getShortStatus
-        _ -> getLongStatus
+data HeaderButton = AddButton | RemoveButton
+
+newHeaderState :: HeaderStatusStyle -> HeaderButton -> HeaderState
+newHeaderState statusStyle button = HeaderState
+  { button = button
+  , getStatus = statusFunction
   , isStatusShowing = False
   , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
   }
+  where
+    statusFunction = case statusStyle of
+      ShortStatus -> getShortStatus
+      _ -> getLongStatus
 
 -- | Draws header starting from the upper left corner to the bottom
 -- right corner.
@@ -78,7 +84,8 @@ drawHeader resources@Resources
       , symbol = symbol
       , stockData = stockData
       , inputState = inputState@HeaderState
-        { getStatus = getStatus
+        { button = button
+        , getStatus = getStatus
         , isStatusShowing = isStatusShowing
         , statusAlphaAnimation = statusAlphaAnimation
         }
@@ -115,20 +122,26 @@ drawHeader resources@Resources
       color $ green $ min alpha statusAlpha
       renderText statusTextSpec
 
-    -- TODO: Improve texture choosing...
-    let addHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
+    -- TODO: Improve texture choosing to not hardcode numbers
+    let buttonHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
             (boxRight bounds, boxTop bounds - headerHeight)
-        addButtonHover = alpha >= 1 && boxContains addHitBox mousePosition
-        addButtonClicked = addButtonHover
+        buttonHover = alpha >= 1
+            && boxContains buttonHitBox mousePosition
+        buttonClicked = buttonHover
             && isMouseButtonClicked resources ButtonLeft
-        addTextureNumber = if addButtonClicked
-            then 2
-            else if addButtonHover then 1 else 0
+        (click, hover, normal) =
+          case button of
+            AddButton -> (2, 1, 0)
+            RemoveButton -> (5, 4, 3)
+        buttonTextureNumber
+          | buttonClicked = click
+          | buttonHover = hover
+          | otherwise = normal
 
     preservingMatrix $ do
       translate $ vector3 (boxWidth bounds - headerHeight / 2)
           (-headerHeight / 2) 0
-      drawHeaderButton headerHeight headerHeight addTextureNumber alpha
+      drawHeaderButton headerHeight headerHeight buttonTextureNumber alpha
 
     maybePriceData <- getStockPriceData stockData
     let nextIsStatusShowing = isJust maybePriceData
@@ -139,7 +152,7 @@ drawHeader resources@Resources
           , statusAlphaAnimation = nextStatusAlphaAnimation
           }
         nextIsDirty = snd $ current nextStatusAlphaAnimation
-        nextAddedSymbol = if addButtonClicked then Just symbol else Nothing
+        nextAddedSymbol = if buttonClicked then Just symbol else Nothing
 
     return HeaderOutput
       { outputState = outputState
