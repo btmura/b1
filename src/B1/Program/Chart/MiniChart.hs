@@ -68,7 +68,7 @@ drawMiniChart resources
     let headerInput = H.HeaderInput
           { H.bounds = paddedBox
           , H.fontSize = 10
-          , H.padding = 5
+          , H.padding = 8
           , H.alpha = alpha
           , H.symbol = symbol
           , H.stockData = stockData

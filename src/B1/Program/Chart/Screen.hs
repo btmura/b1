@@ -60,7 +60,7 @@ drawScreenLoop
 
     height = windowHeight resources
 
-    sideBarTopPadding = 10
+    sideBarTopPadding = 5
 
     sideBarBounds = Box (0, height - sideBarTopPadding) (sideBarWidth, 0)
     frameBounds = Box (sideBarWidth, height) (windowWidth resources, 0)
