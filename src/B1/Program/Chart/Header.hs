@@ -45,7 +45,7 @@ data HeaderOutput = HeaderOutput
   { outputState :: HeaderState
   , isDirty :: Dirty
   , height :: GLfloat
-  , addedSymbol :: Maybe Symbol
+  , clickedSymbol :: Maybe Symbol
   }
 
 data HeaderState = HeaderState
@@ -93,8 +93,6 @@ drawHeader resources@Resources
         }
       } = 
   preservingMatrix $ do
-    loadIdentity
-    translateToCenter bounds
     translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
 
     symbolBox <- measureText symbolTextSpec
@@ -154,13 +152,13 @@ drawHeader resources@Resources
           , statusAlphaAnimation = nextStatusAlphaAnimation
           }
         nextIsDirty = snd $ current nextStatusAlphaAnimation
-        nextAddedSymbol = if buttonClicked then Just symbol else Nothing
+        nextClickedSymbol = if buttonClicked then Just symbol else Nothing
 
     return HeaderOutput
       { outputState = outputState
       , isDirty = nextIsDirty
       , height = headerHeight
-      , addedSymbol = nextAddedSymbol
+      , clickedSymbol = nextClickedSymbol
       }
 
   where

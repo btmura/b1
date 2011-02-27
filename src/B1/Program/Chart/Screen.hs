@@ -33,13 +33,14 @@ drawScreenLoop
       { S.inputState = S.SideBarState { S.slots = slots }
       }
     frameInput resources = do
-  loadIdentity
 
-  sideBarOutput <- preservingMatrix $
-    S.drawSideBar resources sideBarInputWithBounds
+  sideBarOutput <- preservingMatrix $ do
+    translateToCenter sideBarBounds
+    S.drawSideBar resources sideBarInput { S.bounds = sideBarBounds }
 
-  frameOutput <- preservingMatrix $
-    F.drawChartFrame resources frameInputWithBounds
+  frameOutput <- preservingMatrix $ do
+    translateToCenter frameBounds
+    F.drawChartFrame resources frameInput { F.bounds = frameBounds }
 
   let nextSideBarInput = sideBarInput
         { S.maybeNewSymbol = F.addedSymbol frameOutput
@@ -61,11 +62,6 @@ drawScreenLoop
 
     sideBarTopPadding = 10
 
-    sideBarInputWithBounds = sideBarInput
-      { S.bounds = Box (0, height - sideBarTopPadding) (sideBarWidth, 0)
-      }
-
-    frameInputWithBounds = frameInput
-      { F.bounds = Box (sideBarWidth, height) (windowWidth resources, 0)
-      }
+    sideBarBounds = Box (0, height - sideBarTopPadding) (sideBarWidth, 0)
+    frameBounds = Box (sideBarWidth, height) (windowWidth resources, 0)
 

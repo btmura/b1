@@ -66,8 +66,6 @@ drawChart resources
         }
       }  = 
   preservingMatrix $ do
-    loadIdentity
-
     let headerInput = H.HeaderInput
           { H.bounds = bounds
           , H.fontSize = 18
@@ -84,11 +82,10 @@ drawChart resources
           { H.outputState = outputHeaderState
           , H.isDirty = isHeaderDirty
           , H.height = headerHeight
-          , H.addedSymbol = addedSymbol
+          , H.clickedSymbol = addedSymbol
           } = headerOutput
 
     -- Draw a line under the header
-    translateToCenter bounds
     translate $ vector3 (-(boxWidth bounds / 2))
         (boxHeight bounds / 2 - headerHeight) 0
     drawDivider (boxWidth bounds) alpha

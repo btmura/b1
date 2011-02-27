@@ -130,7 +130,6 @@ drawFrame resources
       , alphaAnimation = alphaAnimation
       }) = 
   preservingMatrix $ do
-    translateToCenter bounds
     scale3 scaleAmount scaleAmount 1
     color $ blue alphaAmount
     drawFrameBorder resources frameInput
@@ -274,8 +273,6 @@ drawNextSymbol resources
       (centerX, centerY) = boxCenter boundingBox
 
   preservingMatrix $ do 
-    translateToCenter bounds
-
     -- Disable blending or else the background won't work.
     blend $= Disabled
 

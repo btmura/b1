@@ -6,6 +6,7 @@ module B1.Program.Chart.MiniChart
   , newMiniChartState
   ) where
 
+import Data.Maybe
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Range
@@ -24,6 +25,7 @@ import qualified B1.Program.Chart.Header as H
 
 data MiniChartInput = MiniChartInput
   { bounds :: Box
+  , alpha :: GLfloat
   , symbol :: Symbol
   , inputState :: MiniChartState
   }
@@ -31,13 +33,12 @@ data MiniChartInput = MiniChartInput
 data MiniChartOutput = MiniChartOutput
   { outputState :: MiniChartState
   , isDirty :: Bool
+  , removeChart :: Bool
   }
 
 data MiniChartState = MiniChartState
   { stockData :: StockData
   , headerState :: H.HeaderState
-  , alphaAnimation :: Animation (GLfloat, Dirty)
-  , scaleAnimation :: Animation (GLfloat, Dirty)
   }
 
 newMiniChartState :: Symbol -> IO MiniChartState
@@ -46,61 +47,50 @@ newMiniChartState symbol = do
   return $ MiniChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
-    , alphaAnimation = animateOnce $ linearRange 0 1 20
-    , scaleAnimation = animateOnce $ linearRange 1 1 20
     }
 
 drawMiniChart :: Resources -> MiniChartInput -> IO MiniChartOutput
 drawMiniChart resources
     MiniChartInput
       { bounds = bounds
+      , alpha = alpha
       , symbol = symbol
       , inputState = inputState@MiniChartState
         { stockData = stockData
         , headerState = headerState
-        , alphaAnimation = alphaAnimation
-        , scaleAnimation = scaleAnimation
         }
       } = do
   preservingMatrix $ do
-    loadIdentity
-    translateToCenter bounds
-    preservingMatrix $ do
-      scale3 scale scale 1
+    color $ blue alpha
+    drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
+        cornerRadius cornerVertices
 
-      color $ blue alpha
-      drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
-          cornerRadius cornerVertices
-
-      let headerInput = H.HeaderInput
-            { H.bounds = paddedBox
-            , H.fontSize = 10
-            , H.padding = 5
-            , H.alpha = alpha
-            , H.symbol = symbol
-            , H.stockData = stockData
-            , H.inputState = headerState
-            }
-
-      headerOutput <- H.drawHeader resources headerInput
-
-      let H.HeaderOutput
-            { H.outputState = outputHeaderState
-            , H.isDirty = isHeaderDirty
-            } = headerOutput
-
-      return $ MiniChartOutput
-        { isDirty = alphaDirty || scaleDirty || isHeaderDirty
-        , outputState = inputState
-          { headerState = outputHeaderState
-          , alphaAnimation = next alphaAnimation 
-          , scaleAnimation = next scaleAnimation
+    let headerInput = H.HeaderInput
+          { H.bounds = paddedBox
+          , H.fontSize = 10
+          , H.padding = 5
+          , H.alpha = alpha
+          , H.symbol = symbol
+          , H.stockData = stockData
+          , H.inputState = headerState
           }
-        }
-  where
-    (alpha, alphaDirty) = current alphaAnimation 
-    (scale, scaleDirty) = current scaleAnimation 
 
+    headerOutput <- H.drawHeader resources headerInput
+
+    let H.HeaderOutput
+          { H.outputState = outputHeaderState
+          , H.clickedSymbol = maybeRemovedSymbol
+          , H.isDirty = isHeaderDirty
+          } = headerOutput
+
+    return $ MiniChartOutput
+      { isDirty = isHeaderDirty
+      , removeChart = isJust maybeRemovedSymbol
+      , outputState = inputState
+        { headerState = outputHeaderState
+        }
+      }
+  where
     cornerRadius = 5
     cornerVertices = 5
     padding = 5
