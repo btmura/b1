@@ -39,6 +39,7 @@ data SideBarState = SideBarState
 
 data Slot = Slot
   { symbol :: Symbol
+  , remove :: Bool
   , heightAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , scaleAnimation :: Animation (GLfloat, Dirty)
@@ -64,12 +65,13 @@ drawSideBar resources
   output <- mapM (drawSlot resources bounds updatedSlots) indices
 
   let (outputStates, dirtySlots) = unzip output
-      nextSlots = map (uncurry updateMiniChartState) 
-          (zip updatedSlots outputStates)
+      nextSlots = filter (not . shouldRemoveSlot) $
+          map (uncurry updateMiniChartState) (zip updatedSlots outputStates)
       nextState = SideBarState { slots = nextSlots } 
       isSideBarDirty = isJust maybeNewSymbol
           || any M.isDirty outputStates
           || any id dirtySlots
+
   return SideBarOutput
     { isDirty = isSideBarDirty
     , outputState = nextState
@@ -84,13 +86,17 @@ addSymbol (Just newSymbol) slots =
       miniChartState <- M.newMiniChartState newSymbol
       return $ slots ++ [Slot
         { symbol = newSymbol
+        , remove = False
         , heightAnimation = incomingHeightAnimation
         , alphaAnimation = incomingAlphaAnimation
         , scaleAnimation = incomingScaleAnimation
         , miniChartState = miniChartState
         }]
   where
-    alreadyAdded = any ((== newSymbol) . symbol) slots
+    alreadyAdded = any (containsSymbol newSymbol) slots
+
+containsSymbol :: Symbol -> Slot -> Bool
+containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
 
 incomingHeightAnimation = animateOnce $ linearRange 100 100 20
 incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
@@ -131,25 +137,34 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
       , M.inputState = miniChartState slot
       }
 
+shouldRemoveSlot :: Slot -> Bool
+shouldRemoveSlot slot@Slot
+    { remove = remove
+    , heightAnimation = heightAnimation
+    } =
+  remove && (fst . current) heightAnimation == 0
+
 updateMiniChartState :: Slot -> M.MiniChartOutput -> Slot
 updateMiniChartState
     slot@Slot
-      { heightAnimation = heightAnimation
+      { remove = alreadyRemoved
+      , heightAnimation = heightAnimation
       , alphaAnimation = alphaAnimation
       , scaleAnimation = scaleAnimation
       }
     M.MiniChartOutput
       { M.outputState = nextState
-      , M.removeChart = removeChart
+      , M.removeChart = removeNow
       } = slot
-  { heightAnimation = nextHeightAnimation
+  { remove = alreadyRemoved || removeNow
+  , heightAnimation = nextHeightAnimation
   , alphaAnimation = nextAlphaAnimation
   , scaleAnimation = nextScaleAnimation
   , miniChartState = nextState
   }
   where
     (nextHeightAnimation, nextAlphaAnimation, nextScaleAnimation) =
-        if removeChart
+        if removeNow
           then (outgoingHeightAnimation, outgoingAlphaAnimation,
               outgoingScaleAnimation)
           else (next heightAnimation, next alphaAnimation,
