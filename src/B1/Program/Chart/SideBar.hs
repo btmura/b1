@@ -39,7 +39,7 @@ data SideBarState = SideBarState
 
 data Slot = Slot
   { symbol :: Symbol
-  , height :: GLfloat
+  , heightAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , scaleAnimation :: Animation (GLfloat, Dirty)
   , miniChartState :: M.MiniChartState
@@ -83,8 +83,8 @@ addSymbol (Just newSymbol) slots =
     else do
       miniChartState <- M.newMiniChartState newSymbol
       return $ slots ++ [Slot
-        { height = 100
-        , symbol = newSymbol
+        { symbol = newSymbol
+        , heightAnimation = incomingHeightAnimation
         , alphaAnimation = incomingAlphaAnimation
         , scaleAnimation = incomingScaleAnimation
         , miniChartState = miniChartState
@@ -92,8 +92,10 @@ addSymbol (Just newSymbol) slots =
   where
     alreadyAdded = any ((== newSymbol) . symbol) slots
 
+incomingHeightAnimation = animateOnce $ linearRange 100 100 20
 incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
 incomingScaleAnimation = animateOnce $ linearRange 1 1 20
+outgoingHeightAnimation = animateOnce $ linearRange 100 0 20
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
 outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
    
@@ -108,18 +110,20 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
 
     scale3 scale scale 1
     output <- M.drawMiniChart resources input
-    return (output, alphaDirty || scaleDirty)
+    return (output, alphaDirty || scaleDirty || heightDirty)
   where
+    (height, heightDirty) = current $ heightAnimation slot
+    (alpha, alphaDirty) = current $ alphaAnimation slot
+    (scale, scaleDirty) = current $ scaleAnimation slot
+
     slotsAbove = take index slots
-    heightAbove = sum $ map height slotsAbove
+    heightAbove = sum $ map (fst . current . heightAnimation) slotsAbove
 
     slot = slots !! index
     slotTop = top - heightAbove
-    slotHeight = height slot
+    slotHeight = 100
     slotBottom = slotTop - slotHeight
     slotBounds = Box (left, slotTop) (right, slotBottom)
-    (alpha, alphaDirty) = current $ alphaAnimation slot
-    (scale, scaleDirty) = current $ scaleAnimation slot
     input = M.MiniChartInput
       { M.bounds = slotBounds
       , M.alpha = alpha
@@ -130,19 +134,24 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
 updateMiniChartState :: Slot -> M.MiniChartOutput -> Slot
 updateMiniChartState
     slot@Slot
-      { alphaAnimation = alphaAnimation
+      { heightAnimation = heightAnimation
+      , alphaAnimation = alphaAnimation
       , scaleAnimation = scaleAnimation
       }
     M.MiniChartOutput
       { M.outputState = nextState
       , M.removeChart = removeChart
       } = slot
-  { alphaAnimation = nextAlphaAnimation
+  { heightAnimation = nextHeightAnimation
+  , alphaAnimation = nextAlphaAnimation
   , scaleAnimation = nextScaleAnimation
   , miniChartState = nextState
   }
   where
-    (nextAlphaAnimation, nextScaleAnimation) = if removeChart
-      then (outgoingAlphaAnimation, outgoingScaleAnimation)
-      else (next alphaAnimation, next scaleAnimation)
+    (nextHeightAnimation, nextAlphaAnimation, nextScaleAnimation) =
+        if removeChart
+          then (outgoingHeightAnimation, outgoingAlphaAnimation,
+              outgoingScaleAnimation)
+          else (next heightAnimation, next alphaAnimation,
+              next scaleAnimation)
 
