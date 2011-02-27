@@ -73,8 +73,9 @@ drawMiniChart resources
           cornerRadius cornerVertices
 
       let headerInput = H.HeaderInput
-            { H.bounds = bounds
+            { H.bounds = paddedBox
             , H.fontSize = 10
+            , H.padding = 5
             , H.alpha = alpha
             , H.symbol = symbol
             , H.stockData = stockData

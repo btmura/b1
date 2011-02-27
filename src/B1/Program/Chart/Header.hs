@@ -34,6 +34,7 @@ import B1.Program.Chart.Symbol
 data HeaderInput = HeaderInput
   { bounds :: Box
   , fontSize :: FontSize
+  , padding :: GLfloat
   , alpha :: GLfloat
   , symbol :: Symbol
   , stockData :: StockData
@@ -80,6 +81,7 @@ drawHeader resources@Resources
     HeaderInput
       { bounds = bounds
       , fontSize = fontSize
+      , padding = padding
       , alpha = alpha
       , symbol = symbol
       , stockData = stockData
@@ -164,7 +166,6 @@ drawHeader resources@Resources
   where
     headerTextSpec = TextSpec font fontSize
     symbolTextSpec = headerTextSpec symbol
-    padding = 10
 
 getLongStatus :: StockData -> IO String
 getLongStatus = renderStatus renderLongStatus

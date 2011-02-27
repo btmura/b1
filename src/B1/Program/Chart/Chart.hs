@@ -71,6 +71,7 @@ drawChart resources
     let headerInput = H.HeaderInput
           { H.bounds = bounds
           , H.fontSize = 18
+          , H.padding = 10
           , H.alpha = alpha
           , H.symbol = symbol
           , H.stockData = stockData
