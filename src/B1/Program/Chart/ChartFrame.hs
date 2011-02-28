@@ -131,14 +131,20 @@ drawFrame resources
       }) = 
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
-    color $ blue alphaAmount
-    drawFrameBorder resources frameInput
+    color $ outlineColor resources paddedBounds alphaAmount
+    drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
+        cornerRadius cornerVertices
     (nextContent, isDirty, addedSymbol) <- drawFrameContent resources
         frameInput content alphaAmount
     return (Just frame { content = nextContent }, isDirty, addedSymbol)
   where
+    paddedBounds = boxShrink bounds contentPadding
     scaleAmount = fst . current $ scaleAnimation
     alphaAmount = fst . current $ alphaAnimation
+
+contentPadding = 5::GLfloat -- ^ Padding on one side.
+cornerRadius = 10::GLfloat
+cornerVertices = 5::Int
 
 drawFrameContent :: Resources -> FrameInput -> Content -> GLfloat
     -> IO (Content, Dirty, Maybe Symbol)
@@ -246,17 +252,6 @@ newPreviousFrame (Just frame) = Just $ frame
   { scaleAnimation = outgoingScaleAnimation
   , alphaAnimation = outgoingAlphaAnimation
   }
-
-contentPadding = 5::GLfloat -- ^ Padding on one side.
-cornerRadius = 10::GLfloat
-cornerVertices = 5::Int
-
-drawFrameBorder :: Resources -> FrameInput -> IO ()
-drawFrameBorder resources FrameInput { bounds = bounds } =
-  drawRoundedRectangle width height cornerRadius cornerVertices
-  where
-     width = boxWidth bounds - contentPadding * 2
-     height = boxHeight bounds - contentPadding * 2
 
 drawNextSymbol :: Resources -> FrameInput -> IO ()
 drawNextSymbol _

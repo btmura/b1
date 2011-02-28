@@ -61,7 +61,7 @@ drawMiniChart resources
         }
       } = do
   preservingMatrix $ do
-    color $ blue alpha
+    color $ outlineColor resources paddedBox alpha
     drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
         cornerRadius cornerVertices
 
@@ -85,8 +85,8 @@ drawMiniChart resources
           } = headerOutput
 
     translate $ vector3 0 (boxHeight paddedBox / 2 - headerHeight) 0
-    color $ blue alpha
-    drawHorizontalRule (boxWidth paddedBox)
+    color $ outlineColor resources paddedBox alpha
+    drawHorizontalRule (boxWidth paddedBox - 1)
 
     return $ MiniChartOutput
       { isDirty = isHeaderDirty

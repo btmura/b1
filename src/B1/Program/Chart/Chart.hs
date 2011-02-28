@@ -87,8 +87,8 @@ drawChart resources
 
     -- Draw a line under the header
     translate $ vector3 0 (boxHeight bounds / 2 - headerHeight) 0
-    color $ blue alpha 
-    drawHorizontalRule (boxWidth bounds) 
+    color $ outlineColor resources bounds alpha 
+    drawHorizontalRule (boxWidth bounds - 1) 
 
     let outputState = inputState { headerState = outputHeaderState }
         isDirty = isHeaderDirty
