@@ -5,9 +5,11 @@ module B1.Program.Chart.Screen
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Action
+import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Program.Chart.Animation
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
@@ -25,14 +27,32 @@ drawScreen = drawScreenLoop
       { F.bounds = zeroBox
       , F.inputState = F.newFrameState
       } 
+    ScreenState
+      { sideBarOpen = False
+      , sideBarWidthAnimation = animateOnce $ linearRange 0 0 30
+      }
 
-drawScreenLoop :: S.SideBarInput -> F.FrameInput
+data ScreenState = ScreenState
+  { sideBarOpen :: Bool
+  , sideBarWidthAnimation :: Animation (GLfloat, Dirty)
+  }
+
+sideBarOpenWidth = 150
+openSideBarAnimation = animateOnce $ linearRange 0 sideBarOpenWidth 10
+closeSideBarAnimation = animateOnce $ linearRange sideBarOpenWidth 0 10
+
+drawScreenLoop :: S.SideBarInput -> F.FrameInput -> ScreenState
     -> Resources -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop
     sideBarInput@S.SideBarInput
       { S.inputState = S.SideBarState { S.slots = slots }
       }
-    frameInput resources = do
+    frameInput
+    screenState@ScreenState
+      { sideBarOpen = sideBarOpen
+      , sideBarWidthAnimation = sideBarWidthAnimation
+      }
+    resources = do
 
   sideBarOutput <- preservingMatrix $ do
     translateToCenter sideBarBounds
@@ -49,14 +69,27 @@ drawScreenLoop
       nextFrameInput = frameInput
         { F.inputState = F.outputState frameOutput
         }
-      nextDirty =  S.isDirty sideBarOutput || F.isDirty frameOutput
-  return (Action (drawScreenLoop nextSideBarInput nextFrameInput), nextDirty)
+      nextScreenState = screenState
+        { sideBarOpen = nextSideBarOpen
+        , sideBarWidthAnimation = nextSideBarWidthAnimation
+        }
+      nextDirty = sideBarWidthDirty
+          || nextSideBarWidthDirty
+          || S.isDirty sideBarOutput
+          || F.isDirty frameOutput
+  return (Action (drawScreenLoop nextSideBarInput nextFrameInput
+      nextScreenState), nextDirty)
 
   where
-    sideBarWidth =
-      case slots of
-        [] -> 0
-        _ -> 150
+    (sideBarWidth, sideBarWidthDirty) = current sideBarWidthAnimation
+
+    nextSideBarOpen = length slots > 0
+    nextSideBarWidthAnimation
+      | not sideBarOpen && nextSideBarOpen = openSideBarAnimation
+      | sideBarOpen && not nextSideBarOpen = closeSideBarAnimation
+      | otherwise = next sideBarWidthAnimation
+
+    nextSideBarWidthDirty = snd . current $ nextSideBarWidthAnimation
 
     height = windowHeight resources
 
