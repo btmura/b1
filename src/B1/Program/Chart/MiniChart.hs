@@ -7,6 +7,7 @@ module B1.Program.Chart.MiniChart
   ) where
 
 import Data.Maybe
+import Graphics.UI.GLFW
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Range
@@ -33,6 +34,7 @@ data MiniChartInput = MiniChartInput
 data MiniChartOutput = MiniChartOutput
   { outputState :: MiniChartState
   , isDirty :: Bool
+  , symbolRequest :: Maybe Symbol
   , removeChart :: Bool
   }
 
@@ -88,9 +90,15 @@ drawMiniChart resources
     color $ outlineColor resources paddedBox alpha
     drawHorizontalRule (boxWidth paddedBox - 1)
 
+    let nextRemoveChart = isJust maybeRemovedSymbol
+        nextSymbolRequest
+          | boxContains paddedBox (mousePosition resources)
+              && isMouseButtonClicked resources ButtonLeft = Just symbol
+          | otherwise = Nothing
     return $ MiniChartOutput
-      { isDirty = isHeaderDirty
-      , removeChart = isJust maybeRemovedSymbol
+      { isDirty = isHeaderDirty || isJust nextSymbolRequest || nextRemoveChart
+      , symbolRequest = nextSymbolRequest
+      , removeChart = nextRemoveChart
       , outputState = inputState
         { headerState = outputHeaderState
         }

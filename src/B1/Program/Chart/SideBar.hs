@@ -29,8 +29,9 @@ data SideBarInput = SideBarInput
   }
 
 data SideBarOutput = SideBarOutput
-  { outputState :: SideBarState
-  , isDirty :: Dirty
+  { isDirty :: Dirty
+  , symbolRequest :: Maybe Symbol
+  , outputState :: SideBarState
   }
 
 data SideBarState = SideBarState
@@ -71,9 +72,13 @@ drawSideBar resources
       isSideBarDirty = isJust maybeNewSymbol
           || any M.isDirty outputStates
           || any id dirtySlots
+      nextSymbolRequest = (listToMaybe
+          . catMaybes
+          . map M.symbolRequest) outputStates
 
   return SideBarOutput
     { isDirty = isSideBarDirty
+    , symbolRequest = nextSymbolRequest
     , outputState = nextState
     }
 

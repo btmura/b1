@@ -31,6 +31,7 @@ import qualified B1.Program.Chart.Instructions as I
 
 data FrameInput = FrameInput
   { bounds :: Box
+  , symbolRequest :: Maybe Symbol
   , inputState :: FrameState
   }
 
@@ -80,8 +81,13 @@ outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources frameInput@FrameInput { inputState = state } = do
-  (midState, isSymbolStateDirty) <- refreshSymbolState resources state
+drawChartFrame resources
+    frameInput@FrameInput
+      { symbolRequest = symbolRequest
+      , inputState = state
+      } = do
+  (midState, isSymbolStateDirty) <- refreshSymbolState resources
+      symbolRequest state
 
   let revisedFrameInput = frameInput { inputState = midState }
       drawFrameShort = drawFrame resources revisedFrameInput
@@ -190,13 +196,18 @@ nextFrame (Just frame) = Just $ frame
   , alphaAnimation = next $ alphaAnimation frame
   }
 
-refreshSymbolState :: Resources -> FrameState -> IO (FrameState, Dirty)
-refreshSymbolState resources
-  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey 
-  | checkKeyPress (SpecialKey ENTER) = handleEnterKey 
-  | checkKeyPress (SpecialKey ESC) = handleEscapeKey 
-  | isJust maybeLetterKey = handleCharKey $ fromJust maybeLetterKey
-  | otherwise = handleNoKey
+refreshSymbolState :: Resources -> Maybe Symbol -> FrameState
+    -> IO (FrameState, Dirty)
+
+refreshSymbolState _ (Just symbol) state = 
+  loadNextSymbol $ state { nextSymbol = symbol }
+
+refreshSymbolState resources Nothing state
+  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey state
+  | checkKeyPress (SpecialKey ENTER) = handleEnterKey state
+  | checkKeyPress (SpecialKey ESC) = handleEscapeKey state
+  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) state
+  | otherwise = handleNoKey state
   where
     checkKeyPress = isKeyPressed resources
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
@@ -220,17 +231,22 @@ handleBackspaceKey state@FrameState { nextSymbol = nextSymbol }
 handleEnterKey :: FrameState -> IO (FrameState, Dirty)
 handleEnterKey state@FrameState
     { nextSymbol = nextSymbol
-    , currentFrame = currentFrame
     }
   | nextSymbol == "" = return (state, False)
-  | otherwise = do
-    chartContent <- newChartContent nextSymbol
-    return (state
-      { currentSymbol = nextSymbol
-      , nextSymbol = ""
-      , currentFrame = newCurrentFrame chartContent
-      , previousFrame = newPreviousFrame currentFrame
-      }, True)
+  | otherwise = loadNextSymbol state
+
+loadNextSymbol :: FrameState -> IO (FrameState, Dirty)
+loadNextSymbol state@FrameState
+    { nextSymbol = nextSymbol
+    , currentFrame = currentFrame
+    } = do
+  chartContent <- newChartContent nextSymbol
+  return (state
+    { currentSymbol = nextSymbol
+    , nextSymbol = ""
+    , currentFrame = newCurrentFrame chartContent
+    , previousFrame = newPreviousFrame currentFrame
+    }, True)
 
 -- ESC cancels the next symbol.
 handleEscapeKey :: FrameState -> IO (FrameState, Dirty)

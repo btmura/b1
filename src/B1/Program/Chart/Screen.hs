@@ -24,7 +24,8 @@ drawScreen = drawScreenLoop
       , S.inputState = S.newSideBarState
       }
     F.FrameInput
-      { F.bounds = zeroBox
+      { F.symbolRequest = Nothing
+      , F.bounds = zeroBox
       , F.inputState = F.newFrameState
       } 
     ScreenState
@@ -67,7 +68,8 @@ drawScreenLoop
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput
-        { F.inputState = F.outputState frameOutput
+        { F.symbolRequest = S.symbolRequest sideBarOutput
+        , F.inputState = F.outputState frameOutput
         }
       nextScreenState = screenState
         { sideBarOpen = nextSideBarOpen
