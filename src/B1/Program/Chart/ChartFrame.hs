@@ -81,7 +81,7 @@ outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources frameInput@FrameInput { inputState = state } = do
-  midState <- refreshSymbolState resources state
+  (midState, isSymbolStateDirty) <- refreshSymbolState resources state
 
   let revisedFrameInput = frameInput { inputState = midState }
       drawFrameShort = drawFrame resources revisedFrameInput
@@ -100,7 +100,8 @@ drawChartFrame resources frameInput@FrameInput { inputState = state } = do
         }
       bothFrames = [currentFrame nextState, previousFrame nextState]
       nextDirty = any id
-        [ any isDirtyFrame (catMaybes bothFrames)
+        [ isSymbolStateDirty
+        , any isDirtyFrame (catMaybes bothFrames)
         , isCurrentContentDirty
         , isPreviousContentDirty
         ]
@@ -189,7 +190,7 @@ nextFrame (Just frame) = Just $ frame
   , alphaAnimation = next $ alphaAnimation frame
   }
 
-refreshSymbolState :: Resources -> FrameState -> IO FrameState
+refreshSymbolState :: Resources -> FrameState -> IO (FrameState, Dirty)
 refreshSymbolState resources
   | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey 
   | checkKeyPress (SpecialKey ENTER) = handleEnterKey 
@@ -201,38 +202,42 @@ refreshSymbolState resources
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
 -- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameState -> IO FrameState
+handleCharKey :: Key -> FrameState -> IO (FrameState, Dirty)
 handleCharKey (CharKey char) state@FrameState { nextSymbol = nextSymbol }
-  | isAlpha char = return $ state { nextSymbol = nextSymbol ++ [char] }
-  | otherwise = return state
-handleCharKey _ state = return state
+  | isAlpha char = return (state { nextSymbol = nextSymbol ++ [char] }, True)
+  | otherwise = return (state, False)
+handleCharKey _ state = return (state, False)
 
 -- BACKSPACE deletes one character in a symbol...
+handleBackspaceKey :: FrameState -> IO (FrameState, Dirty)
 handleBackspaceKey state@FrameState { nextSymbol = nextSymbol }
-  | length nextSymbol < 1 = return state
-  | otherwise = return state { nextSymbol = trimmedSymbol }
+  | length nextSymbol < 1 = return (state, False)
+  | otherwise = return (state { nextSymbol = trimmedSymbol }, True)
   where
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
 
 -- ENTER makes the next symbol the current symbol.
+handleEnterKey :: FrameState -> IO (FrameState, Dirty)
 handleEnterKey state@FrameState
     { nextSymbol = nextSymbol
     , currentFrame = currentFrame
     }
-  | nextSymbol == "" = return state
+  | nextSymbol == "" = return (state, False)
   | otherwise = do
     chartContent <- newChartContent nextSymbol
-    return state
+    return (state
       { currentSymbol = nextSymbol
       , nextSymbol = ""
       , currentFrame = newCurrentFrame chartContent
       , previousFrame = newPreviousFrame currentFrame
-      }
+      }, True)
 
 -- ESC cancels the next symbol.
-handleEscapeKey state = return state { nextSymbol = "" }
+handleEscapeKey :: FrameState -> IO (FrameState, Dirty)
+handleEscapeKey state = return (state { nextSymbol = "" }, True)
 
-handleNoKey state = return state
+handleNoKey :: FrameState -> IO (FrameState, Dirty)
+handleNoKey state = return (state, False)
 
 newChartContent :: Symbol -> IO Content
 newChartContent symbol = do
