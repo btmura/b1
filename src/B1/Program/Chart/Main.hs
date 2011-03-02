@@ -20,10 +20,11 @@ main = do
   loadTextures
 
   resourcesRef <- createInitialResources
-  windowSizeCallback $= myWindowSizeCallback resourcesRef
+  windowDirtyRef <- newIORef False
+  windowSizeCallback $= myWindowSizeCallback resourcesRef windowDirtyRef
   mousePosCallback $= myMousePosCallback resourcesRef
 
-  drawLoop resourcesRef drawScreen
+  drawLoop resourcesRef windowDirtyRef drawScreen
 
   closeWindow
   terminate
@@ -64,10 +65,11 @@ createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
   newIORef $ newResources font
 
-myWindowSizeCallback :: IORef Resources -> Size -> IO ()
-myWindowSizeCallback resourcesRef size@(Size width height) = do
+myWindowSizeCallback :: IORef Resources -> IORef Dirty -> Size -> IO ()
+myWindowSizeCallback resourcesRef windowDirtyRef size@(Size width height) = do
   viewport $= (Position 0 0, size)
   modifyIORef resourcesRef $ updateWindowSize size
+  writeIORef windowDirtyRef True
 
   -- Use orthographic projection, since it is easier to position text.
   -- (0, 0) is lower left corner of the screen.
@@ -83,9 +85,9 @@ myMousePosCallback resourcesRef position = do
   modifyIORef resourcesRef $
       (invertMousePositionY . updateMousePosition position)
 
-drawLoop :: IORef Resources -> (Resources -> IO (Action Resources Dirty, Dirty))
-    -> IO ()
-drawLoop resourcesRef action = do
+drawLoop :: IORef Resources -> IORef Dirty
+    -> (Resources -> IO (Action Resources Dirty, Dirty)) -> IO ()
+drawLoop resourcesRef windowDirtyRef action = do
   clear [ColorBuffer, DepthBuffer]
 
   -- TODO: Use >>= syntax?
@@ -93,28 +95,29 @@ drawLoop resourcesRef action = do
   refreshKeysPressed resourcesRef
   resources <- readIORef resourcesRef
 
-  -- putStrLn $ show resources
-  (Action nextAction, isDirty) <- action resources
+  (Action nextAction, isContentDirty) <- action resources
 
   swapBuffers
   sleep 0.001
+
+  -- Screen may have been resized after swapBuffers even though
+  -- there are no dirty animations.
+  isWindowDirty <- readIORef windowDirtyRef
+  writeIORef windowDirtyRef False
 
   control <- getKey LCTRL
   c <- getKey 'C'
   unless (control == Press && c == Press) $ do
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.
-    unless isDirty waitEvents
-    drawLoop resourcesRef nextAction
+    unless (isWindowDirty || isContentDirty) waitEvents
+    drawLoop resourcesRef windowDirtyRef nextAction
 
 refreshMouseButtonsPressed :: IORef Resources -> IO ()
 refreshMouseButtonsPressed resourcesRef =
   updatePressed resourcesRef getMouseButton buttons updateMouseButtonsPressed
   where
-    buttons =
-      [ ButtonLeft
-      , ButtonRight
-      ]
+    buttons = [ButtonLeft, ButtonRight]
 
 refreshKeysPressed :: IORef Resources -> IO ()
 refreshKeysPressed resourcesRef =

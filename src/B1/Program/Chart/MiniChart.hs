@@ -92,7 +92,8 @@ drawMiniChart resources
 
     let nextRemoveChart = isJust maybeRemovedSymbol
         nextSymbolRequest
-          | boxContains paddedBox (mousePosition resources)
+          | isNothing maybeRemovedSymbol
+              && boxContains paddedBox (mousePosition resources)
               && isMouseButtonClicked resources ButtonLeft = Just symbol
           | otherwise = Nothing
     return $ MiniChartOutput
