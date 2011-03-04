@@ -94,6 +94,7 @@ drawLoop resourcesRef windowDirtyRef action = do
   refreshMouseButtonsPressed resourcesRef
   refreshKeysPressed resourcesRef
   resources <- readIORef resourcesRef
+  putStrLn $ show resources
 
   (Action nextAction, isContentDirty) <- action resources
 
@@ -115,24 +116,27 @@ drawLoop resourcesRef windowDirtyRef action = do
 
 refreshMouseButtonsPressed :: IORef Resources -> IO ()
 refreshMouseButtonsPressed resourcesRef =
-  updatePressed resourcesRef getMouseButton buttons updateMouseButtonsPressed
+  mapM_ (uncurry (updatePressed resourcesRef getMouseButton buttons))
+      (zip states updateFunctions)
   where
     buttons = [ButtonLeft, ButtonRight]
+    states = [Press, Release]
+    updateFunctions = [updateMouseButtonsPressed, updateMouseButtonsReleased]
 
 refreshKeysPressed :: IORef Resources -> IO ()
 refreshKeysPressed resourcesRef =
-  updatePressed resourcesRef getKey keys updateKeysPressed
+  updatePressed resourcesRef getKey keys Press updateKeysPressed
   where
     alphaKeys = map CharKey ['A'..'Z']
     specialKeys = map SpecialKey [ENTER, BACKSPACE, ESC]
     keys = alphaKeys ++ specialKeys
 
-updatePressed :: IORef Resources -> (a -> IO KeyButtonState) -> [a]
-    -> ([a] -> Resources -> Resources) -> IO ()
-updatePressed resourcesRef ioFunction values updater = do
+updatePressed :: IORef Resources -> (a -> IO KeyButtonState)
+    -> [a] -> KeyButtonState -> ([a] -> Resources -> Resources) -> IO ()
+updatePressed resourcesRef ioFunction values buttonState updateFunction = do
   states <- mapM ioFunction values
   let indexedStates = zip values states
-      matchingStates = filter ((== Press) . snd) indexedStates
+      matchingStates = filter ((== buttonState) . snd) indexedStates
       matchingValues = map fst matchingStates
-  modifyIORef resourcesRef $ updater matchingValues
+  modifyIORef resourcesRef $ updateFunction matchingValues
 

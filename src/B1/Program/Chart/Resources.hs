@@ -5,6 +5,7 @@ module B1.Program.Chart.Resources
   , isKeyPressed
   , getKeyPressed
   , updateMouseButtonsPressed
+  , updateMouseButtonsReleased
   , isMouseButtonClicked
   , updateMousePosition
   , invertMousePositionY
@@ -23,7 +24,9 @@ data Resources = Resources
   , keysPressed :: [Key]
   , previousKeysPressed :: [Key]
   , mouseButtonsPressed :: [MouseButton]
+  , mouseButtonsReleased :: [MouseButton]
   , previousMouseButtonsPressed :: [MouseButton]
+  , previousMouseButtonsReleased :: [MouseButton]
   , mousePosition :: (GLfloat, GLfloat)
   } deriving (Show, Eq)
 
@@ -35,7 +38,9 @@ newResources font = Resources
   , keysPressed = []
   , previousKeysPressed = []
   , mouseButtonsPressed = []
+  , mouseButtonsReleased = []
   , previousMouseButtonsPressed = []
+  , previousMouseButtonsReleased = []
   , mousePosition = (0, 0)
   }
 
@@ -73,14 +78,22 @@ updateMouseButtonsPressed buttonsPressed
     , previousMouseButtonsPressed = previousButtonsPressed
     }
 
+updateMouseButtonsReleased :: [MouseButton] -> Resources -> Resources
+updateMouseButtonsReleased buttonsReleased
+    resources@Resources { mouseButtonsReleased = previousButtonsReleased } =
+  resources
+    { mouseButtonsReleased = buttonsReleased
+    , previousMouseButtonsReleased = previousButtonsReleased
+    }
+
 isMouseButtonClicked :: Resources -> MouseButton -> Bool
 isMouseButtonClicked
     resources@Resources
-      { mouseButtonsPressed = buttonsPressed
-      , previousMouseButtonsPressed = previousButtonsPressed
+      { mouseButtonsReleased = buttonsReleased
+      , previousMouseButtonsReleased = previousButtonsReleased
       }
-    button = any (== button) buttonsPressed
-        && not (any (== button) previousButtonsPressed)
+    button = any (== button) buttonsReleased
+        && not (any (== button) previousButtonsReleased)
 
 updateMousePosition :: Position -> Resources -> Resources
 updateMousePosition (Position x y) resources = resources
