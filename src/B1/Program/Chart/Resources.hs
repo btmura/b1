@@ -5,6 +5,7 @@ module B1.Program.Chart.Resources
     , windowWidth
     , windowHeight
     , mousePosition
+    , mouseDragStartPosition
     )
   , newResources
   , updateKeysPressed
@@ -14,6 +15,7 @@ module B1.Program.Chart.Resources
   , updateMouseButtonsReleased
   , isMouseButtonPressed
   , isMouseButtonClicked
+  , isMouseDrag
   , updateMousePosition
   , invertMousePositionY
   , updateWindowSize
@@ -35,7 +37,8 @@ data Resources = Resources
   , previousMouseButtonsPressed :: [MouseButton]
   , previousMouseButtonsReleased :: [MouseButton]
   , mousePosition :: (GLfloat, GLfloat)
-  , mouseButtonPressCount :: Int
+  , mouseDragCount :: Int
+  , mouseDragStartPosition :: (GLfloat, GLfloat)
   } deriving (Show, Eq)
 
 newResources :: Font -> Resources
@@ -50,7 +53,8 @@ newResources font = Resources
   , previousMouseButtonsPressed = []
   , previousMouseButtonsReleased = []
   , mousePosition = (0, 0)
-  , mouseButtonPressCount = 0
+  , mouseDragCount = 0
+  , mouseDragStartPosition = (0, 0)
   }
 
 updateKeysPressed :: [Key] -> Resources -> Resources
@@ -80,39 +84,44 @@ getKeyPressed resources keys =
     indexedPresses = zip keys presses
     pressedKeys = map fst $ filter snd indexedPresses 
 
+dragThreshold = 15
+
+-- TODO: Group updating the mouse state into one function to prevent
+--       reordering issues like needing mousePosition set before calling this.
 updateMouseButtonsPressed :: [MouseButton] -> Resources -> Resources
 updateMouseButtonsPressed buttonsPressed
     resources@Resources
       { mouseButtonsPressed = previousButtonsPressed
-      , mouseButtonPressCount = mouseButtonPressCount
+      , mousePosition = mousePosition
+      , mouseDragCount = mouseDragCount
+      , mouseDragStartPosition = mouseDragStartPosition
       } =
   resources
     { mouseButtonsPressed = buttonsPressed
     , previousMouseButtonsPressed = previousButtonsPressed
-    , mouseButtonPressCount = newMouseButtonPressCount
+    , mouseDragCount = newMouseDragCount
+    , mouseDragStartPosition = newMouseDragStartPosition
     }
   where
-    newMouseButtonPressCount =
-        if any (== ButtonLeft) buttonsPressed
-          then mouseButtonPressCount + 1
-          else 0
+    newMouseDragCount = if any (== ButtonLeft) buttonsPressed
+        then mouseDragCount + 1 else 0
+    newMouseDragStartPosition = if mouseDragCount == 0 && newMouseDragCount > 0
+        then mousePosition else mouseDragStartPosition
 
 updateMouseButtonsReleased :: [MouseButton] -> Resources -> Resources
 updateMouseButtonsReleased buttonsReleased
     resources@Resources
       { mouseButtonsReleased = previousButtonsReleased
-      , mouseButtonPressCount = mouseButtonPressCount
+      , mouseDragCount = mouseDragCount
       } =
   resources
     { mouseButtonsReleased = buttonsReleased
     , previousMouseButtonsReleased = previousButtonsReleased
-    , mouseButtonPressCount = newMouseButtonPressCount 
+    , mouseDragCount = newMouseDragCount
     }
   where
-    newMouseButtonPressCount =
-        if any (== ButtonLeft) buttonsReleased
-          then 0
-          else mouseButtonPressCount
+    newMouseDragCount = if any (== ButtonLeft) buttonsReleased
+        then 0 else mouseDragCount
 
 isMouseButtonPressed :: Resources -> MouseButton -> Bool
 isMouseButtonPressed
@@ -129,6 +138,10 @@ isMouseButtonClicked
     button =
   any (== button) buttonsReleased
       && not (any (== button) previousButtonsReleased)
+
+isMouseDrag :: Resources -> Bool
+isMouseDrag Resources { mouseDragCount = dragCount } =
+  dragCount >= dragThreshold
 
 updateMousePosition :: Position -> Resources -> Resources
 updateMousePosition (Position x y) resources = resources

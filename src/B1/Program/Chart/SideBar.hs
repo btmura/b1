@@ -41,6 +41,7 @@ data SideBarState = SideBarState
 data Slot = Slot
   { symbol :: Symbol
   , remove :: Bool
+  , isBeingDragged :: Bool
   , heightAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , scaleAnimation :: Animation (GLfloat, Dirty)
@@ -92,6 +93,7 @@ addSymbol (Just newSymbol) slots =
       return $ slots ++ [Slot
         { symbol = newSymbol
         , remove = False
+        , isBeingDragged = False
         , heightAnimation = incomingHeightAnimation
         , alphaAnimation = incomingAlphaAnimation
         , scaleAnimation = incomingScaleAnimation
@@ -135,10 +137,13 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
     slotHeight = 100
     slotBottom = slotTop - slotHeight
     slotBounds = Box (left, slotTop) (right, slotBottom)
+    slotDragged = isMouseDrag resources
+        && boxContains slotBounds (mouseDragStartPosition resources)
     input = M.MiniChartInput
       { M.bounds = slotBounds
       , M.alpha = alpha
       , M.symbol = symbol slot
+      , M.isBeingDragged = slotDragged
       , M.inputState = miniChartState slot
       }
 

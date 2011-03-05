@@ -28,6 +28,7 @@ data MiniChartInput = MiniChartInput
   { bounds :: Box
   , alpha :: GLfloat
   , symbol :: Symbol
+  , isBeingDragged :: Bool
   , inputState :: MiniChartState
   }
 
@@ -57,13 +58,14 @@ drawMiniChart resources
       { bounds = bounds
       , alpha = alpha
       , symbol = symbol
+      , isBeingDragged = isBeingDragged
       , inputState = inputState@MiniChartState
         { stockData = stockData
         , headerState = headerState
         }
       } = do
   preservingMatrix $ do
-    color $ outlineColor resources paddedBox alpha
+    color finalColor
     drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
         cornerRadius cornerVertices
 
@@ -87,7 +89,7 @@ drawMiniChart resources
           } = headerOutput
 
     translate $ vector3 0 (boxHeight paddedBox / 2 - headerHeight) 0
-    color $ outlineColor resources paddedBox alpha
+    color finalColor
     drawHorizontalRule (boxWidth paddedBox - 1)
 
     let nextRemoveChart = isJust maybeRemovedSymbol
@@ -109,4 +111,6 @@ drawMiniChart resources
     cornerVertices = 5
     padding = 5
     paddedBox = boxShrink bounds padding
-
+    finalColor
+      | isBeingDragged = gray alpha
+      | otherwise = outlineColor resources paddedBox alpha

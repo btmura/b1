@@ -3,6 +3,7 @@ module B1.Program.Chart.Colors
   , blue
   , lightBlue
   , lighterBlue
+  , gray
   , green
   , white
   , outlineColor
@@ -26,6 +27,9 @@ lightBlue = color4 0 0.25 0.75
 
 lighterBlue :: GLfloat -> Color4 GLfloat
 lighterBlue = color4 0 0.25 1
+
+gray :: GLfloat -> Color4 GLfloat
+gray = color4 0.5 0.5 0.5
 
 green :: GLfloat -> Color4 GLfloat
 green = color4 0.25 1 0

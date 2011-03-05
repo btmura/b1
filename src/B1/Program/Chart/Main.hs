@@ -22,7 +22,6 @@ main = do
   resourcesRef <- createInitialResources
   windowDirtyRef <- newIORef False
   windowSizeCallback $= myWindowSizeCallback resourcesRef windowDirtyRef
-  mousePosCallback $= myMousePosCallback resourcesRef
 
   drawLoop resourcesRef windowDirtyRef drawScreen
 
@@ -80,17 +79,13 @@ myWindowSizeCallback resourcesRef windowDirtyRef size@(Size width height) = do
   matrixMode $= Modelview 0
   loadIdentity
 
-myMousePosCallback :: IORef Resources -> Position -> IO ()
-myMousePosCallback resourcesRef position = do
-  modifyIORef resourcesRef $
-      (invertMousePositionY . updateMousePosition position)
-
 drawLoop :: IORef Resources -> IORef Dirty
     -> (Resources -> IO (Action Resources Dirty, Dirty)) -> IO ()
 drawLoop resourcesRef windowDirtyRef action = do
   clear [ColorBuffer, DepthBuffer]
 
   -- TODO: Use >>= syntax?
+  refreshMousePosition resourcesRef
   refreshMouseButtonsPressed resourcesRef
   refreshKeysPressed resourcesRef
   resources <- readIORef resourcesRef
@@ -117,6 +112,12 @@ drawLoop resourcesRef windowDirtyRef action = do
     unless (isWindowDirty || isContentDirty || isMouseStateDirty) waitEvents
 
     drawLoop resourcesRef windowDirtyRef nextAction
+
+refreshMousePosition :: IORef Resources -> IO ()
+refreshMousePosition resourcesRef = do
+  position <- get mousePos
+  modifyIORef resourcesRef $
+      (invertMousePositionY . updateMousePosition position)
 
 refreshMouseButtonsPressed :: IORef Resources -> IO ()
 refreshMouseButtonsPressed resourcesRef =
