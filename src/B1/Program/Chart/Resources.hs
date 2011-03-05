@@ -1,11 +1,18 @@
 module B1.Program.Chart.Resources
-  ( Resources (..)
+  ( Resources
+    ( Resources
+    , font
+    , windowWidth
+    , windowHeight
+    , mousePosition
+    )
   , newResources
   , updateKeysPressed
   , isKeyPressed
   , getKeyPressed
   , updateMouseButtonsPressed
   , updateMouseButtonsReleased
+  , isMouseButtonPressed
   , isMouseButtonClicked
   , updateMousePosition
   , invertMousePositionY
@@ -28,6 +35,7 @@ data Resources = Resources
   , previousMouseButtonsPressed :: [MouseButton]
   , previousMouseButtonsReleased :: [MouseButton]
   , mousePosition :: (GLfloat, GLfloat)
+  , mouseButtonPressCount :: Int
   } deriving (Show, Eq)
 
 newResources :: Font -> Resources
@@ -42,6 +50,7 @@ newResources font = Resources
   , previousMouseButtonsPressed = []
   , previousMouseButtonsReleased = []
   , mousePosition = (0, 0)
+  , mouseButtonPressCount = 0
   }
 
 updateKeysPressed :: [Key] -> Resources -> Resources
@@ -51,6 +60,7 @@ updateKeysPressed keysPressed
   , previousKeysPressed = previousKeysPressed
   }
 
+-- TODO: Rename to isKeyReleased
 isKeyPressed :: Resources -> Key -> Bool
 isKeyPressed
     resources@Resources
@@ -72,19 +82,43 @@ getKeyPressed resources keys =
 
 updateMouseButtonsPressed :: [MouseButton] -> Resources -> Resources
 updateMouseButtonsPressed buttonsPressed
-    resources@Resources { mouseButtonsPressed = previousButtonsPressed } =
+    resources@Resources
+      { mouseButtonsPressed = previousButtonsPressed
+      , mouseButtonPressCount = mouseButtonPressCount
+      } =
   resources
     { mouseButtonsPressed = buttonsPressed
     , previousMouseButtonsPressed = previousButtonsPressed
+    , mouseButtonPressCount = newMouseButtonPressCount
     }
+  where
+    newMouseButtonPressCount =
+        if any (== ButtonLeft) buttonsPressed
+          then mouseButtonPressCount + 1
+          else 0
 
 updateMouseButtonsReleased :: [MouseButton] -> Resources -> Resources
 updateMouseButtonsReleased buttonsReleased
-    resources@Resources { mouseButtonsReleased = previousButtonsReleased } =
+    resources@Resources
+      { mouseButtonsReleased = previousButtonsReleased
+      , mouseButtonPressCount = mouseButtonPressCount
+      } =
   resources
     { mouseButtonsReleased = buttonsReleased
     , previousMouseButtonsReleased = previousButtonsReleased
+    , mouseButtonPressCount = newMouseButtonPressCount 
     }
+  where
+    newMouseButtonPressCount =
+        if any (== ButtonLeft) buttonsReleased
+          then 0
+          else mouseButtonPressCount
+
+isMouseButtonPressed :: Resources -> MouseButton -> Bool
+isMouseButtonPressed
+    Resources { mouseButtonsPressed = mouseButtonsPressed }
+    button =
+  any (== button) mouseButtonsPressed
 
 isMouseButtonClicked :: Resources -> MouseButton -> Bool
 isMouseButtonClicked
@@ -92,8 +126,9 @@ isMouseButtonClicked
       { mouseButtonsReleased = buttonsReleased
       , previousMouseButtonsReleased = previousButtonsReleased
       }
-    button = any (== button) buttonsReleased
-        && not (any (== button) previousButtonsReleased)
+    button =
+  any (== button) buttonsReleased
+      && not (any (== button) previousButtonsReleased)
 
 updateMousePosition :: Position -> Resources -> Resources
 updateMousePosition (Position x y) resources = resources

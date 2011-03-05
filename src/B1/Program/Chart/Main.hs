@@ -109,9 +109,13 @@ drawLoop resourcesRef windowDirtyRef action = do
   control <- getKey LCTRL
   c <- getKey 'C'
   unless (control == Press && c == Press) $ do
+    -- TODO: Need to do the same for key presses. 
+    let isMouseStateDirty = any (isMouseButtonPressed resources) [ButtonLeft]
+
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.
-    unless (isWindowDirty || isContentDirty) waitEvents
+    unless (isWindowDirty || isContentDirty || isMouseStateDirty) waitEvents
+
     drawLoop resourcesRef windowDirtyRef nextAction
 
 refreshMouseButtonsPressed :: IORef Resources -> IO ()
