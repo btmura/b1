@@ -151,7 +151,7 @@ drawHeader resources@Resources
           { isStatusShowing = nextIsStatusShowing
           , statusAlphaAnimation = nextStatusAlphaAnimation
           }
-        nextIsDirty = snd $ current nextStatusAlphaAnimation
+        nextIsDirty = buttonClicked || (snd . current) nextStatusAlphaAnimation
         nextClickedSymbol = if buttonClicked then Just symbol else Nothing
 
     return HeaderOutput

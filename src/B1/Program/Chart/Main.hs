@@ -109,7 +109,11 @@ drawLoop resourcesRef windowDirtyRef action = do
 
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.
-    unless (isWindowDirty || isContentDirty || isMouseStateDirty) waitEvents
+    unless (isWindowDirty || isContentDirty || isMouseStateDirty) $ do
+      putStrLn $ "Waiting isWindowDirty: " ++ show isWindowDirty
+          ++ " isContentDirty: " ++ show isContentDirty
+          ++ " isMouseStateDirty: " ++ show isMouseStateDirty
+      waitEvents
 
     drawLoop resourcesRef windowDirtyRef nextAction
 
