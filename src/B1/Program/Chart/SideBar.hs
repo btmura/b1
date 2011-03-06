@@ -119,7 +119,7 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
     translate $ vector3 0 (-(boxHeight bounds / 2)) 0
 
     -- Translate back up to the center of the slot
-    translate $ vector3 0 (slotTop - slotHeight / 2) 0
+    translate $ vector3 0 (boxTop finalBounds - slotHeight / 2) 0
 
     scale3 scale scale 1
     output <- M.drawMiniChart resources input
@@ -132,15 +132,26 @@ drawSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
     slotsAbove = take index slots
     heightAbove = sum $ map (fst . current . heightAnimation) slotsAbove
 
+    slotHeight = 100
+
     slot = slots !! index
     slotTop = top - heightAbove
-    slotHeight = 100
     slotBottom = slotTop - slotHeight
     slotBounds = Box (left, slotTop) (right, slotBottom)
+
     slotDragged = isMouseDrag resources
         && boxContains slotBounds (mouseDragStartPosition resources)
+
+    (_, mouseY) = mousePosition resources
+    (_, dragStartY) = mouseDragStartPosition resources
+    dragTop = mouseY + (slotTop - dragStartY)
+    dragBottom = dragTop - slotHeight
+    dragBounds = Box (left, dragTop) (right, dragBottom)
+
+    finalBounds = if slotDragged then dragBounds else slotBounds
+
     input = M.MiniChartInput
-      { M.bounds = slotBounds
+      { M.bounds = finalBounds
       , M.alpha = alpha
       , M.symbol = symbol slot
       , M.isBeingDragged = slotDragged
