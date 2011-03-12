@@ -86,7 +86,7 @@ drawLoop resourcesRef windowDirtyRef action = do
 
   -- TODO: Use >>= syntax?
   refreshMousePosition resourcesRef
-  refreshMouseButtonsPressed resourcesRef
+  refreshMouseButtonState resourcesRef
   refreshKeysPressed resourcesRef
   resources <- readIORef resourcesRef
   putStrLn $ show resources
@@ -123,14 +123,15 @@ refreshMousePosition resourcesRef = do
   modifyIORef resourcesRef $
       (invertMousePositionY . updateMousePosition position)
 
-refreshMouseButtonsPressed :: IORef Resources -> IO ()
-refreshMouseButtonsPressed resourcesRef =
-  mapM_ (uncurry (updatePressed resourcesRef getMouseButton buttons))
-      (zip states updateFunctions)
-  where
-    buttons = [ButtonLeft, ButtonRight]
-    states = [Press, Release]
-    updateFunctions = [updateMouseButtonsPressed, updateMouseButtonsReleased]
+refreshMouseButtonState :: IORef Resources -> IO ()
+refreshMouseButtonState resourcesRef = do
+  leftState <- getMouseButton ButtonLeft
+  rightState <- getMouseButton ButtonRight
+  let keyStates = [(ButtonLeft, leftState), (ButtonRight, rightState)]
+      pressedButtons = (map fst . filter ((== Press) . snd)) keyStates
+      releasedButtons = (map fst . filter ((== Release) . snd)) keyStates
+  modifyIORef resourcesRef $
+      updateMouseButtonState pressedButtons releasedButtons
 
 refreshKeysPressed :: IORef Resources -> IO ()
 refreshKeysPressed resourcesRef =
