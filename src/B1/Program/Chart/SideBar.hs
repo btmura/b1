@@ -178,10 +178,14 @@ swapSlots resources bounds slots dragPoint dragIndex = swappedSlots
     indexedSlotBounds = zip [0..] allSlotBounds
     containingSlots = filter (\(_, slotBounds) ->
         boxContains slotBounds dragPoint) indexedSlotBounds
-    swapIndex =
-        case containingSlots of
-          [] ->  length slots - 1
-          _ -> (fst . head) containingSlots
+
+    (_, dragY) = dragPoint
+    swapIndex = case containingSlots of
+        ((firstIndex, _):_) -> firstIndex
+        _ -> if dragY > boxTop bounds
+            then 0
+            else length slots - 1
+
     swapSlot = slots !! swapIndex
     dragSlot = slots !! dragIndex
     swappedSlots =
