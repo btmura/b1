@@ -134,6 +134,7 @@ isMouseButtonClicked
     button =
   any (== button) buttonsReleased
       && not (any (== button) previousButtonsReleased)
+      && not (hasMouseDragFinished resources)
 
 isMouseDrag :: Resources -> Bool
 isMouseDrag Resources { mouseDragCount = dragCount } =
