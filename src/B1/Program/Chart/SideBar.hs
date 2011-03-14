@@ -27,7 +27,7 @@ slotHeight = 100
 
 data SideBarInput = SideBarInput
   { bounds :: Box
-  , maybeNewSymbol :: Maybe Symbol
+  , newSymbols :: [Symbol]
   , inputState :: SideBarState
   }
 
@@ -62,22 +62,22 @@ drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
 drawSideBar resources
     SideBarInput
       { bounds = bounds
-      , maybeNewSymbol = maybeNewSymbol
+      , newSymbols = newSymbols
       , inputState = SideBarState { slots = inputSlots }
       } = do
 
-  maybeNewSlot <- createSlot maybeNewSymbol
+  newSlots <- createSlots newSymbols
 
   let slots = (reorderSlotsBeingDragged resources bounds
           . markSlotsBeingDragged resources bounds 
-          . addNewSlot maybeNewSlot) inputSlots
+          . addNewSlots newSlots) inputSlots
   output <- drawSlots resources bounds slots
 
   let (outputStates, dirtyFlags) = unzip output
       nextSlots = filter (not . shouldRemoveSlot) $
           map (uncurry updateMiniChartState) (zip slots outputStates)
       nextState = SideBarState { slots = nextSlots } 
-      isSideBarDirty = isJust maybeNewSymbol
+      isSideBarDirty = length newSymbols > 0
           || any M.isDirty outputStates
           || any id dirtyFlags
       nextSymbolRequest = (listToMaybe
@@ -91,24 +91,26 @@ drawSideBar resources
     , outputState = nextState
     }
 
-createSlot :: Maybe Symbol -> IO (Maybe Slot)
-createSlot Nothing = return Nothing
-createSlot (Just symbol) = do
-  miniChartState <- M.newMiniChartState symbol
-  return $ Just (Slot
-    { symbol = symbol
-    , remove = False
-    , isBeingDragged = False
-    , dragOffset = 0
-    , heightAnimation = incomingHeightAnimation
-    , alphaAnimation = incomingAlphaAnimation
-    , scaleAnimation = incomingScaleAnimation
-    , miniChartState = miniChartState
-    })
+createSlots :: [Symbol] -> IO [Slot]
+createSlots symbols = do
+  mapM (\symbol -> do
+      miniChartState <- M.newMiniChartState symbol
+      return $ Slot
+        { symbol = symbol
+        , remove = False
+        , isBeingDragged = False
+        , dragOffset = 0
+        , heightAnimation = incomingHeightAnimation
+        , alphaAnimation = incomingAlphaAnimation
+        , scaleAnimation = incomingScaleAnimation
+        , miniChartState = miniChartState
+        }) symbols
 
-addNewSlot :: Maybe Slot -> [Slot] -> [Slot]
-addNewSlot Nothing slots = slots
-addNewSlot (Just newSlot) slots
+addNewSlots :: [Slot] -> [Slot] -> [Slot]
+addNewSlots newSlots slots = foldl addOnlyUniqueSymbols slots newSlots
+
+addOnlyUniqueSymbols :: [Slot] -> Slot -> [Slot]
+addOnlyUniqueSymbols slots newSlot
   | alreadyAdded = slots
   | otherwise = slots ++ [newSlot]
   where

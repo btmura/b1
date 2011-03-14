@@ -5,6 +5,7 @@ module B1.Program.Chart.Screen
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
+import Data.Maybe
 import Graphics.Rendering.OpenGL
 import System.IO
 
@@ -27,7 +28,7 @@ drawScreen resources = do
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox
-        , S.maybeNewSymbol = Nothing
+        , S.newSymbols = symbols config
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
@@ -38,10 +39,24 @@ drawScreen resources = do
       ScreenState
         { sideBarOpen = False
         , sideBarWidthAnimation = animateOnce $ linearRange 0 0 30
-        , config = Config { symbols = [] }
+        , config = config
         , configLock = configLock
         }
       resources
+  where
+    -- TODO: Load configuration from file...
+    config = Config
+      { symbols =
+        [ "SPY"
+        , "IWM"
+        , "XLF"
+        , "SMH"
+        , "XME"
+        , "GDX"
+        , "SLV"
+        , "X"
+        ]
+      }
 
 data ScreenState = ScreenState
   { sideBarOpen :: Bool
@@ -77,6 +92,7 @@ drawScreenLoop
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
 
+
   let nextConfig = config { symbols = S.symbols sideBarOutput }
   unless (config == nextConfig) $ do
     -- TODO: Extract this code into a separate ConfigManager module
@@ -88,7 +104,7 @@ drawScreenLoop
     return ()
 
   let nextSideBarInput = sideBarInput
-        { S.maybeNewSymbol = F.addedSymbol frameOutput
+        { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput
