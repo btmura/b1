@@ -68,6 +68,7 @@ Executable b1-tests
   Main-is: Tests.hs
   Build-depends:
     base >= 4,
+    directory >= 1.0.1.0,
     HUnit >= 1.2.2.3,
     QuickCheck >= 2.3.0.2,
     test-framework >= 0.3.3,
