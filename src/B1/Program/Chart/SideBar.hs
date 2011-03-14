@@ -34,6 +34,7 @@ data SideBarInput = SideBarInput
 data SideBarOutput = SideBarOutput
   { isDirty :: Dirty
   , symbolRequest :: Maybe Symbol
+  , symbols :: [Symbol]
   , outputState :: SideBarState
   }
 
@@ -70,7 +71,6 @@ drawSideBar resources
   let slots = (reorderSlotsBeingDragged resources bounds
           . markSlotsBeingDragged resources bounds 
           . addNewSlot maybeNewSlot) inputSlots
-
   output <- drawSlots resources bounds slots
 
   let (outputStates, dirtyFlags) = unzip output
@@ -83,10 +83,11 @@ drawSideBar resources
       nextSymbolRequest = (listToMaybe
           . catMaybes
           . map M.symbolRequest) outputStates
-
+      nextSymbols = map symbol nextSlots
   return SideBarOutput
     { isDirty = isSideBarDirty
     , symbolRequest = nextSymbolRequest
+    , symbols = nextSymbols
     , outputState = nextState
     }
 

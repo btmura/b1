@@ -10,6 +10,7 @@ import Control.Concurrent.MVar
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.LocalTime
+import System.IO
 
 import B1.Data.Price
 import B1.Data.Price.Google

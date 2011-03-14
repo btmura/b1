@@ -2,7 +2,11 @@ module B1.Program.Chart.Screen
   ( drawScreen
   ) where
 
+import Control.Concurrent
+import Control.Concurrent.MVar
+import Control.Monad
 import Graphics.Rendering.OpenGL
+import System.IO
 
 import B1.Data.Action
 import B1.Data.Range
@@ -10,6 +14,7 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
+import B1.Program.Chart.Config
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
@@ -17,25 +22,32 @@ import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.SideBar as S
 
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
-drawScreen = drawScreenLoop
-    S.SideBarInput
-      { S.bounds = zeroBox
-      , S.maybeNewSymbol = Nothing
-      , S.inputState = S.newSideBarState
-      }
-    F.FrameInput
-      { F.symbolRequest = Nothing
-      , F.bounds = zeroBox
-      , F.inputState = F.newFrameState
-      } 
-    ScreenState
-      { sideBarOpen = False
-      , sideBarWidthAnimation = animateOnce $ linearRange 0 0 30
-      }
+drawScreen resources = do 
+  configLock <- newEmptyMVar
+  drawScreenLoop
+      S.SideBarInput
+        { S.bounds = zeroBox
+        , S.maybeNewSymbol = Nothing
+        , S.inputState = S.newSideBarState
+        }
+      F.FrameInput
+        { F.symbolRequest = Nothing
+        , F.bounds = zeroBox
+        , F.inputState = F.newFrameState
+        } 
+      ScreenState
+        { sideBarOpen = False
+        , sideBarWidthAnimation = animateOnce $ linearRange 0 0 30
+        , config = Config { symbols = [] }
+        , configLock = configLock
+        }
+      resources
 
 data ScreenState = ScreenState
   { sideBarOpen :: Bool
   , sideBarWidthAnimation :: Animation (GLfloat, Dirty)
+  , config :: Config
+  , configLock :: MVar Config
   }
 
 sideBarOpenWidth = 150
@@ -52,6 +64,8 @@ drawScreenLoop
     screenState@ScreenState
       { sideBarOpen = sideBarOpen
       , sideBarWidthAnimation = sideBarWidthAnimation
+      , config = config
+      , configLock = configLock
       }
     resources = do
 
@@ -62,6 +76,16 @@ drawScreenLoop
   frameOutput <- preservingMatrix $ do
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
+
+  let nextConfig = config { symbols = S.symbols sideBarOutput }
+  unless (config == nextConfig) $ do
+    -- TODO: Extract this code into a separate ConfigManager module
+    forkIO $ do
+      putMVar configLock nextConfig
+      withFile ".b1config" WriteMode (\handle -> writeConfig handle nextConfig)
+      takeMVar configLock
+      return ()
+    return ()
 
   let nextSideBarInput = sideBarInput
         { S.maybeNewSymbol = F.addedSymbol frameOutput
