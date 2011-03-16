@@ -15,10 +15,13 @@ module B1.Program.Chart.Resources
   , isMouseButtonPressed
   , isMouseButtonClicked
   , isMouseDrag
+  , isMouseWheelMoving
   , hasMouseDragStarted
   , hasMouseDragFinished
   , updateMousePosition
   , invertMousePositionY
+  , updateMouseWheelPosition
+  , getMouseWheelVelocity
   , updateWindowSize
   ) where
 
@@ -41,6 +44,8 @@ data Resources = Resources
   , mouseDragStartPosition :: (GLfloat, GLfloat)
   , mouseDragCount :: Int
   , previousMouseDragCount :: Int
+  , mouseWheelPosition :: Int
+  , previousMouseWheelPosition :: Int
   } deriving (Show, Eq)
 
 newResources :: Font -> Resources
@@ -58,6 +63,8 @@ newResources font = Resources
   , mouseDragStartPosition = (0, 0)
   , mouseDragCount = 0
   , previousMouseDragCount = 0
+  , mouseWheelPosition = 0
+  , previousMouseWheelPosition = 0
   }
 
 updateKeysPressed :: [Key] -> Resources -> Resources
@@ -168,6 +175,32 @@ invertMousePositionY
       , mousePosition = (x, y)
       } = 
   resources { mousePosition = (x, windowHeight - y) }
+
+updateMouseWheelPosition :: Int -> Resources -> Resources
+updateMouseWheelPosition position
+    resources@Resources
+      { mouseWheelPosition = previousPosition
+      } =
+  resources
+    { mouseWheelPosition = position
+    , previousMouseWheelPosition = previousPosition
+    }
+
+isMouseWheelMoving :: Resources -> Bool
+isMouseWheelMoving
+    Resources
+      { mouseWheelPosition = position
+      , previousMouseWheelPosition = previousPosition
+      } =
+  position /= previousPosition
+
+getMouseWheelVelocity :: Resources -> Int
+getMouseWheelVelocity
+    Resources
+      { mouseWheelPosition = position
+      , previousMouseWheelPosition = previousPosition
+      } =
+  previousPosition - position
 
 updateWindowSize :: Size -> Resources -> Resources
 updateWindowSize (Size width height) resources = resources

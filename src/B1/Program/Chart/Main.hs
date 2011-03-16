@@ -84,10 +84,10 @@ drawLoop :: IORef Resources -> IORef Dirty
 drawLoop resourcesRef windowDirtyRef action = do
   clear [ColorBuffer, DepthBuffer]
 
-  -- TODO: Use >>= syntax?
   refreshMousePosition resourcesRef
-  refreshMouseButtonState resourcesRef
-  refreshKeysPressed resourcesRef
+      >>= refreshMouseButtonState
+      >>= refreshMouseWheelPosition
+      >>= refreshKeysPressed
   resources <- readIORef resourcesRef
   putStrLn $ show resources
 
@@ -105,7 +105,8 @@ drawLoop resourcesRef windowDirtyRef action = do
   c <- getKey 'C'
   unless (control == Press && c == Press) $ do
     -- TODO: Need to do the same for key presses. 
-    let isMouseStateDirty = any (isMouseButtonPressed resources) [ButtonLeft]
+    let isMouseStateDirty = isMouseButtonPressed resources ButtonLeft
+            || isMouseWheelMoving resources
 
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.
@@ -117,13 +118,14 @@ drawLoop resourcesRef windowDirtyRef action = do
 
     drawLoop resourcesRef windowDirtyRef nextAction
 
-refreshMousePosition :: IORef Resources -> IO ()
+refreshMousePosition :: IORef Resources -> IO (IORef Resources)
 refreshMousePosition resourcesRef = do
   position <- get mousePos
   modifyIORef resourcesRef $
       (invertMousePositionY . updateMousePosition position)
+  return resourcesRef
 
-refreshMouseButtonState :: IORef Resources -> IO ()
+refreshMouseButtonState :: IORef Resources -> IO (IORef Resources)
 refreshMouseButtonState resourcesRef = do
   leftState <- getMouseButton ButtonLeft
   rightState <- getMouseButton ButtonRight
@@ -132,10 +134,18 @@ refreshMouseButtonState resourcesRef = do
       releasedButtons = (map fst . filter ((== Release) . snd)) keyStates
   modifyIORef resourcesRef $
       updateMouseButtonState pressedButtons releasedButtons
+  return resourcesRef
 
-refreshKeysPressed :: IORef Resources -> IO ()
-refreshKeysPressed resourcesRef =
+refreshMouseWheelPosition :: IORef Resources -> IO (IORef Resources)
+refreshMouseWheelPosition resourcesRef = do
+  position <- get mouseWheel
+  modifyIORef resourcesRef $ updateMouseWheelPosition position
+  return resourcesRef
+
+refreshKeysPressed :: IORef Resources -> IO (IORef Resources)
+refreshKeysPressed resourcesRef = do
   updatePressed resourcesRef getKey keys Press updateKeysPressed
+  return resourcesRef
   where
     alphaKeys = map CharKey ['A'..'Z']
     specialKeys = map SpecialKey [ENTER, BACKSPACE, ESC]
