@@ -23,7 +23,18 @@ import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.MiniChart as M
 
-slotHeight = 100
+slotHeight = 100::GLfloat
+
+scrollIncrement = 50::GLfloat
+
+incomingHeightAnimation = animateOnce $ linearRange 100 100 20
+incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
+incomingScaleAnimation = animateOnce $ linearRange 1 1 20
+
+outgoingHeightAnimation = animateOnce $ linearRange 100 0 10
+outgoingAlphaAnimation = animateOnce $ linearRange 1 0 10
+outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 10
+
 
 data SideBarInput = SideBarInput
   { bounds :: Box
@@ -40,6 +51,7 @@ data SideBarOutput = SideBarOutput
 
 data SideBarState = SideBarState
   { slots :: [Slot]
+  , scrollAmount :: GLfloat
   }
 
 data Slot = Slot
@@ -56,6 +68,7 @@ data Slot = Slot
 newSideBarState :: SideBarState
 newSideBarState  = SideBarState
   { slots = []
+  , scrollAmount = 0
   }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
@@ -63,20 +76,27 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
-      , inputState = SideBarState { slots = inputSlots }
+      , inputState = SideBarState
+        { slots = inputSlots
+        , scrollAmount = scrollAmount
+        }
       } = do
 
   newSlots <- createSlots newSymbols
 
-  let slots = (reorderSlotsBeingDragged resources bounds
-          . markSlotsBeingDragged resources bounds 
+  let slots = (reorderSlotsBeingDragged resources bounds scrollAmount
+          . markSlotsBeingDragged resources bounds scrollAmount
           . addNewSlots newSlots) inputSlots
-  output <- drawSlots resources bounds slots
+  output <- drawSlots resources bounds scrollAmount slots
 
   let (outputStates, dirtyFlags) = unzip output
       nextSlots = filter (not . shouldRemoveSlot) $
           map (uncurry updateMiniChartState) (zip slots outputStates)
-      nextState = SideBarState { slots = nextSlots } 
+      nextScrollAmount = getNextScrollAmount resources scrollAmount
+      nextState = SideBarState
+        { slots = nextSlots
+        , scrollAmount = nextScrollAmount
+        } 
       isSideBarDirty = length newSymbols > 0
           || any M.isDirty outputStates
           || any id dirtyFlags
@@ -119,14 +139,14 @@ addOnlyUniqueSymbols slots newSlot
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
 
-markSlotsBeingDragged :: Resources -> Box -> [Slot] -> [Slot]
-markSlotsBeingDragged resources bounds slots = markedSlots
+markSlotsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> [Slot]
+markSlotsBeingDragged resources bounds scrollAmount slots = markedSlots
   where
-    markedSlots = map (updateIsBeingDragged resources bounds slots)
+    markedSlots = map (updateIsBeingDragged resources bounds scrollAmount slots)
         [0 .. length slots - 1] 
 
-updateIsBeingDragged :: Resources -> Box-> [Slot] -> Int -> Slot
-updateIsBeingDragged resources bounds slots index
+updateIsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> Int -> Slot
+updateIsBeingDragged resources bounds scrollAmount slots index
   | hasMouseDragFinished resources = slot
       { isBeingDragged = False
       , dragOffset = 0
@@ -138,31 +158,34 @@ updateIsBeingDragged resources bounds slots index
   | otherwise = slot
   where
     slot = slots !! index
-    (beingDragged, dragOffset) = isDraggingSlot resources bounds slots index
+    (beingDragged, dragOffset) = isDraggingSlot resources bounds scrollAmount
+        slots index
 
-isDraggingSlot :: Resources -> Box -> [Slot] -> Int -> (Bool, GLfloat)
-isDraggingSlot resources bounds slots index = (slotDragged, dragOffset)
+isDraggingSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
+    -> (Bool, GLfloat)
+isDraggingSlot resources bounds scrollAmount slots index =
+  (slotDragged, dragOffset)
   where
-    slotBounds = getSlotBounds bounds slots index
+    slotBounds = getSlotBounds bounds scrollAmount slots index
     dragStartPosition = mouseDragStartPosition resources
     slotDragged = isMouseDrag resources
         && boxContains slotBounds dragStartPosition
     dragOffset = boxTop slotBounds - snd dragStartPosition
 
-getSlotBounds :: Box -> [Slot] -> Int -> Box
-getSlotBounds (Box (left, top) (right, _)) slots index =
+getSlotBounds :: Box -> GLfloat -> [Slot] -> Int -> Box
+getSlotBounds (Box (left, top) (right, _)) scrollAmount slots index =
   slotBounds
   where
     slotsAbove = take index slots
     heightAbove = sum $ map (fst . current . heightAnimation) slotsAbove
 
     slot = slots !! index
-    slotTop = top - heightAbove
+    slotTop = top - heightAbove + scrollAmount
     slotBottom = slotTop - slotHeight
     slotBounds = Box (left, slotTop) (right, slotBottom)
 
-reorderSlotsBeingDragged :: Resources -> Box -> [Slot] -> [Slot]
-reorderSlotsBeingDragged resources bounds slots
+reorderSlotsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> [Slot]
+reorderSlotsBeingDragged resources bounds scrollAmount slots
   | length slots == 1 = slots
   | length indexedDragSlots == 0 = slots
   | isMouseDrag resources = reorderedSlots
@@ -171,13 +194,16 @@ reorderSlotsBeingDragged resources bounds slots
     indexedSlots = zip [0..] slots
     indexedDragSlots = filter (isBeingDragged . snd) indexedSlots
     (dragIndex, dragSlot) = head indexedDragSlots
-    dragPoint = boxCenter $ getDraggedBounds resources bounds slots dragIndex
-    reorderedSlots = swapSlots resources bounds slots dragPoint dragIndex
+    dragPoint = boxCenter $ getDraggedBounds resources bounds scrollAmount
+        slots dragIndex
+    reorderedSlots = swapSlots resources bounds scrollAmount slots
+        dragPoint dragIndex
 
-swapSlots :: Resources -> Box -> [Slot] -> Point -> Int -> [Slot]
-swapSlots resources bounds slots dragPoint dragIndex = swappedSlots
+swapSlots :: Resources -> Box -> GLfloat -> [Slot] -> Point -> Int -> [Slot]
+swapSlots resources bounds scrollAmount slots dragPoint dragIndex = swappedSlots
   where
-    allSlotBounds = map (getSlotBounds bounds slots) [0 .. length slots - 1] 
+    allSlotBounds = map (getSlotBounds bounds scrollAmount slots)
+        [0 .. length slots - 1] 
     indexedSlotBounds = zip [0..] allSlotBounds
     containingSlots = filter (\(_, slotBounds) ->
         boxContains slotBounds dragPoint) indexedSlotBounds
@@ -199,31 +225,26 @@ swapSlots resources bounds slots dragPoint dragIndex = swappedSlots
               then swapSlot
               else slot) (zip [0..] slots)
 
-getDraggedBounds :: Resources -> Box -> [Slot] -> Int -> Box
-getDraggedBounds resources bounds@(Box (left, _) (right, _)) slots index =
-  dragBounds
+getDraggedBounds :: Resources -> Box -> GLfloat -> [Slot] -> Int -> Box
+getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount
+    slots index = dragBounds
   where
-    (Box (_, slotTop) _) = getSlotBounds bounds slots index
+    (Box (_, slotTop) _) = getSlotBounds bounds scrollAmount slots index
     (_, mouseY) = mousePosition resources
     (_, dragStartY) = mouseDragStartPosition resources
     dragTop = mouseY + dragOffset (slots !! index)
     dragBottom = dragTop - slotHeight
     dragBounds = Box (left, dragTop) (right, dragBottom)
 
-incomingHeightAnimation = animateOnce $ linearRange 100 100 20
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
-incomingScaleAnimation = animateOnce $ linearRange 1 1 20
-outgoingHeightAnimation = animateOnce $ linearRange 100 0 20
-outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
-
-drawSlots :: Resources -> Box -> [Slot] -> IO [(M.MiniChartOutput, Dirty)]
-drawSlots resources bounds slots =
-  mapM (drawOneSlot resources bounds slots) [0 .. length slots - 1]
+drawSlots :: Resources -> Box -> GLfloat -> [Slot]
+    -> IO [(M.MiniChartOutput, Dirty)]
+drawSlots resources bounds scrollAmount slots =
+  mapM (drawOneSlot resources bounds scrollAmount slots) [0 .. length slots - 1]
    
-drawOneSlot :: Resources -> Box -> [Slot] -> Int
+drawOneSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
     -> IO (M.MiniChartOutput, Dirty)
-drawOneSlot resources bounds@(Box (left, top) (right, bottom)) slots index = 
+drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
+    slots index = 
   preservingMatrix $ do
     -- Translate to the bottom from the center
     translate $ vector3 0 (-(boxHeight bounds / 2)) 0
@@ -242,8 +263,8 @@ drawOneSlot resources bounds@(Box (left, top) (right, bottom)) slots index =
 
     slotDragged = isBeingDragged slot
     slotBounds = if slotDragged
-        then getDraggedBounds resources bounds slots index
-        else getSlotBounds bounds slots index
+        then getDraggedBounds resources bounds scrollAmount slots index
+        else getSlotBounds bounds scrollAmount slots index
 
     input = M.MiniChartInput
       { M.bounds = slotBounds
@@ -286,3 +307,9 @@ updateMiniChartState
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
 
+getNextScrollAmount :: Resources -> GLfloat -> GLfloat
+getNextScrollAmount resources scrollAmount
+  | not (isMouseWheelMoving resources) = scrollAmount
+  | otherwise = if getMouseWheelVelocity resources > 0
+      then scrollAmount + scrollIncrement
+      else max 0 (scrollAmount - scrollIncrement)

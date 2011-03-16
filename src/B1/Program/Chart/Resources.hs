@@ -30,6 +30,8 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
+dragThreshold = 10::Int 
+
 data Resources = Resources
   { font :: Font
   , windowWidth :: GLfloat
@@ -93,8 +95,6 @@ getKeyPressed resources keys =
     presses = map (isKeyPressed resources) keys
     indexedPresses = zip keys presses
     pressedKeys = map fst $ filter snd indexedPresses 
-
-dragThreshold = 15
 
 updateMouseButtonState :: [MouseButton] -> [MouseButton]
     -> Resources -> Resources
