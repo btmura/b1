@@ -84,15 +84,16 @@ drawSideBar resources
 
   newSlots <- createSlots newSymbols
 
-  let slots = (reorderSlotsBeingDragged resources bounds scrollAmount
-          . markSlotsBeingDragged resources bounds scrollAmount
-          . addNewSlots newSlots) inputSlots
-  output <- drawSlots resources bounds scrollAmount slots
+  let allSlots = addNewSlots newSlots inputSlots
+      nextScrollAmount = getNextScrollAmount resources bounds
+          scrollAmount allSlots (length newSlots)
+      slots = (reorderSlotsBeingDragged resources bounds nextScrollAmount
+          . markSlotsBeingDragged resources bounds nextScrollAmount) allSlots
+  output <- drawSlots resources bounds nextScrollAmount slots
 
   let (outputStates, dirtyFlags) = unzip output
       nextSlots = filter (not . shouldRemoveSlot) $
           map (uncurry updateMiniChartState) (zip slots outputStates)
-      nextScrollAmount = getNextScrollAmount resources scrollAmount
       nextState = SideBarState
         { slots = nextSlots
         , scrollAmount = nextScrollAmount
@@ -307,9 +308,14 @@ updateMiniChartState
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
 
-getNextScrollAmount :: Resources -> GLfloat -> GLfloat
-getNextScrollAmount resources scrollAmount
+getNextScrollAmount :: Resources -> Box -> GLfloat -> [Slot] -> Int -> GLfloat
+getNextScrollAmount resources bounds scrollAmount slots numNewSlots
+  | noScrollingNeeded = 0
   | not (isMouseWheelMoving resources) = scrollAmount
   | otherwise = if getMouseWheelVelocity resources > 0
       then scrollAmount + scrollIncrement
       else max 0 (scrollAmount - scrollIncrement)
+  where
+    totalHeight = sum $ map (fst . current . heightAnimation) slots
+    noScrollingNeeded = boxHeight bounds > totalHeight
+
