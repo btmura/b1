@@ -86,7 +86,7 @@ drawSideBar resources
 
   let allSlots = addNewSlots newSlots inputSlots
       nextScrollAmount = getNextScrollAmount resources bounds
-          scrollAmount allSlots (length newSlots)
+          scrollAmount allSlots (length newSlots > 0)
       slots = (reorderSlotsBeingDragged resources bounds nextScrollAmount
           . markSlotsBeingDragged resources bounds nextScrollAmount) allSlots
   output <- drawSlots resources bounds nextScrollAmount slots
@@ -308,9 +308,10 @@ updateMiniChartState
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
 
-getNextScrollAmount :: Resources -> Box -> GLfloat -> [Slot] -> Int -> GLfloat
-getNextScrollAmount resources bounds scrollAmount slots numNewSlots
+getNextScrollAmount :: Resources -> Box -> GLfloat -> [Slot] -> Bool -> GLfloat
+getNextScrollAmount resources bounds scrollAmount slots newSlots
   | allShowing = 0
+  | newSlots = maxScrollAmount
   | notScrolling = possiblySameScrollAmount
   | otherwise = adjustedScrollAmount
   where
