@@ -310,12 +310,19 @@ updateMiniChartState
 
 getNextScrollAmount :: Resources -> Box -> GLfloat -> [Slot] -> Int -> GLfloat
 getNextScrollAmount resources bounds scrollAmount slots numNewSlots
-  | noScrollingNeeded = 0
-  | not (isMouseWheelMoving resources) = scrollAmount
-  | otherwise = if getMouseWheelVelocity resources > 0
-      then scrollAmount + scrollIncrement
-      else max 0 (scrollAmount - scrollIncrement)
+  | allShowing = 0
+  | notScrolling = possiblySameScrollAmount
+  | otherwise = adjustedScrollAmount
   where
+    visibleHeight = boxHeight bounds
     totalHeight = sum $ map (fst . current . heightAnimation) slots
-    noScrollingNeeded = boxHeight bounds > totalHeight
+    allShowing = visibleHeight > totalHeight
+
+    notScrolling = not $ isMouseWheelMoving resources
+    maxScrollAmount = if allShowing then 0 else totalHeight - visibleHeight
+    possiblySameScrollAmount = min scrollAmount maxScrollAmount
+    adjustedScrollAmount =
+        if getMouseWheelVelocity resources > 0
+          then min (scrollAmount + scrollIncrement) maxScrollAmount
+          else max (scrollAmount - scrollIncrement) 0
 
