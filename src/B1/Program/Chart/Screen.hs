@@ -106,7 +106,7 @@ drawScreenLoop
 
   let nextSideBarInput = sideBarInput
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
-        , S.selectedSymbol = F.addedSymbol frameOutput
+        , S.selectedSymbol = F.selectedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput

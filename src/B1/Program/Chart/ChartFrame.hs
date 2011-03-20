@@ -39,6 +39,7 @@ data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
+  , selectedSymbol :: Maybe Symbol
   }
 
 data FrameState = FrameState
@@ -86,7 +87,7 @@ drawChartFrame resources
       { symbolRequest = symbolRequest
       , inputState = state
       } = do
-  (midState, isSymbolStateDirty) <- refreshSymbolState resources
+  (midState, selectedSymbol, isSymbolStateDirty) <- refreshSymbolState resources
       symbolRequest state
 
   let revisedFrameInput = frameInput { inputState = midState }
@@ -111,10 +112,15 @@ drawChartFrame resources
         , isCurrentContentDirty
         , isPreviousContentDirty
         ]
+      nextSelectedSymbol =
+          if isJust selectedSymbol
+            then selectedSymbol
+            else nextAddedSymbol
   return FrameOutput
     { outputState = nextState
     , isDirty = nextDirty
     , addedSymbol = nextAddedSymbol
+    , selectedSymbol = nextSelectedSymbol
     } 
 
 -- TODO: Check if the Chart's MVar is empty...
@@ -197,7 +203,7 @@ nextFrame (Just frame) = Just $ frame
   }
 
 refreshSymbolState :: Resources -> Maybe Symbol -> FrameState
-    -> IO (FrameState, Dirty)
+    -> IO (FrameState, Maybe Symbol, Dirty)
 
 refreshSymbolState _ (Just symbol) state = 
   loadNextSymbol $ state { nextSymbol = symbol }
@@ -213,29 +219,30 @@ refreshSymbolState resources Nothing state
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
 -- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameState -> IO (FrameState, Dirty)
+handleCharKey :: Key -> FrameState -> IO (FrameState, Maybe Symbol, Dirty)
 handleCharKey (CharKey char) state@FrameState { nextSymbol = nextSymbol }
-  | isAlpha char = return (state { nextSymbol = nextSymbol ++ [char] }, True)
-  | otherwise = return (state, False)
-handleCharKey _ state = return (state, False)
+  | isAlpha char = return (state { nextSymbol = nextSymbol ++ [char] },
+        Nothing, True)
+  | otherwise = return (state, Nothing, False)
+handleCharKey _ state = return (state, Nothing, False)
 
 -- BACKSPACE deletes one character in a symbol...
-handleBackspaceKey :: FrameState -> IO (FrameState, Dirty)
+handleBackspaceKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
 handleBackspaceKey state@FrameState { nextSymbol = nextSymbol }
-  | length nextSymbol < 1 = return (state, False)
-  | otherwise = return (state { nextSymbol = trimmedSymbol }, True)
+  | length nextSymbol < 1 = return (state, Nothing, False)
+  | otherwise = return (state { nextSymbol = trimmedSymbol }, Nothing, True)
   where
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
 
 -- ENTER makes the next symbol the current symbol.
-handleEnterKey :: FrameState -> IO (FrameState, Dirty)
+handleEnterKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
 handleEnterKey state@FrameState
     { nextSymbol = nextSymbol
     }
-  | nextSymbol == "" = return (state, False)
+  | nextSymbol == "" = return (state, Nothing, False)
   | otherwise = loadNextSymbol state
 
-loadNextSymbol :: FrameState -> IO (FrameState, Dirty)
+loadNextSymbol :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
 loadNextSymbol state@FrameState
     { nextSymbol = nextSymbol
     , currentFrame = currentFrame
@@ -246,14 +253,14 @@ loadNextSymbol state@FrameState
     , nextSymbol = ""
     , currentFrame = newCurrentFrame chartContent
     , previousFrame = newPreviousFrame currentFrame
-    }, True)
+    }, Just nextSymbol, True)
 
 -- ESC cancels the next symbol.
-handleEscapeKey :: FrameState -> IO (FrameState, Dirty)
-handleEscapeKey state = return (state { nextSymbol = "" }, True)
+handleEscapeKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
+handleEscapeKey state = return (state { nextSymbol = "" }, Nothing, True)
 
-handleNoKey :: FrameState -> IO (FrameState, Dirty)
-handleNoKey state = return (state, False)
+handleNoKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
+handleNoKey state = return (state, Nothing, False)
 
 newChartContent :: Symbol -> IO Content
 newChartContent symbol = do
