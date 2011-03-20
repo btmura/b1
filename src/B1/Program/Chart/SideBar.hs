@@ -35,7 +35,6 @@ outgoingHeightAnimation = animateOnce $ linearRange 100 0 10
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 10
 outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 10
 
-
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
@@ -50,8 +49,9 @@ data SideBarOutput = SideBarOutput
   }
 
 data SideBarState = SideBarState
-  { slots :: [Slot]
-  , scrollAmount :: GLfloat
+  { scrollAmount :: GLfloat
+  , slots :: [Slot]
+  , newSlots :: [Slot]
   }
 
 data Slot = Slot
@@ -67,8 +67,9 @@ data Slot = Slot
 
 newSideBarState :: SideBarState
 newSideBarState  = SideBarState
-  { slots = []
-  , scrollAmount = 0
+  { scrollAmount = 0
+  , slots = []
+  , newSlots = []
   }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
@@ -76,41 +77,16 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
-      , inputState = SideBarState
-        { slots = inputSlots
-        , scrollAmount = scrollAmount
-        }
+      , inputState = inputState
       } = do
 
   newSlots <- createSlots newSymbols
 
-  let allSlots = addNewSlots newSlots inputSlots
-      nextScrollAmount = getNextScrollAmount resources bounds
-          scrollAmount allSlots (length newSlots > 0)
-      slots = (reorderSlotsBeingDragged resources bounds nextScrollAmount
-          . markSlotsBeingDragged resources bounds nextScrollAmount) allSlots
-  output <- drawSlots resources bounds nextScrollAmount slots
-
-  let (outputStates, dirtyFlags) = unzip output
-      nextSlots = filter (not . shouldRemoveSlot) $
-          map (uncurry updateMiniChartState) (zip slots outputStates)
-      nextState = SideBarState
-        { slots = nextSlots
-        , scrollAmount = nextScrollAmount
-        } 
-      isSideBarDirty = length newSymbols > 0
-          || any M.isDirty outputStates
-          || any id dirtyFlags
-      nextSymbolRequest = (listToMaybe
-          . catMaybes
-          . map M.symbolRequest) outputStates
-      nextSymbols = map symbol nextSlots
-  return SideBarOutput
-    { isDirty = isSideBarDirty
-    , symbolRequest = nextSymbolRequest
-    , symbols = nextSymbols
-    , outputState = nextState
-    }
+  (drawSlots resources bounds  
+      . reorderSlotsBeingDragged resources bounds
+      . markSlotsBeingDragged resources bounds
+      . calculateNextScrollAmount resources bounds
+      . addNewSlots) $ inputState { newSlots = newSlots }
 
 createSlots :: [Symbol] -> IO [Slot]
 createSlots symbols = do
@@ -127,8 +103,12 @@ createSlots symbols = do
         , miniChartState = miniChartState
         }) symbols
 
-addNewSlots :: [Slot] -> [Slot] -> [Slot]
-addNewSlots newSlots slots = foldl addOnlyUniqueSymbols slots newSlots
+addNewSlots :: SideBarState -> SideBarState 
+addNewSlots state@SideBarState
+    { slots = slots
+    , newSlots = newSlots
+    } =
+  state { slots = foldl addOnlyUniqueSymbols slots newSlots }
 
 addOnlyUniqueSymbols :: [Slot] -> Slot -> [Slot]
 addOnlyUniqueSymbols slots newSlot
@@ -140,8 +120,38 @@ addOnlyUniqueSymbols slots newSlot
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
 
-markSlotsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> [Slot]
-markSlotsBeingDragged resources bounds scrollAmount slots = markedSlots
+calculateNextScrollAmount :: Resources -> Box -> SideBarState -> SideBarState
+calculateNextScrollAmount resources bounds 
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      , newSlots = newSlots
+      }
+  | allShowing = state { scrollAmount = 0 }
+  | addedNewSlots = state { scrollAmount = maxScrollAmount }
+  | notScrolling = state { scrollAmount = possiblySameScrollAmount }
+  | otherwise = state { scrollAmount =  adjustedScrollAmount }
+  where
+    visibleHeight = boxHeight bounds
+    totalHeight = sum $ map (fst . current . heightAnimation) slots
+    allShowing = visibleHeight > totalHeight
+    addedNewSlots = length newSlots > 0
+
+    notScrolling = not $ isMouseWheelMoving resources
+    maxScrollAmount = if allShowing then 0 else totalHeight - visibleHeight
+    possiblySameScrollAmount = min scrollAmount maxScrollAmount
+    adjustedScrollAmount =
+        if getMouseWheelVelocity resources > 0
+          then min (scrollAmount + scrollIncrement) maxScrollAmount
+          else max (scrollAmount - scrollIncrement) 0
+
+markSlotsBeingDragged :: Resources -> Box -> SideBarState -> SideBarState
+markSlotsBeingDragged resources bounds
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      } =
+  state { slots = markedSlots }
   where
     markedSlots = map (updateIsBeingDragged resources bounds scrollAmount slots)
         [0 .. length slots - 1] 
@@ -185,12 +195,16 @@ getSlotBounds (Box (left, top) (right, _)) scrollAmount slots index =
     slotBottom = slotTop - slotHeight
     slotBounds = Box (left, slotTop) (right, slotBottom)
 
-reorderSlotsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> [Slot]
-reorderSlotsBeingDragged resources bounds scrollAmount slots
-  | length slots == 1 = slots
-  | length indexedDragSlots == 0 = slots
-  | isMouseDrag resources = reorderedSlots
-  | otherwise = slots
+reorderSlotsBeingDragged :: Resources -> Box -> SideBarState -> SideBarState
+reorderSlotsBeingDragged resources bounds
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      }
+  | length slots == 1 = state
+  | length indexedDragSlots == 0 = state
+  | isMouseDrag resources = state { slots = reorderedSlots }
+  | otherwise = state
   where
     indexedSlots = zip [0..] slots
     indexedDragSlots = filter (isBeingDragged . snd) indexedSlots
@@ -237,11 +251,16 @@ getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount
     dragBottom = dragTop - slotHeight
     dragBounds = Box (left, dragTop) (right, dragBottom)
 
-drawSlots :: Resources -> Box -> GLfloat -> [Slot]
-    -> IO [(M.MiniChartOutput, Dirty)]
-drawSlots resources bounds scrollAmount slots =
-  mapM (drawOneSlot resources bounds scrollAmount slots) [0 .. length slots - 1]
-   
+drawSlots :: Resources -> Box -> SideBarState -> IO SideBarOutput
+drawSlots resources bounds
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      } = do
+  output <- mapM (drawOneSlot resources bounds scrollAmount slots)
+      [0 .. length slots - 1]
+  return $ convertDrawingOutputs state output
+
 drawOneSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
     -> IO (M.MiniChartOutput, Dirty)
 drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
@@ -273,6 +292,29 @@ drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
       , M.symbol = symbol slot
       , M.isBeingDragged = slotDragged
       , M.inputState = miniChartState slot
+      }
+
+convertDrawingOutputs :: SideBarState -> [(M.MiniChartOutput, Dirty)]
+    -> SideBarOutput
+convertDrawingOutputs state output = nextOutput
+  where
+    (outputStates, dirtyFlags) = unzip output
+    nextSlots = filter (not . shouldRemoveSlot) $
+          map (uncurry updateMiniChartState) (zip (slots state) outputStates)
+    nextState = state { slots = nextSlots } 
+
+    isSideBarDirty = length (newSlots state) > 0
+        || any M.isDirty outputStates
+        || any id dirtyFlags
+    nextSymbolRequest = (listToMaybe
+        . catMaybes
+        . map M.symbolRequest) outputStates
+    nextSymbols = map symbol nextSlots
+    nextOutput = SideBarOutput
+      { isDirty = isSideBarDirty
+      , symbolRequest = nextSymbolRequest
+      , symbols = nextSymbols
+      , outputState = nextState
       }
 
 shouldRemoveSlot :: Slot -> Bool
@@ -308,22 +350,4 @@ updateMiniChartState
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
 
-getNextScrollAmount :: Resources -> Box -> GLfloat -> [Slot] -> Bool -> GLfloat
-getNextScrollAmount resources bounds scrollAmount slots newSlots
-  | allShowing = 0
-  | newSlots = maxScrollAmount
-  | notScrolling = possiblySameScrollAmount
-  | otherwise = adjustedScrollAmount
-  where
-    visibleHeight = boxHeight bounds
-    totalHeight = sum $ map (fst . current . heightAnimation) slots
-    allShowing = visibleHeight > totalHeight
-
-    notScrolling = not $ isMouseWheelMoving resources
-    maxScrollAmount = if allShowing then 0 else totalHeight - visibleHeight
-    possiblySameScrollAmount = min scrollAmount maxScrollAmount
-    adjustedScrollAmount =
-        if getMouseWheelVelocity resources > 0
-          then min (scrollAmount + scrollIncrement) maxScrollAmount
-          else max (scrollAmount - scrollIncrement) 0
 
