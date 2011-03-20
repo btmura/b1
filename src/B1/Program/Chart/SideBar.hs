@@ -38,6 +38,7 @@ outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 10
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
+  , selectedSymbol :: Maybe Symbol
   , inputState :: SideBarState
   }
 
@@ -77,6 +78,7 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
+      , selectedSymbol = selectedSymbol
       , inputState = inputState
       } = do
 
@@ -85,7 +87,7 @@ drawSideBar resources
   (drawSlots resources bounds  
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
-      . calculateNextScrollAmount resources bounds
+      . calculateNextScrollAmount resources bounds selectedSymbol
       . addNewSlots) $ inputState { newSlots = newSlots }
 
 createSlots :: [Symbol] -> IO [Slot]
@@ -120,24 +122,40 @@ addOnlyUniqueSymbols slots newSlot
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
 
-calculateNextScrollAmount :: Resources -> Box -> SideBarState -> SideBarState
-calculateNextScrollAmount resources bounds 
+calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
+    -> SideBarState -> SideBarState
+calculateNextScrollAmount resources bounds selectedSymbol
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
       , newSlots = newSlots
       }
   | allShowing = state { scrollAmount = 0 }
-  | addedNewSlots = state { scrollAmount = maxScrollAmount }
-  | notScrolling = state { scrollAmount = possiblySameScrollAmount }
-  | otherwise = state { scrollAmount =  adjustedScrollAmount }
+  | needScrollToSelected = state { scrollAmount = selectedScrollAmount }
+  | scrolling = state { scrollAmount = adjustedScrollAmount }
+  | otherwise = state { scrollAmount = possiblySameScrollAmount }
   where
     visibleHeight = boxHeight bounds
     totalHeight = sum $ map (fst . current . heightAnimation) slots
     allShowing = visibleHeight > totalHeight
     addedNewSlots = length newSlots > 0
 
-    notScrolling = not $ isMouseWheelMoving resources
+    needScrollToSelected = isJust selectedSymbol 
+        && any (containsSymbol (fromJust selectedSymbol)) slots
+        && not (boxContainsBox bounds selectedBounds)
+
+    selectedIndex = (fst . head 
+        . filter (containsSymbol (fromJust selectedSymbol) . snd)) $
+            zip [0..] slots
+    selectedBounds = getSlotBounds bounds scrollAmount slots selectedIndex
+    selectedScrollAmount 
+      | boxBottom selectedBounds >= boxTop bounds =
+          scrollAmount - (boxTop selectedBounds - boxTop bounds)
+      | boxTop selectedBounds <= boxBottom bounds = 
+          scrollAmount + (boxBottom bounds - boxBottom selectedBounds) 
+      | otherwise = scrollAmount
+
+    scrolling = isMouseWheelMoving resources
     maxScrollAmount = if allShowing then 0 else totalHeight - visibleHeight
     possiblySameScrollAmount = min scrollAmount maxScrollAmount
     adjustedScrollAmount =

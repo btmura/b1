@@ -29,6 +29,7 @@ drawScreen resources = do
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
+        , S.selectedSymbol = Nothing
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
@@ -105,6 +106,7 @@ drawScreenLoop
 
   let nextSideBarInput = sideBarInput
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
+        , S.selectedSymbol = F.addedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput

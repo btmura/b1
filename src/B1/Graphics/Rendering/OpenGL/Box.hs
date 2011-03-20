@@ -2,6 +2,7 @@ module B1.Graphics.Rendering.OpenGL.Box
   ( Box(..)
   , boxCenter
   , boxContains
+  , boxContainsBox
   , boxShrink
   , boxLeft
   , boxTop
@@ -29,9 +30,18 @@ boxCenter box@(Box (left, top) _) = (centerX, centerY)
     centerX = left + boxWidth box / 2
     centerY = top - boxHeight box / 2
 
+-- TODO: Rename to boxContaintsPoint
 boxContains :: Box -> Point -> Bool
-boxContains box@(Box (left, top) (right, bottom)) (x, y) =
+boxContains (Box (left, top) (right, bottom)) (x, y) =
   x >= left && x <= right && y <= top && y >= bottom
+
+boxContainsBox :: Box -> Box -> Bool
+boxContainsBox (Box (parentLeft, parentTop) (parentRight, parentBottom))
+    (Box (childLeft, childTop) (childRight, childBottom)) =
+  parentLeft <= childLeft
+      && parentRight >= childRight
+      && parentTop >= childTop
+      && parentBottom <= childBottom
 
 boxShrink :: Box -> GLfloat -> Box
 boxShrink (Box (left, top) (right, bottom)) shrink =
