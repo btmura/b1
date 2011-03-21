@@ -13,13 +13,13 @@ data Config = Config
   { symbols :: [Symbol]
   } deriving (Eq, Show, Read)
 
-readConfig :: Handle -> IO Config
-readConfig handle = do
-  contents <- hGetContents handle
+readConfig :: FilePath -> IO Config
+readConfig filePath = do
+  contents <- readFile filePath
   return $ case (reads contents)::[(Config, String)] of
     ((config, _):_) -> config
     _ -> Config { symbols = [] }
 
-writeConfig :: Config -> Handle -> IO ()
-writeConfig config handle = hPutStr handle $ show config
+writeConfig :: FilePath -> Config -> IO ()
+writeConfig filePath config = writeFile filePath $ show config
 

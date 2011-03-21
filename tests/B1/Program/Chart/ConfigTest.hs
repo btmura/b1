@@ -30,17 +30,16 @@ case_readConfig_noSymbols =
 assertConfig :: String -> Config -> Assertion
 assertConfig contents expectedConfig =
   bracket (openTestFile contents)
-      closeTestFile
-      (\(filePath, handle) -> do
-        actualConfig <- readConfig handle
+      removeFile
+      (\filePath -> do
+        actualConfig <- readConfig filePath
         assertEqual "" expectedConfig actualConfig
       )
 
-openTestFile :: String -> IO (FilePath, Handle)
+openTestFile :: String -> IO FilePath
 openTestFile contents = do
   filePath <- createTestFile contents
-  handle <- openFile filePath ReadMode
-  return (filePath, handle)
+  return filePath
 
 createTestFile :: String -> IO String
 createTestFile contents = do
@@ -50,10 +49,4 @@ createTestFile contents = do
         hPutStr handle contents
         return filePath
       )
-
-closeTestFile :: (FilePath, Handle) -> IO () 
-closeTestFile (filePath, handle) = do
-  hClose handle
-  removeFile filePath
-
 

@@ -27,7 +27,7 @@ configFileName = ".b1config"
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
-  config <- withFile configFileName ReadWriteMode readConfig
+  config <- readConfig configFileName
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox
@@ -82,13 +82,12 @@ drawScreenLoop
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
 
-
   let nextConfig = config { symbols = S.symbols sideBarOutput }
   unless (config == nextConfig) $ do
     -- TODO: Extract this code into a separate ConfigManager module
     forkIO $ do
       putMVar configLock nextConfig
-      withFile configFileName WriteMode (writeConfig nextConfig)
+      writeConfig configFileName nextConfig
       takeMVar configLock
       return ()
     return ()
