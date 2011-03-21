@@ -22,9 +22,12 @@ import B1.Program.Chart.Resources
 import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.SideBar as S
 
+configFileName = ".b1config"
+
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
+  config <- withFile configFileName ReadWriteMode readConfig
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox
@@ -44,20 +47,6 @@ drawScreen resources = do
         , configLock = configLock
         }
       resources
-  where
-    -- TODO: Load configuration from file...
-    config = Config
-      { symbols =
-        [ "SPY"
-        , "IWM"
-        , "XLF"
-        , "SMH"
-        , "XME"
-        , "GDX"
-        , "SLV"
-        , "X"
-        ]
-      }
 
 data ScreenState = ScreenState
   { sideBarOpen :: Bool
@@ -99,7 +88,7 @@ drawScreenLoop
     -- TODO: Extract this code into a separate ConfigManager module
     forkIO $ do
       putMVar configLock nextConfig
-      withFile ".b1config" WriteMode (\handle -> writeConfig handle nextConfig)
+      withFile configFileName WriteMode (writeConfig nextConfig)
       takeMVar configLock
       return ()
     return ()

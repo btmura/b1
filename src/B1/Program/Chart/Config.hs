@@ -20,6 +20,6 @@ readConfig handle = do
     ((config, _):_) -> config
     _ -> Config { symbols = [] }
 
-writeConfig :: Handle -> Config -> IO ()
-writeConfig handle config = hPutStr handle $ show config
+writeConfig :: Config -> Handle -> IO ()
+writeConfig config handle = hPutStr handle $ show config
 
