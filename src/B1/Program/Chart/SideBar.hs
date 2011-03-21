@@ -27,6 +27,8 @@ slotHeight = 100::GLfloat
 
 scrollIncrement = 50::GLfloat
 
+dragScrollIncrement = 10::GLfloat
+
 incomingHeightAnimation = animateOnce $ linearRange 100 100 20
 incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
 incomingScaleAnimation = animateOnce $ linearRange 1 1 20
@@ -85,6 +87,7 @@ drawSideBar resources
   newSlots <- createSlots newSymbols
 
   (drawSlots resources bounds  
+      . addDraggingScrollAmount resources bounds
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
       . calculateNextScrollAmount resources bounds selectedSymbol
@@ -135,9 +138,7 @@ calculateNextScrollAmount resources bounds selectedSymbol
   | scrolling = state { scrollAmount = adjustedScrollAmount }
   | otherwise = state { scrollAmount = possiblySameScrollAmount }
   where
-    visibleHeight = boxHeight bounds
-    totalHeight = sum $ map (fst . current . heightAnimation) slots
-    allShowing = visibleHeight > totalHeight
+    allShowing = areAllSlotsShowing bounds slots
     addedNewSlots = length newSlots > 0
 
     needScrollToSelected = isJust selectedSymbol 
@@ -156,12 +157,35 @@ calculateNextScrollAmount resources bounds selectedSymbol
       | otherwise = scrollAmount
 
     scrolling = isMouseWheelMoving resources
-    maxScrollAmount = if allShowing then 0 else totalHeight - visibleHeight
+    maxScrollAmount = getMaximumScrollAmount bounds slots
     possiblySameScrollAmount = min scrollAmount maxScrollAmount
     adjustedScrollAmount =
-        if getMouseWheelVelocity resources > 0
-          then min (scrollAmount + scrollIncrement) maxScrollAmount
-          else max (scrollAmount - scrollIncrement) 0
+      if getMouseWheelVelocity resources > 0 
+        then getScrollUpAmount bounds slots scrollAmount scrollIncrement
+        else getScrollDownAmount scrollAmount scrollIncrement
+
+areAllSlotsShowing :: Box -> [Slot] -> Bool
+areAllSlotsShowing bounds slots = visibleHeight > getTotalHeight slots
+  where
+    visibleHeight = boxHeight bounds
+
+getTotalHeight :: [Slot] -> GLfloat
+getTotalHeight slots = sum $ map (fst . current . heightAnimation) slots
+
+getMaximumScrollAmount :: Box -> [Slot] -> GLfloat
+getMaximumScrollAmount bounds slots =
+  if areAllSlotsShowing bounds slots
+    then 0
+    else getTotalHeight slots - visibleHeight
+  where
+    visibleHeight = boxHeight bounds
+
+getScrollUpAmount :: Box -> [Slot] -> GLfloat -> GLfloat -> GLfloat
+getScrollUpAmount bounds slots scrollAmount increment =
+  min (scrollAmount + increment) $ getMaximumScrollAmount bounds slots
+
+getScrollDownAmount :: GLfloat -> GLfloat -> GLfloat
+getScrollDownAmount scrollAmount increment = max (scrollAmount - increment) 0
 
 markSlotsBeingDragged :: Resources -> Box -> SideBarState -> SideBarState
 markSlotsBeingDragged resources bounds
@@ -367,5 +391,30 @@ updateMiniChartState
               outgoingScaleAnimation)
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
+
+addDraggingScrollAmount :: Resources -> Box -> SideBarState -> SideBarState
+addDraggingScrollAmount resources bounds 
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      }
+  | dragging = state { scrollAmount = dragScrollAmount }
+  | otherwise = state
+  where
+    dragHeight = 20::GLfloat
+    dragTopBox = Box (boxLeft bounds, boxTop bounds)
+        (boxRight bounds, boxTop bounds - dragHeight)
+    dragBottomBox = Box (boxLeft bounds, boxBottom bounds + dragHeight)
+        (boxRight bounds, boxBottom bounds)
+    draggingAtTop = isMouseDrag resources
+        && boxContains dragTopBox (mousePosition resources)
+    draggingAtBottom = isMouseDrag resources
+        && boxContains dragBottomBox (mousePosition resources)
+    dragging = draggingAtTop || draggingAtBottom
+    dragScrollAmount
+      | draggingAtTop = getScrollDownAmount scrollAmount dragScrollIncrement
+      | draggingAtBottom = getScrollUpAmount bounds slots scrollAmount
+          dragScrollIncrement
+      | otherwise = scrollAmount
 
 
