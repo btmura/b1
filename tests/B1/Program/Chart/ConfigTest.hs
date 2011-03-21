@@ -15,37 +15,41 @@ import B1.Program.Chart.Config
 
 getTestGroup :: Test.Framework.Providers.API.Test
 getTestGroup = testGroup "B1.Program.Chart.ConfigTest"
-  [ testCase "case_readConfig_writeConfig" case_readConfig_writeConfig
+  [ testCase "case_readConfig_emptyFile" case_readConfig_emptyFile
+  , testCase "case_readConfig_noSymbols" case_readConfig_noSymbols
   ]
 
-case_readConfig_writeConfig :: Assertion
-case_readConfig_writeConfig = do
-  assertReadWriteConfig $ Config { symbols = [] }
-  assertReadWriteConfig $ Config { symbols = ["SPY"] }
-  assertReadWriteConfig $ Config { symbols = ["SPY", "IWM"] }
+case_readConfig_emptyFile :: Assertion
+case_readConfig_emptyFile =
+  assertConfig "" $ Config { symbols = [] }
 
-assertReadWriteConfig :: Config -> Assertion
-assertReadWriteConfig expectedConfig =
-  bracket (openTestFile expectedConfig) (closeTestFile)
+case_readConfig_noSymbols :: Assertion
+case_readConfig_noSymbols =
+  assertConfig "Config { symbols = [] }" $ Config { symbols = [] }
+
+assertConfig :: String -> Config -> Assertion
+assertConfig contents expectedConfig =
+  bracket (openTestFile contents)
+      closeTestFile
       (\(filePath, handle) -> do
-        actualConfig <- readConfig handle 
+        actualConfig <- readConfig handle
         assertEqual "" expectedConfig actualConfig
-        )
+      )
 
-createTestFile :: Config -> IO String
-createTestFile config = do
+openTestFile :: String -> IO (FilePath, Handle)
+openTestFile contents = do
+  filePath <- createTestFile contents
+  handle <- openFile filePath ReadMode
+  return (filePath, handle)
+
+createTestFile :: String -> IO String
+createTestFile contents = do
   bracket (openTempFile "/tmp" "config.test")
       (hClose . snd)
       (\(filePath, handle) -> do
-        writeConfig handle config
+        hPutStr handle contents
         return filePath
       )
-
-openTestFile :: Config -> IO (FilePath, Handle)
-openTestFile config = do
-  filePath <- createTestFile config
-  handle <- openFile filePath ReadMode
-  return (filePath, handle)
 
 closeTestFile :: (FilePath, Handle) -> IO () 
 closeTestFile (filePath, handle) = do

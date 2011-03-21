@@ -16,7 +16,9 @@ data Config = Config
 readConfig :: Handle -> IO Config
 readConfig handle = do
   contents <- hGetContents handle
-  return $ (read contents :: Config)
+  return $ case (reads contents)::[(Config, String)] of
+    ((config, _):_) -> config
+    _ -> Config { symbols = [] }
 
 writeConfig :: Handle -> Config -> IO ()
 writeConfig handle config = hPutStr handle $ show config
