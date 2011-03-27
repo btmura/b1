@@ -82,133 +82,25 @@ outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources
-    frameInput@FrameInput
-      { symbolRequest = symbolRequest
+drawChartFrame resources frameInput@FrameInput { bounds = bounds } = do
+  drawNextSymbol resources bounds
+      =<< drawFrames resources bounds
+      =<< refreshSymbolState resources frameInput
+
+refreshSymbolState :: Resources -> FrameInput -> IO FrameOutput
+
+refreshSymbolState _
+    FrameInput
+      { symbolRequest = Just symbol
       , inputState = state
-      } = do
-  (midState, selectedSymbol, isSymbolStateDirty) <- refreshSymbolState resources
-      symbolRequest state
-
-  let revisedFrameInput = frameInput { inputState = midState }
-      drawFrameShort = drawFrame resources revisedFrameInput
-  maybeNextCurrentFrameState <- drawFrameShort $ currentFrame midState
-  maybeNextPreviousFrameState <- drawFrameShort $ previousFrame midState
-
-  drawNextSymbol resources revisedFrameInput 
-
-  let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol) =
-          maybeNextCurrentFrameState
-      (nextPreviousFrame, isPreviousContentDirty, _) =
-          maybeNextPreviousFrameState
-      nextState = refreshFrameAnimations resources $ midState
-        { currentFrame = nextCurrentFrame
-        , previousFrame = nextPreviousFrame
-        }
-      bothFrames = [currentFrame nextState, previousFrame nextState]
-      nextDirty = any id
-        [ isSymbolStateDirty
-        , any isDirtyFrame (catMaybes bothFrames)
-        , isCurrentContentDirty
-        , isPreviousContentDirty
-        ]
-      nextSelectedSymbol =
-          if isJust selectedSymbol
-            then selectedSymbol
-            else nextAddedSymbol
-  return FrameOutput
-    { outputState = nextState
-    , isDirty = nextDirty
-    , addedSymbol = nextAddedSymbol
-    , selectedSymbol = nextSelectedSymbol
-    } 
-
--- TODO: Check if the Chart's MVar is empty...
-isDirtyFrame :: Frame -> Bool
-isDirtyFrame (Frame
-    { scaleAnimation = scaleAnimation
-    , alphaAnimation = alphaAnimation
-    }) = any (snd . current) [scaleAnimation, alphaAnimation]
-
-drawFrame :: Resources -> FrameInput -> Maybe Frame
-    -> IO (Maybe Frame, Dirty, Maybe Symbol)
-
-drawFrame resources _ Nothing = return (Nothing, False, Nothing)
-
-drawFrame resources
-    frameInput@FrameInput { bounds = bounds }
-    (Just frame@Frame
-      { content = content
-      , scaleAnimation = scaleAnimation
-      , alphaAnimation = alphaAnimation
-      }) = 
-  preservingMatrix $ do
-    scale3 scaleAmount scaleAmount 1
-    color $ outlineColor resources paddedBounds alphaAmount
-    drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
-        cornerRadius cornerVertices
-    (nextContent, isDirty, addedSymbol) <- drawFrameContent resources
-        frameInput content alphaAmount
-    return (Just frame { content = nextContent }, isDirty, addedSymbol)
-  where
-    paddedBounds = boxShrink bounds contentPadding
-    scaleAmount = fst . current $ scaleAnimation
-    alphaAmount = fst . current $ alphaAnimation
-
-contentPadding = 5::GLfloat -- ^ Padding on one side.
-cornerRadius = 10::GLfloat
-cornerVertices = 5::Int
-
-drawFrameContent :: Resources -> FrameInput -> Content -> GLfloat
-    -> IO (Content, Dirty, Maybe Symbol)
-
-drawFrameContent resources FrameInput { bounds = bounds }
-    Instructions alpha = do
-  output <- I.drawInstructions resources input
-  return $ (Instructions, I.isDirty output, Nothing)
-  where
-    input = I.InstructionsInput
-      { I.bounds = bounds
-      , I.alpha = alpha
-      }
-
-drawFrameContent resources FrameInput { bounds = bounds }
-    (Chart symbol state) alpha = do
-  output <- C.drawChart resources input
-  return $ (Chart symbol (C.outputState output), C.isDirty output,
-      C.addedSymbol output)
-  where
-    input = C.ChartInput
-      { C.bounds = boxShrink bounds contentPadding
-      , C.alpha = alpha
-      , C.symbol = symbol
-      , C.inputState = state
-      }
-
-refreshFrameAnimations :: Resources -> FrameState -> FrameState
-refreshFrameAnimations resources
-    state@FrameState
-      { currentFrame = currentFrame
-      , previousFrame = previousFrame
-      } = state
-  { currentFrame = nextFrame currentFrame
-  , previousFrame = nextFrame previousFrame
-  }
-
-nextFrame :: Maybe Frame -> Maybe Frame
-nextFrame Nothing = Nothing
-nextFrame (Just frame) = Just $ frame
-  { scaleAnimation = next $ scaleAnimation frame
-  , alphaAnimation = next $ alphaAnimation frame
-  }
-
-refreshSymbolState :: Resources -> Maybe Symbol -> FrameState
-    -> IO (FrameState, Maybe Symbol, Dirty)
-
-refreshSymbolState _ (Just symbol) state = 
+      } = 
   loadNextSymbol $ state { nextSymbol = symbol }
 
-refreshSymbolState resources Nothing state
+refreshSymbolState resources
+    FrameInput
+      { symbolRequest = Nothing
+      , inputState = state
+      }
   | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey state
   | checkKeyPress (SpecialKey ENTER) = handleEnterKey state
   | checkKeyPress (SpecialKey ESC) = handleEscapeKey state
@@ -218,49 +110,53 @@ refreshSymbolState resources Nothing state
     checkKeyPress = isKeyPressed resources
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
--- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameState -> IO (FrameState, Maybe Symbol, Dirty)
-handleCharKey (CharKey char) state@FrameState { nextSymbol = nextSymbol }
-  | isAlpha char = return (state { nextSymbol = nextSymbol ++ [char] },
-        Nothing, True)
-  | otherwise = return (state, Nothing, False)
-handleCharKey _ state = return (state, Nothing, False)
-
 -- BACKSPACE deletes one character in a symbol...
-handleBackspaceKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
-handleBackspaceKey state@FrameState { nextSymbol = nextSymbol }
-  | length nextSymbol < 1 = return (state, Nothing, False)
-  | otherwise = return (state { nextSymbol = trimmedSymbol }, Nothing, True)
+handleBackspaceKey :: FrameState -> IO FrameOutput
+handleBackspaceKey state@FrameState { nextSymbol = nextSymbol } =
+  return $ FrameOutput
+    { outputState = outputState
+    , isDirty = isDirty
+    , addedSymbol = Nothing
+    , selectedSymbol = Nothing
+    }
   where
+    isNextSymbolEmpty = length nextSymbol < 1
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
+    (outputState, isDirty) =
+        if isNextSymbolEmpty
+          then (state, False)
+          else (state { nextSymbol = trimmedSymbol }, True)
 
 -- ENTER makes the next symbol the current symbol.
-handleEnterKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
-handleEnterKey state@FrameState
-    { nextSymbol = nextSymbol
-    }
-  | nextSymbol == "" = return (state, Nothing, False)
-  | otherwise = loadNextSymbol state
+handleEnterKey :: FrameState -> IO FrameOutput
+handleEnterKey state@FrameState { nextSymbol = nextSymbol } = 
+  if nextSymbol == ""
+    then return $ FrameOutput
+      { outputState = state
+      , isDirty = False
+      , addedSymbol = Nothing
+      , selectedSymbol = Nothing
+      }
+    else loadNextSymbol state
 
-loadNextSymbol :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
+loadNextSymbol :: FrameState -> IO FrameOutput
 loadNextSymbol state@FrameState
     { nextSymbol = nextSymbol
     , currentFrame = currentFrame
     } = do
   chartContent <- newChartContent nextSymbol
-  return (state
-    { currentSymbol = nextSymbol
-    , nextSymbol = ""
-    , currentFrame = newCurrentFrame chartContent
-    , previousFrame = newPreviousFrame currentFrame
-    }, Just nextSymbol, True)
-
--- ESC cancels the next symbol.
-handleEscapeKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
-handleEscapeKey state = return (state { nextSymbol = "" }, Nothing, True)
-
-handleNoKey :: FrameState -> IO (FrameState, Maybe Symbol, Dirty)
-handleNoKey state = return (state, Nothing, False)
+  let outputState = state
+        { currentSymbol = nextSymbol
+        , nextSymbol = ""
+        , currentFrame = newCurrentFrame chartContent
+        , previousFrame = newPreviousFrame currentFrame
+        }
+  return $ FrameOutput
+    { outputState = outputState
+    , isDirty = True
+    , addedSymbol = Nothing
+    , selectedSymbol = Just nextSymbol
+    }
 
 newChartContent :: Symbol -> IO Content
 newChartContent symbol = do
@@ -281,13 +177,162 @@ newPreviousFrame (Just frame) = Just $ frame
   , alphaAnimation = outgoingAlphaAnimation
   }
 
-drawNextSymbol :: Resources -> FrameInput -> IO ()
-drawNextSymbol _
-    FrameInput { inputState = FrameState { nextSymbol = "" } } = return ()
-drawNextSymbol resources
-    FrameInput
-      { bounds = bounds
-      , inputState = FrameState { nextSymbol = nextSymbol }
+-- Append to the next symbol if the key is just a character...
+handleCharKey :: Key -> FrameState -> IO FrameOutput
+handleCharKey key state@FrameState { nextSymbol = nextSymbol } =
+  return $ FrameOutput
+    { outputState = outputState
+    , isDirty = isDirty
+    , addedSymbol = Nothing
+    , selectedSymbol = Nothing
+    }
+  where
+    (outputState, isDirty) =
+        case key of
+          (CharKey char) ->
+              if isAlpha char
+                then (state { nextSymbol = nextSymbol ++ [char] }, True)
+                else (state, False)
+          _ -> (state, False)
+
+-- ESC cancels the next symbol.
+handleEscapeKey :: FrameState -> IO FrameOutput
+handleEscapeKey state =
+  return $ FrameOutput
+    { outputState = state { nextSymbol = "" }
+    , isDirty = True
+    , addedSymbol = Nothing
+    , selectedSymbol = Nothing
+    }
+
+handleNoKey :: FrameState -> IO FrameOutput
+handleNoKey state =
+  return $ FrameOutput
+    { outputState = state
+    , isDirty = False
+    , addedSymbol = Nothing
+    , selectedSymbol = Nothing
+    }
+
+drawFrames :: Resources -> Box -> FrameOutput -> IO FrameOutput
+drawFrames resources bounds
+    FrameOutput
+      { outputState = outputState@FrameState
+        { currentFrame = currentFrame
+        , previousFrame = previousFrame
+        }
+      , isDirty = isDirty
+      , selectedSymbol = selectedSymbol
+      } = do
+  maybeNextCurrentFrameState <- drawFrameShort currentFrame
+  maybeNextPreviousFrameState <- drawFrameShort previousFrame
+  let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol) =
+          maybeNextCurrentFrameState
+      (nextPreviousFrame, isPreviousContentDirty, _) =
+          maybeNextPreviousFrameState
+      nextNextCurrentFrame = nextFrame currentFrame
+      nextNextPreviousFrame = nextFrame previousFrame
+      nextState = outputState 
+        { currentFrame = nextNextCurrentFrame
+        , previousFrame = nextNextPreviousFrame
+        }
+      bothFrames = [nextNextCurrentFrame, nextNextPreviousFrame]
+      nextDirty = any id
+        [ isDirty
+        , any isDirtyFrame (catMaybes bothFrames)
+        , isCurrentContentDirty
+        , isPreviousContentDirty
+        ]
+      nextSelectedSymbol =
+          if isJust selectedSymbol
+            then selectedSymbol
+            else nextAddedSymbol
+  return FrameOutput
+    { outputState = nextState
+    , isDirty = nextDirty
+    , addedSymbol = nextAddedSymbol
+    , selectedSymbol = nextSelectedSymbol
+    } 
+  where
+    drawFrameShort = drawFrame resources bounds
+
+-- TODO: Check if the Chart's MVar is empty...
+isDirtyFrame :: Frame -> Bool
+isDirtyFrame (Frame
+    { scaleAnimation = scaleAnimation
+    , alphaAnimation = alphaAnimation
+    }) = any (snd . current) [scaleAnimation, alphaAnimation]
+
+drawFrame :: Resources -> Box -> Maybe Frame
+    -> IO (Maybe Frame, Dirty, Maybe Symbol)
+
+drawFrame resources _ Nothing = return (Nothing, False, Nothing)
+
+drawFrame resources bounds
+    (Just frame@Frame
+      { content = content
+      , scaleAnimation = scaleAnimation
+      , alphaAnimation = alphaAnimation
+      }) = 
+  preservingMatrix $ do
+    scale3 scaleAmount scaleAmount 1
+    color $ outlineColor resources paddedBounds alphaAmount
+    drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
+        cornerRadius cornerVertices
+    (nextContent, isDirty, addedSymbol) <- drawFrameContent resources
+        bounds content alphaAmount
+    return (Just frame { content = nextContent }, isDirty, addedSymbol)
+  where
+    paddedBounds = boxShrink bounds contentPadding
+    scaleAmount = fst . current $ scaleAnimation
+    alphaAmount = fst . current $ alphaAnimation
+
+contentPadding = 5::GLfloat -- ^ Padding on one side.
+cornerRadius = 10::GLfloat
+cornerVertices = 5::Int
+
+drawFrameContent :: Resources -> Box -> Content -> GLfloat
+    -> IO (Content, Dirty, Maybe Symbol)
+
+drawFrameContent resources bounds Instructions alpha = do
+  output <- I.drawInstructions resources input
+  return $ (Instructions, I.isDirty output, Nothing)
+  where
+    input = I.InstructionsInput
+      { I.bounds = bounds
+      , I.alpha = alpha
+      }
+
+drawFrameContent resources bounds (Chart symbol state) alpha = do
+  output <- C.drawChart resources input
+  return $ (Chart symbol (C.outputState output), C.isDirty output,
+      C.addedSymbol output)
+  where
+    input = C.ChartInput
+      { C.bounds = boxShrink bounds contentPadding
+      , C.alpha = alpha
+      , C.symbol = symbol
+      , C.inputState = state
+      }
+
+nextFrame :: Maybe Frame -> Maybe Frame
+nextFrame Nothing = Nothing
+nextFrame (Just frame) = Just $ frame
+  { scaleAnimation = next $ scaleAnimation frame
+  , alphaAnimation = next $ alphaAnimation frame
+  }
+
+drawNextSymbol :: Resources -> Box -> FrameOutput -> IO FrameOutput
+
+drawNextSymbol _ _
+    frameOutput@FrameOutput
+      { outputState = FrameState { nextSymbol = "" }
+      } =
+  return frameOutput
+
+drawNextSymbol resources bounds
+    frameOutput@FrameOutput
+      { outputState = FrameState { nextSymbol = nextSymbol }
       } = do
 
   boundingBox <- measureText textSpec
@@ -313,6 +358,8 @@ drawNextSymbol resources
     color $ green 1
     translate $ vector3 (-centerX) (-centerY) 0
     renderText textSpec
+
+  return frameOutput
 
   where
     textSpec = TextSpec (font resources) 48  nextSymbol
