@@ -1,7 +1,7 @@
 module B1.Program.Chart.Chart
   ( ChartInput(..)
   , ChartOutput(..)
-  , ChartState
+  , ChartState(stockData)
   , Symbol
   , drawChart
   , newChartState

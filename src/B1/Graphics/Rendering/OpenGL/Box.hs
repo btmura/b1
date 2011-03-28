@@ -10,6 +10,7 @@ module B1.Graphics.Rendering.OpenGL.Box
   , boxBottom
   , boxWidth
   , boxHeight
+  , createBox
   , translateToCenter
   , zeroBox
   ) where
@@ -64,6 +65,13 @@ boxWidth (Box (left, _) (right, _)) = abs $ right - left
 
 boxHeight :: Box -> GLfloat
 boxHeight (Box (_, top) (_, bottom)) = abs $ bottom - top
+
+createBox :: GLfloat -> GLfloat -> Point -> Box
+createBox width height (x, y) = 
+  Box (x - halfWidth, y + halfHeight) (x + halfWidth, y - halfHeight)
+  where
+    halfWidth = width / 2
+    halfHeight = height / 2
 
 translateToCenter :: Box -> IO ()
 translateToCenter bounds =

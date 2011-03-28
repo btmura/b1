@@ -39,6 +39,7 @@ drawScreen resources = do
         { F.symbolRequest = Nothing
         , F.bounds = zeroBox
         , F.inputState = F.newFrameState
+        , F.inputDraggingState = Nothing
         } 
       ScreenState
         { sideBarOpen = False
@@ -100,6 +101,7 @@ drawScreenLoop
       nextFrameInput = frameInput
         { F.symbolRequest = S.symbolRequest sideBarOutput
         , F.inputState = F.outputState frameOutput
+        , F.inputDraggingState = F.outputDraggingState frameOutput
         }
       nextScreenState = screenState
         { sideBarOpen = nextSideBarOpen

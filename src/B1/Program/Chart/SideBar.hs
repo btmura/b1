@@ -96,7 +96,7 @@ drawSideBar resources
 createSlots :: [Symbol] -> IO [Slot]
 createSlots symbols = do
   mapM (\symbol -> do
-      miniChartState <- M.newMiniChartState symbol
+      miniChartState <- M.newMiniChartState symbol Nothing
       return $ Slot
         { symbol = symbol
         , remove = False

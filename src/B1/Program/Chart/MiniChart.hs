@@ -44,9 +44,11 @@ data MiniChartState = MiniChartState
   , headerState :: H.HeaderState
   }
 
-newMiniChartState :: Symbol -> IO MiniChartState
-newMiniChartState symbol = do
-  stockData <- newStockData symbol
+newMiniChartState :: Symbol -> Maybe StockData -> IO MiniChartState
+newMiniChartState symbol maybeStockData = do
+  stockData <- case maybeStockData of
+    Just existingStockData -> return existingStockData
+    _ -> newStockData symbol
   return $ MiniChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton

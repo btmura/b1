@@ -28,15 +28,18 @@ import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.Instructions as I
+import qualified B1.Program.Chart.MiniChart as M
 
 data FrameInput = FrameInput
   { bounds :: Box
   , symbolRequest :: Maybe Symbol
   , inputState :: FrameState
+  , inputDraggingState :: Maybe M.MiniChartState
   }
 
 data FrameOutput = FrameOutput
   { outputState :: FrameState
+  , outputDraggingState :: Maybe M.MiniChartState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
   , selectedSymbol :: Maybe Symbol
@@ -83,79 +86,93 @@ outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources frameInput@FrameInput { bounds = bounds } = do
-  drawNextSymbol resources bounds
+  drawDraggedChart resources bounds
+      =<< drawNextSymbol resources bounds
       =<< drawFrames resources bounds
-      =<< refreshSymbolState resources frameInput
+      =<< refreshSymbolState resources
+      =<< convertFrameInput frameInput
 
-refreshSymbolState :: Resources -> FrameInput -> IO FrameOutput
+convertFrameInput :: FrameInput -> IO FrameOutput
+convertFrameInput
+    frameInput@FrameInput
+      { inputState = frameState
+      , inputDraggingState = draggingState
+      , symbolRequest = symbolRequest
+      } =
+  return $ FrameOutput
+    { outputState = frameState
+    , outputDraggingState = draggingState
+    , isDirty = False
+    , addedSymbol = Nothing
+    , selectedSymbol = symbolRequest
+    }
+
+refreshSymbolState :: Resources -> FrameOutput -> IO FrameOutput
 
 refreshSymbolState _
-    FrameInput
-      { symbolRequest = Just symbol
-      , inputState = state
+    frameOutput@FrameOutput
+      { outputState = state
+      , selectedSymbol = Just symbol
       } = 
-  loadNextSymbol $ state { nextSymbol = symbol }
+  loadNextSymbol $ frameOutput { outputState = state { nextSymbol = symbol } }
 
-refreshSymbolState resources
-    FrameInput
-      { symbolRequest = Nothing
-      , inputState = state
-      }
-  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey state
-  | checkKeyPress (SpecialKey ENTER) = handleEnterKey state
-  | checkKeyPress (SpecialKey ESC) = handleEscapeKey state
-  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) state
-  | otherwise = handleNoKey state
+refreshSymbolState resources frameOutput
+  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey frameOutput
+  | checkKeyPress (SpecialKey ENTER) = handleEnterKey frameOutput
+  | checkKeyPress (SpecialKey ESC) = handleEscapeKey frameOutput
+  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) frameOutput
+  | otherwise = handleNoKey frameOutput
   where
     checkKeyPress = isKeyPressed resources
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
 -- BACKSPACE deletes one character in a symbol...
-handleBackspaceKey :: FrameState -> IO FrameOutput
-handleBackspaceKey state@FrameState { nextSymbol = nextSymbol } =
-  return $ FrameOutput
-    { outputState = outputState
-    , isDirty = isDirty
-    , addedSymbol = Nothing
-    , selectedSymbol = Nothing
+handleBackspaceKey :: FrameOutput -> IO FrameOutput
+handleBackspaceKey
+    frameOutput@FrameOutput
+      { outputState = state@FrameState { nextSymbol = nextSymbol }
+      , isDirty = isDirty
+      }  =
+  return frameOutput
+    { outputState = nextState
+    , isDirty = nextIsDirty
     }
   where
     isNextSymbolEmpty = length nextSymbol < 1
     trimmedSymbol = take (length nextSymbol - 1) nextSymbol
-    (outputState, isDirty) =
+    (nextState, nextIsDirty) =
         if isNextSymbolEmpty
-          then (state, False)
+          then (state, isDirty)
           else (state { nextSymbol = trimmedSymbol }, True)
 
 -- ENTER makes the next symbol the current symbol.
-handleEnterKey :: FrameState -> IO FrameOutput
-handleEnterKey state@FrameState { nextSymbol = nextSymbol } = 
+handleEnterKey :: FrameOutput -> IO FrameOutput
+handleEnterKey
+    frameOutput@FrameOutput
+      { outputState = state@FrameState { nextSymbol = nextSymbol }
+      } = 
   if nextSymbol == ""
-    then return $ FrameOutput
-      { outputState = state
-      , isDirty = False
-      , addedSymbol = Nothing
-      , selectedSymbol = Nothing
-      }
-    else loadNextSymbol state
+    then return frameOutput
+    else loadNextSymbol frameOutput
 
-loadNextSymbol :: FrameState -> IO FrameOutput
-loadNextSymbol state@FrameState
-    { nextSymbol = nextSymbol
-    , currentFrame = currentFrame
-    } = do
+loadNextSymbol :: FrameOutput -> IO FrameOutput
+loadNextSymbol
+    frameOutput@FrameOutput
+      { outputState = state@FrameState
+        { nextSymbol = nextSymbol
+        , currentFrame = currentFrame
+        }
+      } = do
   chartContent <- newChartContent nextSymbol
-  let outputState = state
+  let nextOutputState = state
         { currentSymbol = nextSymbol
         , nextSymbol = ""
         , currentFrame = newCurrentFrame chartContent
         , previousFrame = newPreviousFrame currentFrame
         }
-  return $ FrameOutput
-    { outputState = outputState
+  return frameOutput
+    { outputState = nextOutputState
     , isDirty = True
-    , addedSymbol = Nothing
-    , selectedSymbol = Just nextSymbol
     }
 
 newChartContent :: Symbol -> IO Content
@@ -178,16 +195,17 @@ newPreviousFrame (Just frame) = Just $ frame
   }
 
 -- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameState -> IO FrameOutput
-handleCharKey key state@FrameState { nextSymbol = nextSymbol } =
-  return $ FrameOutput
-    { outputState = outputState
-    , isDirty = isDirty
-    , addedSymbol = Nothing
-    , selectedSymbol = Nothing
+handleCharKey :: Key -> FrameOutput -> IO FrameOutput
+handleCharKey key
+    frameOutput@FrameOutput
+      { outputState = state@FrameState { nextSymbol = nextSymbol } 
+      } =
+  return frameOutput
+    { outputState = nextOutputState
+    , isDirty = nextIsDirty
     }
   where
-    (outputState, isDirty) =
+    (nextOutputState, nextIsDirty) =
         case key of
           (CharKey char) ->
               if isAlpha char
@@ -196,27 +214,19 @@ handleCharKey key state@FrameState { nextSymbol = nextSymbol } =
           _ -> (state, False)
 
 -- ESC cancels the next symbol.
-handleEscapeKey :: FrameState -> IO FrameOutput
-handleEscapeKey state =
-  return $ FrameOutput
+handleEscapeKey :: FrameOutput -> IO FrameOutput
+handleEscapeKey frameOutput@FrameOutput { outputState = state } =
+  return frameOutput
     { outputState = state { nextSymbol = "" }
     , isDirty = True
-    , addedSymbol = Nothing
-    , selectedSymbol = Nothing
     }
 
-handleNoKey :: FrameState -> IO FrameOutput
-handleNoKey state =
-  return $ FrameOutput
-    { outputState = state
-    , isDirty = False
-    , addedSymbol = Nothing
-    , selectedSymbol = Nothing
-    }
+handleNoKey :: FrameOutput -> IO FrameOutput
+handleNoKey = return
 
 drawFrames :: Resources -> Box -> FrameOutput -> IO FrameOutput
 drawFrames resources bounds
-    FrameOutput
+    frameOutput@FrameOutput
       { outputState = outputState@FrameState
         { currentFrame = currentFrame
         , previousFrame = previousFrame
@@ -230,16 +240,16 @@ drawFrames resources bounds
           maybeNextCurrentFrameState
       (nextPreviousFrame, isPreviousContentDirty, _) =
           maybeNextPreviousFrameState
-      nextNextCurrentFrame = nextFrame currentFrame
-      nextNextPreviousFrame = nextFrame previousFrame
+      nextNextCurrentFrame = nextFrame nextCurrentFrame
+      nextNextPreviousFrame = nextFrame nextPreviousFrame
       nextState = outputState 
         { currentFrame = nextNextCurrentFrame
         , previousFrame = nextNextPreviousFrame
         }
-      bothFrames = [nextNextCurrentFrame, nextNextPreviousFrame]
       nextDirty = any id
         [ isDirty
-        , any isDirtyFrame (catMaybes bothFrames)
+        , isDirtyFrame nextNextCurrentFrame
+        , isDirtyFrame nextNextPreviousFrame
         , isCurrentContentDirty
         , isPreviousContentDirty
         ]
@@ -247,7 +257,7 @@ drawFrames resources bounds
           if isJust selectedSymbol
             then selectedSymbol
             else nextAddedSymbol
-  return FrameOutput
+  return frameOutput
     { outputState = nextState
     , isDirty = nextDirty
     , addedSymbol = nextAddedSymbol
@@ -257,11 +267,12 @@ drawFrames resources bounds
     drawFrameShort = drawFrame resources bounds
 
 -- TODO: Check if the Chart's MVar is empty...
-isDirtyFrame :: Frame -> Bool
-isDirtyFrame (Frame
+isDirtyFrame :: Maybe Frame -> Bool
+isDirtyFrame (Just (Frame
     { scaleAnimation = scaleAnimation
     , alphaAnimation = alphaAnimation
-    }) = any (snd . current) [scaleAnimation, alphaAnimation]
+    })) = any (snd . current) [scaleAnimation, alphaAnimation]
+isDirtyFrame _ = False
 
 drawFrame :: Resources -> Box -> Maybe Frame
     -> IO (Maybe Frame, Dirty, Maybe Symbol)
@@ -364,4 +375,48 @@ drawNextSymbol resources bounds
   where
     textSpec = TextSpec (font resources) 48  nextSymbol
     textBubblePadding = 15
+
+drawDraggedChart :: Resources -> Box -> FrameOutput -> IO FrameOutput
+drawDraggedChart resources bounds
+    frameOutput@FrameOutput
+      { outputState = outputState@FrameState { currentFrame = currentFrame }
+      , outputDraggingState = outputDraggingState
+      , isDirty = isDirty
+      } =
+  if draggingChart
+    then do
+      let Just (Frame { content = Chart symbol chartState }) = currentFrame
+      miniChartState <- case outputDraggingState of
+        Just state -> return $state
+        _ -> M.newMiniChartState symbol $ Just (C.stockData chartState)
+     
+      let (mouseX, mouseY) = mousePosition resources
+          miniChartBounds = createBox 150 100 (mouseX, mouseY)
+          miniChartInput = M.MiniChartInput
+            { M.bounds = miniChartBounds
+            , M.alpha = 1.0
+            , M.symbol = symbol
+            , M.isBeingDragged = True
+            , M.inputState = miniChartState
+            } 
+      miniChartOutput <- preservingMatrix $ do
+        translate $ vector3 (-(boxLeft bounds + boxWidth bounds / 2))
+            (-(boxBottom bounds + boxHeight bounds / 2))  0
+        translate $ vector3 mouseX mouseY 0
+        M.drawMiniChart resources miniChartInput
+      return frameOutput
+        { outputDraggingState = Just $ M.outputState miniChartOutput
+        , isDirty = isDirty || M.isDirty miniChartOutput
+        }
+    else
+      return frameOutput { outputDraggingState = Nothing }
+  where
+    isCurrentFrameChart =
+        case currentFrame of
+          Just (Frame { content = Chart _ _ }) -> True
+          otherwise -> False
+    draggingChart = isMouseDrag resources
+        && boxContains bounds (mouseDragStartPosition resources)
+        && boxContains bounds (mousePosition resources)
+        && isCurrentFrameChart
 
