@@ -32,6 +32,7 @@ drawScreen resources = do
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
+        , S.newMiniChartDraggedIn = Nothing
         , S.selectedSymbol = Nothing
         , S.inputState = S.newSideBarState
         }
@@ -39,7 +40,6 @@ drawScreen resources = do
         { F.symbolRequest = Nothing
         , F.bounds = zeroBox
         , F.inputState = F.newFrameState
-        , F.inputDraggingState = Nothing
         } 
       ScreenState
         { sideBarOpen = False
@@ -95,13 +95,13 @@ drawScreenLoop
 
   let nextSideBarInput = sideBarInput
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
+        , S.newMiniChartDraggedIn = F.draggedOutMiniChart frameOutput
         , S.selectedSymbol = F.selectedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput
         { F.symbolRequest = S.symbolRequest sideBarOutput
         , F.inputState = F.outputState frameOutput
-        , F.inputDraggingState = F.outputDraggingState frameOutput
         }
       nextScreenState = screenState
         { sideBarOpen = nextSideBarOpen

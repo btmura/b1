@@ -25,6 +25,8 @@ import qualified B1.Program.Chart.MiniChart as M
 
 slotHeight = 100::GLfloat
 
+dragFreelyOffset = slotHeight / 2
+
 scrollIncrement = 50::GLfloat
 
 dragScrollIncrement = 10::GLfloat
@@ -37,9 +39,18 @@ outgoingHeightAnimation = animateOnce $ linearRange 100 0 10
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 10
 outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 10
 
+draggedInHeightAnimation = animateOnce $ linearRange 50 100 10
+draggedInAlphaAnimation = animateOnce $ linearRange 1 1 20
+draggedInScaleAnimation = animateOnce $ linearRange 1 1 20
+
+draggedOutHeightAnimation = animateOnce $ linearRange 100 0 10
+draggedOutAlphaAnimation = animateOnce $ linearRange 0 0 20
+draggedOutScaleAnimation = animateOnce $ linearRange 0 0 20
+
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
+  , newMiniChartDraggedIn :: Maybe M.MiniChartState
   , selectedSymbol :: Maybe Symbol
   , inputState :: SideBarState
   }
@@ -61,6 +72,7 @@ data Slot = Slot
   { symbol :: Symbol
   , remove :: Bool
   , isBeingDragged :: Bool
+  , dragFreely :: Bool
   , dragOffset :: GLfloat
   , heightAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
@@ -80,6 +92,7 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
+      , newMiniChartDraggedIn = draggedInChart
       , selectedSymbol = selectedSymbol
       , inputState = inputState
       } = do
@@ -88,10 +101,11 @@ drawSideBar resources
 
   (drawSlots resources bounds  
       . addDraggingScrollAmount resources bounds
+      . calculateNextScrollAmount resources bounds selectedSymbol
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
-      . calculateNextScrollAmount resources bounds selectedSymbol
-      . addNewSlots) $ inputState { newSlots = newSlots }
+      . insertDraggedInSlot resources bounds draggedInChart
+      . addNewSlots newSlots) inputState
 
 createSlots :: [Symbol] -> IO [Slot]
 createSlots symbols = do
@@ -101,6 +115,7 @@ createSlots symbols = do
         { symbol = symbol
         , remove = False
         , isBeingDragged = False
+        , dragFreely = False
         , dragOffset = 0
         , heightAnimation = incomingHeightAnimation
         , alphaAnimation = incomingAlphaAnimation
@@ -108,12 +123,12 @@ createSlots symbols = do
         , miniChartState = miniChartState
         }) symbols
 
-addNewSlots :: SideBarState -> SideBarState 
-addNewSlots state@SideBarState
-    { slots = slots
-    , newSlots = newSlots
-    } =
-  state { slots = foldl addOnlyUniqueSymbols slots newSlots }
+addNewSlots :: [Slot] -> SideBarState -> SideBarState 
+addNewSlots newSlots state@SideBarState { slots = slots } =
+  state
+    { newSlots = newSlots
+    , slots = foldl addOnlyUniqueSymbols slots newSlots
+    }
 
 addOnlyUniqueSymbols :: [Slot] -> Slot -> [Slot]
 addOnlyUniqueSymbols slots newSlot
@@ -124,6 +139,52 @@ addOnlyUniqueSymbols slots newSlot
 
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
+
+insertDraggedInSlot :: Resources -> Box -> Maybe M.MiniChartState
+    -> SideBarState -> SideBarState
+
+insertDraggedInSlot resources bounds (Just draggedInChart)
+    state@SideBarState
+      { scrollAmount = scrollAmount
+      , slots = slots
+      } =
+  state { slots = newSlots }
+  where
+    (mouseX, mouseY) = mousePosition resources
+    indexedSlots = zip [0 .. length slots - 1] slots
+
+    isSlotAboveMousePosition :: (Int, Slot) -> Bool
+    isSlotAboveMousePosition (index, slot) =
+      let Box (_, _) (_, bottom) = getSlotBounds bounds scrollAmount slots index
+      in mouseY < bottom
+
+    (indexedSlotsAbove, indexedSlotsBelow) =
+        span isSlotAboveMousePosition indexedSlots
+    removeIndices = snd . unzip
+    slotsAbove = removeIndices indexedSlotsAbove 
+    slotsBelow = removeIndices indexedSlotsBelow
+    draggedInSlot = createDraggedInSlot draggedInChart
+
+    alreadyAdded = any (containsSymbol (M.symbol draggedInChart)) slots
+    newSlots = if alreadyAdded
+        then slots
+        else slotsAbove ++ [draggedInSlot] ++ slotsBelow
+
+insertDraggedInSlot _ _ Nothing state = state
+
+createDraggedInSlot :: M.MiniChartState -> Slot
+createDraggedInSlot draggedInChart =
+  Slot
+    { symbol = M.symbol draggedInChart
+    , remove = False
+    , isBeingDragged = True
+    , dragFreely = True
+    , dragOffset = dragFreelyOffset
+    , heightAnimation = draggedInHeightAnimation
+    , alphaAnimation = draggedInAlphaAnimation
+    , scaleAnimation = draggedInScaleAnimation
+    , miniChartState = draggedInChart
+    }
 
 calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
     -> SideBarState -> SideBarState
@@ -200,30 +261,50 @@ markSlotsBeingDragged resources bounds
 
 updateIsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> Int -> Slot
 updateIsBeingDragged resources bounds scrollAmount slots index
-  | hasMouseDragFinished resources = slot
-      { isBeingDragged = False
-      , dragOffset = 0
-      }
-  | hasMouseDragStarted resources = slot
-      { isBeingDragged = beingDragged
-      , dragOffset = dragOffset
-      }
+  | hasMouseDragFinished resources = updatedSlot { dragFreely = False }
+  | hasMouseDragStarted resources = updatedSlot
+  | isMouseDrag resources
+      && dragFreely slot
+      && not (remove slot)
+      && not (boxContains bounds (mousePosition resources)) = removeSlot
   | otherwise = slot
   where
     slot = slots !! index
-    (beingDragged, dragOffset) = isDraggingSlot resources bounds scrollAmount
-        slots index
+    (beingDragged, dragOffset) =
+        isDraggingSlot resources bounds scrollAmount slots index
+    
+    updatedSlot = slot
+      { isBeingDragged = beingDragged
+      , dragOffset = dragOffset
+      }
+
+    removeSlot = slot
+      { isBeingDragged = False
+      , dragOffset = 0
+      , remove = True
+      , heightAnimation = draggedOutHeightAnimation
+      , alphaAnimation = draggedOutAlphaAnimation
+      , scaleAnimation = draggedOutScaleAnimation
+      }
 
 isDraggingSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
     -> (Bool, GLfloat)
 isDraggingSlot resources bounds scrollAmount slots index =
   (slotDragged, dragOffset)
   where
+    slotDragged
+      | not (isMouseDrag resources) = False
+      | isDraggedFreely = boxContains bounds (mousePosition resources)
+      | otherwise = boxContains slotBounds dragStartPosition
+
+    isDraggedFreely = dragFreely $ slots !! index
     slotBounds = getSlotBounds bounds scrollAmount slots index
     dragStartPosition = mouseDragStartPosition resources
-    slotDragged = isMouseDrag resources
-        && boxContains slotBounds dragStartPosition
-    dragOffset = boxTop slotBounds - snd dragStartPosition
+
+    dragOffset
+      | not (isMouseDrag resources) = 0
+      | isDraggedFreely = dragFreelyOffset
+      | otherwise = boxTop slotBounds - snd dragStartPosition
 
 getSlotBounds :: Box -> GLfloat -> [Slot] -> Int -> Box
 getSlotBounds (Box (left, top) (right, _)) scrollAmount slots index =
@@ -287,11 +368,20 @@ getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount
     slots index = dragBounds
   where
     (Box (_, slotTop) _) = getSlotBounds bounds scrollAmount slots index
-    (_, mouseY) = mousePosition resources
+    (mouseX, mouseY) = mousePosition resources
     (_, dragStartY) = mouseDragStartPosition resources
-    dragTop = mouseY + dragOffset (slots !! index)
+
+    draggedSlot = slots !! index
+    (dragLeft, dragRight) =
+        if dragFreely draggedSlot
+          then
+            let halfWidth = boxWidth bounds / 2
+            in (mouseX - halfWidth, mouseX + halfWidth)
+          else (left, right)
+
+    dragTop = mouseY + dragOffset draggedSlot
     dragBottom = dragTop - slotHeight
-    dragBounds = Box (left, dragTop) (right, dragBottom)
+    dragBounds = Box (dragLeft, dragTop) (dragRight, dragBottom)
 
 drawSlots :: Resources -> Box -> SideBarState -> IO SideBarOutput
 drawSlots resources bounds
@@ -308,11 +398,12 @@ drawOneSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
 drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
     slots index = 
   preservingMatrix $ do
-    -- Translate to the bottom from the center
-    translate $ vector3 0 (-(boxHeight bounds / 2)) 0
+    -- Translate to the bottom left from the center
+    translate $ vector3 (-(boxWidth bounds / 2)) (-(boxHeight bounds / 2)) 0
 
     -- Translate back up to the center of the slot
-    translate $ vector3 0 (boxTop slotBounds - slotHeight / 2) 0
+    translate $ vector3 (boxRight slotBounds - boxWidth slotBounds / 2)
+        (boxTop slotBounds - slotHeight / 2) 0
 
     scale3 scale scale 1
     output <- M.drawMiniChart resources input
@@ -331,7 +422,6 @@ drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
     input = M.MiniChartInput
       { M.bounds = slotBounds
       , M.alpha = alpha
-      , M.symbol = symbol slot
       , M.isBeingDragged = slotDragged
       , M.inputState = miniChartState slot
       }

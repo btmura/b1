@@ -1,7 +1,7 @@
 module B1.Program.Chart.MiniChart
   ( MiniChartInput(..)
   , MiniChartOutput(..)
-  , MiniChartState(..)
+  , MiniChartState(symbol)
   , drawMiniChart
   , newMiniChartState
   ) where
@@ -27,7 +27,6 @@ import qualified B1.Program.Chart.Header as H
 data MiniChartInput = MiniChartInput
   { bounds :: Box
   , alpha :: GLfloat
-  , symbol :: Symbol
   , isBeingDragged :: Bool
   , inputState :: MiniChartState
   }
@@ -40,7 +39,8 @@ data MiniChartOutput = MiniChartOutput
   }
 
 data MiniChartState = MiniChartState
-  { stockData :: StockData
+  { symbol :: Symbol
+  , stockData :: StockData
   , headerState :: H.HeaderState
   }
 
@@ -50,7 +50,8 @@ newMiniChartState symbol maybeStockData = do
     Just existingStockData -> return existingStockData
     _ -> newStockData symbol
   return $ MiniChartState
-    { stockData = stockData
+    { symbol = symbol
+    , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
     }
 
@@ -59,10 +60,10 @@ drawMiniChart resources
     MiniChartInput
       { bounds = bounds
       , alpha = alpha
-      , symbol = symbol
       , isBeingDragged = isBeingDragged
       , inputState = inputState@MiniChartState
-        { stockData = stockData
+        { symbol = symbol
+        , stockData = stockData
         , headerState = headerState
         }
       } = do

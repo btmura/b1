@@ -5,6 +5,7 @@ module B1.Program.Chart.Resources
     , windowWidth
     , windowHeight
     , mousePosition
+    , previousMousePosition
     , mouseDragStartPosition
     )
   , newResources
@@ -43,6 +44,7 @@ data Resources = Resources
   , previousMouseButtonsPressed :: [MouseButton]
   , previousMouseButtonsReleased :: [MouseButton]
   , mousePosition :: (GLfloat, GLfloat)
+  , previousMousePosition :: (GLfloat, GLfloat)
   , mouseDragStartPosition :: (GLfloat, GLfloat)
   , mouseDragCount :: Int
   , previousMouseDragCount :: Int
@@ -62,6 +64,7 @@ newResources font = Resources
   , previousMouseButtonsPressed = []
   , previousMouseButtonsReleased = []
   , mousePosition = (0, 0)
+  , previousMousePosition = (0, 0)
   , mouseDragStartPosition = (0, 0)
   , mouseDragCount = 0
   , previousMouseDragCount = 0
@@ -164,10 +167,13 @@ hasMouseDragFinished
   dragCount == 0 && previousDragCount >= dragThreshold
 
 updateMousePosition :: Position -> Resources -> Resources
-updateMousePosition (Position x y) resources = resources
+updateMousePosition (Position x y)
+    resources@Resources { mousePosition = previousMousePosition } = resources
   { mousePosition = (fromIntegral x, fromIntegral y)
+  , previousMousePosition = previousMousePosition
   }
 
+-- TODO: Integrate into updateMousePosition
 invertMousePositionY :: Resources -> Resources
 invertMousePositionY
     resources@Resources

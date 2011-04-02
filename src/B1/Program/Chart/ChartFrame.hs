@@ -34,15 +34,14 @@ data FrameInput = FrameInput
   { bounds :: Box
   , symbolRequest :: Maybe Symbol
   , inputState :: FrameState
-  , inputDraggingState :: Maybe M.MiniChartState
   }
 
 data FrameOutput = FrameOutput
   { outputState :: FrameState
-  , outputDraggingState :: Maybe M.MiniChartState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
   , selectedSymbol :: Maybe Symbol
+  , draggedOutMiniChart :: Maybe M.MiniChartState
   }
 
 data FrameState = FrameState
@@ -50,6 +49,7 @@ data FrameState = FrameState
   , nextSymbol :: String
   , currentFrame :: Maybe Frame
   , previousFrame :: Maybe Frame
+  , draggedMiniChartState :: Maybe M.MiniChartState
   }
 
 data Frame = Frame
@@ -70,6 +70,7 @@ newFrameState = FrameState
     , alphaAnimation = incomingAlphaAnimation
     }
   , previousFrame = Nothing
+  , draggedMiniChartState = Nothing
   }
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
@@ -96,15 +97,14 @@ convertFrameInput :: FrameInput -> IO FrameOutput
 convertFrameInput
     frameInput@FrameInput
       { inputState = frameState
-      , inputDraggingState = draggingState
       , symbolRequest = symbolRequest
       } =
   return $ FrameOutput
     { outputState = frameState
-    , outputDraggingState = draggingState
     , isDirty = False
     , addedSymbol = Nothing
     , selectedSymbol = symbolRequest
+    , draggedOutMiniChart = Nothing
     }
 
 refreshSymbolState :: Resources -> FrameOutput -> IO FrameOutput
@@ -379,14 +379,15 @@ drawNextSymbol resources bounds
 drawDraggedChart :: Resources -> Box -> FrameOutput -> IO FrameOutput
 drawDraggedChart resources bounds
     frameOutput@FrameOutput
-      { outputState = outputState@FrameState { currentFrame = currentFrame }
-      , outputDraggingState = outputDraggingState
+      { outputState = outputState@FrameState
+        { currentFrame = currentFrame
+        , draggedMiniChartState = draggedMiniChartState
+        }
       , isDirty = isDirty
-      } =
-  if draggingChart
-    then do
+      }
+  | draggingChartInBounds = do
       let Just (Frame { content = Chart symbol chartState }) = currentFrame
-      miniChartState <- case outputDraggingState of
+      miniChartState <- case draggedMiniChartState of
         Just state -> return $state
         _ -> M.newMiniChartState symbol $ Just (C.stockData chartState)
      
@@ -395,7 +396,6 @@ drawDraggedChart resources bounds
           miniChartInput = M.MiniChartInput
             { M.bounds = miniChartBounds
             , M.alpha = 1.0
-            , M.symbol = symbol
             , M.isBeingDragged = True
             , M.inputState = miniChartState
             } 
@@ -405,18 +405,39 @@ drawDraggedChart resources bounds
         translate $ vector3 mouseX mouseY 0
         M.drawMiniChart resources miniChartInput
       return frameOutput
-        { outputDraggingState = Just $ M.outputState miniChartOutput
+        { outputState = outputState
+          { draggedMiniChartState = Just $ M.outputState miniChartOutput
+          }
         , isDirty = isDirty || M.isDirty miniChartOutput
         }
-    else
-      return frameOutput { outputDraggingState = Nothing }
+  | draggingChartOutOfBounds = return frameOutput
+      { draggedOutMiniChart = nextDraggedOutMiniChart
+      }
+  | otherwise = return frameOutput
+      { outputState = outputState { draggedMiniChartState = Nothing }
+      }
   where
     isCurrentFrameChart =
         case currentFrame of
           Just (Frame { content = Chart _ _ }) -> True
           otherwise -> False
-    draggingChart = isMouseDrag resources
+
+    draggingChartInBounds = isMouseDrag resources
         && boxContains bounds (mouseDragStartPosition resources)
         && boxContains bounds (mousePosition resources)
         && isCurrentFrameChart
 
+    previouslyDraggingChartInBounds = isMouseDrag resources
+        && boxContains bounds (mouseDragStartPosition resources)
+        && boxContains bounds (previousMousePosition resources)
+        && isCurrentFrameChart
+
+    draggingChartOutOfBounds = isMouseDrag resources
+        && boxContains bounds (mouseDragStartPosition resources)
+        && not (boxContains bounds (mousePosition resources))
+        && isCurrentFrameChart
+
+    nextDraggedOutMiniChart =
+        if previouslyDraggingChartInBounds && draggingChartOutOfBounds
+          then draggedMiniChartState
+          else Nothing
