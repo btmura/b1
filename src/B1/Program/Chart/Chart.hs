@@ -55,46 +55,105 @@ newChartState symbol = do
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
-drawChart resources
+drawChart resources input =
+  convertInputToStuff input
+      >>= drawHeader resources
+      >>= drawNextHorizontalRule resources
+      >>= convertStuffToOutput
+
+convertInputToStuff :: ChartInput -> IO ChartStuff
+convertInputToStuff 
     ChartInput
       { bounds = bounds
       , alpha = alpha
       , symbol = symbol
-      , inputState = inputState@ChartState
+      , inputState = ChartState
         { stockData = stockData
         , headerState = headerState
         }
-      }  = 
+      } = 
+  return ChartStuff
+    { chartBounds = bounds
+    , chartAlpha = alpha
+    , chartSymbol = symbol
+    , chartStockData = stockData
+    , chartHeaderState = headerState
+    , chartNextTopPosition = 0
+    , chartAddedSymbol = Nothing
+    , chartIsDirty = False
+    }
+
+data ChartStuff = ChartStuff
+  { chartBounds :: Box
+  , chartAlpha :: GLfloat
+  , chartSymbol :: Symbol
+  , chartStockData :: StockData
+  , chartHeaderState :: H.HeaderState
+  , chartNextTopPosition :: GLfloat
+  , chartAddedSymbol :: Maybe Symbol
+  , chartIsDirty :: Bool
+  }
+
+drawHeader :: Resources -> ChartStuff -> IO ChartStuff
+drawHeader resources
+    stuff@ChartStuff
+      { chartBounds = bounds
+      , chartAlpha = alpha
+      , chartSymbol = symbol
+      , chartStockData = stockData
+      , chartHeaderState = headerState
+      } = do
+  let headerInput = H.HeaderInput
+        { H.bounds = bounds
+        , H.fontSize = 18
+        , H.padding = 10
+        , H.alpha = alpha
+        , H.symbol = symbol
+        , H.stockData = stockData
+        , H.inputState = headerState
+        }
+  headerOutput <- preservingMatrix $ H.drawHeader resources headerInput 
+
+  let H.HeaderOutput
+        { H.outputState = outputHeaderState
+        , H.isDirty = isHeaderDirty
+        , H.height = headerHeight
+        , H.clickedSymbol = addedSymbol
+        } = headerOutput
+  return stuff
+    { chartHeaderState = outputHeaderState
+    , chartNextTopPosition = headerHeight
+    , chartIsDirty = isHeaderDirty
+    , chartAddedSymbol = addedSymbol
+    }
+
+drawNextHorizontalRule :: Resources -> ChartStuff -> IO ChartStuff
+drawNextHorizontalRule resources
+    stuff@ChartStuff
+      { chartBounds = bounds
+      , chartAlpha = alpha
+      , chartNextTopPosition = nextTopPosition
+      } = do
   preservingMatrix $ do
-    let headerInput = H.HeaderInput
-          { H.bounds = bounds
-          , H.fontSize = 18
-          , H.padding = 10
-          , H.alpha = alpha
-          , H.symbol = symbol
-          , H.stockData = stockData
-          , H.inputState = headerState
-          }
-
-    headerOutput <- H.drawHeader resources headerInput 
-
-    let H.HeaderOutput
-          { H.outputState = outputHeaderState
-          , H.isDirty = isHeaderDirty
-          , H.height = headerHeight
-          , H.clickedSymbol = addedSymbol
-          } = headerOutput
-
-    -- Draw a line under the header
-    translate $ vector3 0 (boxHeight bounds / 2 - headerHeight) 0
+    translate $ vector3 0 (boxHeight bounds / 2 - nextTopPosition) 0
     color $ outlineColor resources bounds alpha 
     drawHorizontalRule (boxWidth bounds - 1) 
+  return stuff
 
-    let outputState = inputState { headerState = outputHeaderState }
-        isDirty = isHeaderDirty
-    return ChartOutput
-      { outputState = outputState
-      , isDirty = isDirty
-      , addedSymbol = addedSymbol
+convertStuffToOutput :: ChartStuff -> IO ChartOutput
+convertStuffToOutput 
+    ChartStuff
+      { chartStockData = stockData
+      , chartHeaderState = headerState
+      , chartIsDirty = isDirty
+      , chartAddedSymbol = addedSymbol
+      } =
+  return ChartOutput
+    { outputState = ChartState
+      { stockData = stockData
+      , headerState = headerState
       }
+    , isDirty = isDirty
+    , addedSymbol = addedSymbol
+    }
 
