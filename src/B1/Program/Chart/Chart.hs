@@ -2,7 +2,6 @@ module B1.Program.Chart.Chart
   ( ChartInput(..)
   , ChartOutput(..)
   , ChartState(stockData)
-  , Symbol
   , drawChart
   , newChartState
   ) where
@@ -27,6 +26,7 @@ import B1.Program.Chart.StockData
 import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.Header as H
+import qualified B1.Program.Chart.PriceGraph as P
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -44,6 +44,7 @@ data ChartOutput = ChartOutput
 data ChartState = ChartState
   { stockData :: StockData
   , headerState :: H.HeaderState
+  , priceGraphState :: P.PriceGraphState
   }
 
 newChartState :: Symbol -> IO ChartState
@@ -52,14 +53,28 @@ newChartState symbol = do
   return $ ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
+    , priceGraphState = P.newPriceGraphState
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources input =
   convertInputToStuff input
       >>= drawHeader resources
-      >>= drawNextHorizontalRule resources
+      >>= drawPriceGraph resources
+      >>= drawHorizontalRules resources
       >>= convertStuffToOutput
+
+data ChartStuff = ChartStuff
+  { chartBounds :: Box
+  , chartAlpha :: GLfloat
+  , chartSymbol :: Symbol
+  , chartStockData :: StockData
+  , chartHeaderState :: H.HeaderState
+  , chartPriceGraphState :: P.PriceGraphState
+  , chartHeaderHeight :: GLfloat
+  , chartAddedSymbol :: Maybe Symbol
+  , chartIsDirty :: Bool
+  }
 
 convertInputToStuff :: ChartInput -> IO ChartStuff
 convertInputToStuff 
@@ -70,6 +85,7 @@ convertInputToStuff
       , inputState = ChartState
         { stockData = stockData
         , headerState = headerState
+        , priceGraphState = priceGraphState
         }
       } = 
   return ChartStuff
@@ -78,21 +94,11 @@ convertInputToStuff
     , chartSymbol = symbol
     , chartStockData = stockData
     , chartHeaderState = headerState
-    , chartNextTopPosition = 0
+    , chartPriceGraphState = priceGraphState
+    , chartHeaderHeight = 0
     , chartAddedSymbol = Nothing
     , chartIsDirty = False
     }
-
-data ChartStuff = ChartStuff
-  { chartBounds :: Box
-  , chartAlpha :: GLfloat
-  , chartSymbol :: Symbol
-  , chartStockData :: StockData
-  , chartHeaderState :: H.HeaderState
-  , chartNextTopPosition :: GLfloat
-  , chartAddedSymbol :: Maybe Symbol
-  , chartIsDirty :: Bool
-  }
 
 drawHeader :: Resources -> ChartStuff -> IO ChartStuff
 drawHeader resources
@@ -102,7 +108,9 @@ drawHeader resources
       , chartSymbol = symbol
       , chartStockData = stockData
       , chartHeaderState = headerState
+      , chartIsDirty = isDirty
       } = do
+
   let headerInput = H.HeaderInput
         { H.bounds = bounds
         , H.fontSize = 18
@@ -112,7 +120,9 @@ drawHeader resources
         , H.stockData = stockData
         , H.inputState = headerState
         }
-  headerOutput <- preservingMatrix $ H.drawHeader resources headerInput 
+
+  headerOutput <- preservingMatrix $ do
+    H.drawHeader resources headerInput 
 
   let H.HeaderOutput
         { H.outputState = outputHeaderState
@@ -122,20 +132,50 @@ drawHeader resources
         } = headerOutput
   return stuff
     { chartHeaderState = outputHeaderState
-    , chartNextTopPosition = headerHeight
-    , chartIsDirty = isHeaderDirty
+    , chartHeaderHeight = headerHeight
+    , chartIsDirty = isDirty || isHeaderDirty
     , chartAddedSymbol = addedSymbol
     }
 
-drawNextHorizontalRule :: Resources -> ChartStuff -> IO ChartStuff
-drawNextHorizontalRule resources
+drawPriceGraph :: Resources -> ChartStuff -> IO ChartStuff
+drawPriceGraph resources
+    stuff@ChartStuff
+      { chartBounds = bounds@(Box (left, top) (right, bottom))
+      , chartAlpha = alpha
+      , chartPriceGraphState = priceGraphState
+      , chartHeaderHeight = headerHeight
+      , chartIsDirty = isDirty
+      } = do
+  let inputBounds = Box (left, top - headerHeight) (right, bottom)
+      priceGraphInput = P.PriceGraphInput
+        { P.bounds = inputBounds
+        , P.alpha = alpha
+        , P.inputState = priceGraphState
+        }
+
+  priceGraphOutput <- preservingMatrix $ do
+    translate $ vector3 (-(boxWidth bounds / 2)) (-(boxHeight bounds / 2)) 0
+    translate $ vector3 (boxWidth inputBounds / 2) (boxHeight inputBounds / 2) 0
+    P.drawPriceGraph resources priceGraphInput
+
+  let P.PriceGraphOutput
+        { P.outputState = outputPriceGraphState
+        , P.isDirty = isPriceGraphDirty
+        } = priceGraphOutput
+  return stuff
+    { chartPriceGraphState = outputPriceGraphState
+    , chartIsDirty = isDirty || isPriceGraphDirty
+    }
+
+drawHorizontalRules :: Resources -> ChartStuff -> IO ChartStuff
+drawHorizontalRules resources
     stuff@ChartStuff
       { chartBounds = bounds
       , chartAlpha = alpha
-      , chartNextTopPosition = nextTopPosition
+      , chartHeaderHeight = headerHeight
       } = do
   preservingMatrix $ do
-    translate $ vector3 0 (boxHeight bounds / 2 - nextTopPosition) 0
+    translate $ vector3 0 (boxHeight bounds / 2 - headerHeight) 0
     color $ outlineColor resources bounds alpha 
     drawHorizontalRule (boxWidth bounds - 1) 
   return stuff
@@ -145,6 +185,7 @@ convertStuffToOutput
     ChartStuff
       { chartStockData = stockData
       , chartHeaderState = headerState
+      , chartPriceGraphState = priceGraphState
       , chartIsDirty = isDirty
       , chartAddedSymbol = addedSymbol
       } =
@@ -152,6 +193,7 @@ convertStuffToOutput
     { outputState = ChartState
       { stockData = stockData
       , headerState = headerState
+      , priceGraphState = priceGraphState
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol
