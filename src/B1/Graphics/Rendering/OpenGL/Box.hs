@@ -11,7 +11,6 @@ module B1.Graphics.Rendering.OpenGL.Box
   , boxWidth
   , boxHeight
   , createBox
-  , translateToCenter
   , zeroBox
   ) where
 
@@ -72,13 +71,6 @@ createBox width height (x, y) =
   where
     halfWidth = width / 2
     halfHeight = height / 2
-
-translateToCenter :: Box -> IO ()
-translateToCenter bounds =
-  translate $ vector3 translateX translateY 0
-  where
-    translateX = boxLeft bounds + boxWidth bounds / 2
-    translateY = boxTop bounds - boxHeight bounds / 2
 
 zeroBox :: Box
 zeroBox = Box (0, 0) (0, 0)

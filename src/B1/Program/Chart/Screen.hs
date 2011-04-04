@@ -132,3 +132,11 @@ drawScreenLoop
     sideBarBounds = Box (0, height - sideBarTopPadding) (sideBarWidth, 0)
     frameBounds = Box (sideBarWidth, height) (windowWidth resources, 0)
 
+translateToCenter :: Box -> IO ()
+translateToCenter bounds =
+  translate $ vector3 translateX translateY 0
+  where
+    translateX = boxLeft bounds + boxWidth bounds / 2
+    translateY = boxTop bounds - boxHeight bounds / 2
+
+

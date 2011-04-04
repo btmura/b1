@@ -27,6 +27,7 @@ import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.PriceGraph as P
+import qualified B1.Program.Chart.VolumeBars as V
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -45,6 +46,7 @@ data ChartState = ChartState
   { stockData :: StockData
   , headerState :: H.HeaderState
   , priceGraphState :: P.PriceGraphState
+  , volumeBarsState :: V.VolumeBarsState
   }
 
 newChartState :: Symbol -> IO ChartState
@@ -54,6 +56,7 @@ newChartState symbol = do
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState
+    , volumeBarsState = V.newVolumeBarsState
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
@@ -61,6 +64,7 @@ drawChart resources input =
   convertInputToStuff input
       >>= drawHeader resources
       >>= drawPriceGraph resources
+      >>= drawVolumeBars resources
       >>= drawHorizontalRules resources
       >>= convertStuffToOutput
 
@@ -71,6 +75,7 @@ data ChartStuff = ChartStuff
   , chartStockData :: StockData
   , chartHeaderState :: H.HeaderState
   , chartPriceGraphState :: P.PriceGraphState
+  , chartVolumeBarsState :: V.VolumeBarsState
   , chartHeaderHeight :: GLfloat
   , chartAddedSymbol :: Maybe Symbol
   , chartIsDirty :: Bool
@@ -86,6 +91,7 @@ convertInputToStuff
         { stockData = stockData
         , headerState = headerState
         , priceGraphState = priceGraphState
+        , volumeBarsState = volumeBarsState
         }
       } = 
   return ChartStuff
@@ -95,6 +101,7 @@ convertInputToStuff
     , chartStockData = stockData
     , chartHeaderState = headerState
     , chartPriceGraphState = priceGraphState
+    , chartVolumeBarsState = volumeBarsState
     , chartHeaderHeight = 0
     , chartAddedSymbol = Nothing
     , chartIsDirty = False
@@ -137,16 +144,47 @@ drawHeader resources
     , chartAddedSymbol = addedSymbol
     }
 
+getPriceGraphBounds :: Box -> GLfloat -> Box
+getPriceGraphBounds bounds headerHeight = priceGraphBounds
+  where
+    Box (left, top) (right, bottom) = bounds
+    remainingHeight = boxHeight bounds - headerHeight
+    priceGraphHeight = remainingHeight * 0.75
+    priceGraphBounds = Box (left, top - headerHeight)
+        (right, top - headerHeight - priceGraphHeight)
+
+getVolumeBarsBounds :: Box -> GLfloat -> Box
+getVolumeBarsBounds bounds headerHeight = volumeBarsBounds
+  where
+    Box (left, top) (right, bottom) = bounds
+    priceGraphBounds = getPriceGraphBounds bounds headerHeight
+    volumeBarsHeight = boxHeight bounds - headerHeight
+        - boxHeight priceGraphBounds
+    volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
+        (right, boxBottom priceGraphBounds - volumeBarsHeight)
+
+-- Starts translating from the center of outerBounds
+translateToCenter :: Box -> GLfloat -> Box -> IO ()
+translateToCenter outerBounds headerHeight innerBounds =
+  translate $ vector3 translateX translateY 0
+  where
+    translateX = -(boxWidth outerBounds / 2) -- Goto left of outer
+        + (boxRight innerBounds - boxLeft outerBounds) -- Goto right of inner 
+        - (boxWidth innerBounds / 2) -- Go back half of inner
+    translateY = -(boxHeight outerBounds / 2) -- Goto bottom of outer
+        + (boxTop innerBounds - boxBottom outerBounds) -- Goto top of inner
+        - (boxHeight innerBounds / 2) -- Go down half of inner
+
 drawPriceGraph :: Resources -> ChartStuff -> IO ChartStuff
 drawPriceGraph resources
     stuff@ChartStuff
-      { chartBounds = bounds@(Box (left, top) (right, bottom))
+      { chartBounds = bounds
       , chartAlpha = alpha
       , chartPriceGraphState = priceGraphState
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
       } = do
-  let inputBounds = Box (left, top - headerHeight) (right, bottom)
+  let inputBounds = getPriceGraphBounds bounds headerHeight
       priceGraphInput = P.PriceGraphInput
         { P.bounds = inputBounds
         , P.alpha = alpha
@@ -154,8 +192,7 @@ drawPriceGraph resources
         }
 
   priceGraphOutput <- preservingMatrix $ do
-    translate $ vector3 (-(boxWidth bounds / 2)) (-(boxHeight bounds / 2)) 0
-    translate $ vector3 (boxWidth inputBounds / 2) (boxHeight inputBounds / 2) 0
+    translateToCenter bounds headerHeight inputBounds
     P.drawPriceGraph resources priceGraphInput
 
   let P.PriceGraphOutput
@@ -165,6 +202,35 @@ drawPriceGraph resources
   return stuff
     { chartPriceGraphState = outputPriceGraphState
     , chartIsDirty = isDirty || isPriceGraphDirty
+    }
+
+drawVolumeBars :: Resources -> ChartStuff -> IO ChartStuff
+drawVolumeBars resources
+    stuff@ChartStuff
+      { chartBounds = bounds@(Box (left, top) (right, bottom))
+      , chartAlpha = alpha
+      , chartVolumeBarsState = volumeBarsState
+      , chartHeaderHeight = headerHeight
+      , chartIsDirty = isDirty
+      } = do
+  let inputBounds = getVolumeBarsBounds bounds headerHeight
+      volumeBarsInput = V.VolumeBarsInput
+        { V.bounds = inputBounds
+        , V.alpha = alpha
+        , V.inputState = volumeBarsState
+        }
+
+  volumeBarsOutput <- preservingMatrix $ do
+    translateToCenter bounds headerHeight inputBounds
+    V.drawVolumeBars resources volumeBarsInput
+
+  let V.VolumeBarsOutput
+        { V.outputState = outputVolumeBarsState
+        , V.isDirty = isVolumeDirty
+        } = volumeBarsOutput
+  return stuff
+    { chartVolumeBarsState = outputVolumeBarsState
+    , chartIsDirty = isDirty || isVolumeDirty
     }
 
 drawHorizontalRules :: Resources -> ChartStuff -> IO ChartStuff
@@ -186,6 +252,7 @@ convertStuffToOutput
       { chartStockData = stockData
       , chartHeaderState = headerState
       , chartPriceGraphState = priceGraphState
+      , chartVolumeBarsState = volumeBarsState
       , chartIsDirty = isDirty
       , chartAddedSymbol = addedSymbol
       } =
@@ -194,6 +261,7 @@ convertStuffToOutput
       { stockData = stockData
       , headerState = headerState
       , priceGraphState = priceGraphState
+      , volumeBarsState = volumeBarsState
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol
