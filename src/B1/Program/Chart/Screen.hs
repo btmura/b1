@@ -33,11 +33,11 @@ drawScreen resources = do
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
         , S.newMiniChartDraggedIn = Nothing
-        , S.selectedSymbol = Nothing
+        , S.justSelectedSymbol = selectedSymbol config
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
-        { F.symbolRequest = Nothing
+        { F.symbolRequest = selectedSymbol config
         , F.bounds = zeroBox
         , F.inputState = F.newFrameState
         } 
@@ -83,7 +83,10 @@ drawScreenLoop
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
 
-  let nextConfig = config { symbols = S.symbols sideBarOutput }
+  let nextConfig = config
+        { symbols = S.symbols sideBarOutput
+        , selectedSymbol = F.selectedSymbol frameOutput
+        }
   unless (config == nextConfig) $ do
     -- TODO: Extract this code into a separate ConfigManager module
     forkIO $ do
@@ -96,7 +99,7 @@ drawScreenLoop
   let nextSideBarInput = sideBarInput
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
         , S.newMiniChartDraggedIn = F.draggedOutMiniChart frameOutput
-        , S.selectedSymbol = F.selectedSymbol frameOutput
+        , S.justSelectedSymbol = F.justSelectedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput

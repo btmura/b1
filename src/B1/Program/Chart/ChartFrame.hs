@@ -41,6 +41,7 @@ data FrameOutput = FrameOutput
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
   , selectedSymbol :: Maybe Symbol
+  , justSelectedSymbol :: Maybe Symbol
   , draggedOutMiniChart :: Maybe M.MiniChartState
   }
 
@@ -86,93 +87,110 @@ outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources frameInput@FrameInput { bounds = bounds } = do
-  drawDraggedChart resources bounds
-      =<< drawNextSymbol resources bounds
-      =<< drawFrames resources bounds
-      =<< refreshSymbolState resources
-      =<< convertFrameInput frameInput
+drawChartFrame resources input = do
+  convertInputToStuff input
+      >>= refreshSymbolState resources
+      >>= refreshSelectedSymbol
+      >>= drawFrames resources
+      >>= drawNextSymbol resources
+      >>= drawDraggedChart resources
+      >>= convertStuffToOutput
 
-convertFrameInput :: FrameInput -> IO FrameOutput
-convertFrameInput
-    frameInput@FrameInput
-      { inputState = frameState
+data FrameStuff = FrameStuff
+  { frameBounds :: Box
+  , frameRequestedSymbol :: Maybe Symbol
+  , frameCurrentSymbol :: String
+  , frameNextSymbol :: String
+  , frameCurrentFrame :: Maybe Frame
+  , framePreviousFrame :: Maybe Frame
+  , frameAddedSymbol :: Maybe Symbol
+  , frameSelectedSymbol :: Maybe Symbol
+  , frameJustSelectedSymbol :: Maybe Symbol
+  , frameDraggedChart :: Maybe M.MiniChartState
+  , frameDraggedOutChart :: Maybe M.MiniChartState
+  , frameIsDirty :: Dirty
+  }
+
+convertInputToStuff :: FrameInput -> IO FrameStuff
+convertInputToStuff 
+    FrameInput
+      { bounds = bounds
       , symbolRequest = symbolRequest
+      , inputState = FrameState
+        { currentSymbol = currentSymbol
+        , nextSymbol = nextSymbol
+        , currentFrame = currentFrame
+        , previousFrame = previousFrame
+        , draggedMiniChartState = draggedMiniChartState
+        }
       } =
-  return $ FrameOutput
-    { outputState = frameState
-    , isDirty = False
-    , addedSymbol = Nothing
-    , selectedSymbol = symbolRequest
-    , draggedOutMiniChart = Nothing
+  return FrameStuff
+    { frameBounds = bounds
+    , frameRequestedSymbol = symbolRequest
+    , frameCurrentSymbol = currentSymbol
+    , frameNextSymbol = nextSymbol
+    , frameCurrentFrame = currentFrame
+    , framePreviousFrame = previousFrame
+    , frameAddedSymbol = Nothing
+    , frameSelectedSymbol = Nothing
+    , frameJustSelectedSymbol = Nothing
+    , frameDraggedChart = draggedMiniChartState
+    , frameDraggedOutChart = Nothing
+    , frameIsDirty = False
     }
 
-refreshSymbolState :: Resources -> FrameOutput -> IO FrameOutput
+refreshSymbolState :: Resources -> FrameStuff -> IO FrameStuff
 
-refreshSymbolState _
-    frameOutput@FrameOutput
-      { outputState = state
-      , selectedSymbol = Just symbol
-      } = 
-  loadNextSymbol $ frameOutput { outputState = state { nextSymbol = symbol } }
+refreshSymbolState _ stuff@FrameStuff { frameRequestedSymbol = Just symbol } =
+  loadSymbol symbol stuff
 
-refreshSymbolState resources frameOutput
-  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey frameOutput
-  | checkKeyPress (SpecialKey ENTER) = handleEnterKey frameOutput
-  | checkKeyPress (SpecialKey ESC) = handleEscapeKey frameOutput
-  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) frameOutput
-  | otherwise = handleNoKey frameOutput
+refreshSymbolState resources stuff
+  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey stuff
+  | checkKeyPress (SpecialKey ENTER) = handleEnterKey stuff
+  | checkKeyPress (SpecialKey ESC) = handleEscapeKey stuff
+  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) stuff
+  | otherwise = return stuff
   where
     checkKeyPress = isKeyPressed resources
     maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
 
 -- BACKSPACE deletes one character in a symbol...
-handleBackspaceKey :: FrameOutput -> IO FrameOutput
+handleBackspaceKey :: FrameStuff -> IO FrameStuff
 handleBackspaceKey
-    frameOutput@FrameOutput
-      { outputState = state@FrameState { nextSymbol = nextSymbol }
-      , isDirty = isDirty
-      }  =
-  return frameOutput
-    { outputState = nextState
-    , isDirty = nextIsDirty
+    stuff@FrameStuff
+      { frameNextSymbol = nextSymbol
+      , frameIsDirty = isDirty
+      } =
+  return stuff
+    { frameNextSymbol = nextNextSymbol
+    , frameIsDirty = isDirty || not isCurrentNextSymbolEmpty
     }
   where
-    isNextSymbolEmpty = length nextSymbol < 1
-    trimmedSymbol = take (length nextSymbol - 1) nextSymbol
-    (nextState, nextIsDirty) =
-        if isNextSymbolEmpty
-          then (state, isDirty)
-          else (state { nextSymbol = trimmedSymbol }, True)
+    isCurrentNextSymbolEmpty = length nextSymbol < 1
+    nextNextSymbol =
+        if isCurrentNextSymbolEmpty
+          then nextSymbol
+          else take (length nextSymbol - 1) nextSymbol
 
 -- ENTER makes the next symbol the current symbol.
-handleEnterKey :: FrameOutput -> IO FrameOutput
-handleEnterKey
-    frameOutput@FrameOutput
-      { outputState = state@FrameState { nextSymbol = nextSymbol }
-      } = 
+handleEnterKey :: FrameStuff -> IO FrameStuff
+handleEnterKey stuff@FrameStuff { frameNextSymbol = nextSymbol } =
   if nextSymbol == ""
-    then return frameOutput
-    else loadNextSymbol frameOutput
-
-loadNextSymbol :: FrameOutput -> IO FrameOutput
-loadNextSymbol
-    frameOutput@FrameOutput
-      { outputState = state@FrameState
-        { nextSymbol = nextSymbol
-        , currentFrame = currentFrame
-        }
-      } = do
-  chartContent <- newChartContent nextSymbol
-  let nextOutputState = state
-        { currentSymbol = nextSymbol
-        , nextSymbol = ""
-        , currentFrame = newCurrentFrame chartContent
-        , previousFrame = newPreviousFrame currentFrame
-        }
-  return frameOutput
-    { outputState = nextOutputState
-    , isDirty = True
+    then return stuff
+    else loadSymbol nextSymbol stuff
+ 
+loadSymbol :: Symbol -> FrameStuff -> IO FrameStuff
+loadSymbol symbol
+    stuff@FrameStuff { frameCurrentFrame = currentFrame } = do
+  chartContent <- newChartContent symbol
+  return stuff
+    { frameCurrentSymbol = symbol
+    , frameNextSymbol = ""
+    , frameCurrentFrame = newCurrentFrame chartContent
+    , framePreviousFrame = newPreviousFrame currentFrame
+    , frameJustSelectedSymbol = Just symbol
+    , frameIsDirty = True
+    , frameDraggedChart = Nothing
     }
 
 newChartContent :: Symbol -> IO Content
@@ -195,57 +213,68 @@ newPreviousFrame (Just frame) = Just $ frame
   }
 
 -- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameOutput -> IO FrameOutput
+handleCharKey :: Key -> FrameStuff -> IO FrameStuff
 handleCharKey key
-    frameOutput@FrameOutput
-      { outputState = state@FrameState { nextSymbol = nextSymbol } 
+    stuff@FrameStuff
+      { frameNextSymbol = nextSymbol
+      , frameIsDirty = isDirty
       } =
-  return frameOutput
-    { outputState = nextOutputState
-    , isDirty = nextIsDirty
+  return stuff
+    { frameNextSymbol = nextNextSymbol
+    , frameIsDirty = nextIsDirty
     }
   where
-    (nextOutputState, nextIsDirty) =
+    (nextNextSymbol, nextIsDirty) =
         case key of
           (CharKey char) ->
               if isAlpha char
-                then (state { nextSymbol = nextSymbol ++ [char] }, True)
-                else (state, False)
-          _ -> (state, False)
+                then (nextSymbol ++ [char], True)
+                else (nextSymbol, isDirty)
+          _ -> (nextSymbol, isDirty)
 
 -- ESC cancels the next symbol.
-handleEscapeKey :: FrameOutput -> IO FrameOutput
-handleEscapeKey frameOutput@FrameOutput { outputState = state } =
-  return frameOutput
-    { outputState = state { nextSymbol = "" }
-    , isDirty = True
+handleEscapeKey :: FrameStuff -> IO FrameStuff
+handleEscapeKey stuff = 
+  return stuff
+    { frameNextSymbol = ""
+    , frameIsDirty = True
     }
 
-handleNoKey :: FrameOutput -> IO FrameOutput
-handleNoKey = return
+refreshSelectedSymbol :: FrameStuff -> IO FrameStuff
+refreshSelectedSymbol stuff@FrameStuff { frameCurrentFrame = currentFrame } =
+  return stuff { frameSelectedSymbol = nextSelectedSymbol }
+  where
+    nextSelectedSymbol =
+        case currentFrame of
+          Just frame ->
+              case content frame of
+                Chart symbol _ -> Just symbol
+                _ -> Nothing
+          _ -> Nothing
 
-drawFrames :: Resources -> Box -> FrameOutput -> IO FrameOutput
-drawFrames resources bounds
-    frameOutput@FrameOutput
-      { outputState = outputState@FrameState
-        { currentFrame = currentFrame
-        , previousFrame = previousFrame
-        }
-      , isDirty = isDirty
-      , selectedSymbol = selectedSymbol
+drawFrames :: Resources -> FrameStuff -> IO FrameStuff
+drawFrames resources 
+    stuff@FrameStuff
+      { frameBounds = bounds
+      , frameCurrentFrame = currentFrame
+      , framePreviousFrame = previousFrame
+      , frameJustSelectedSymbol = justSelectedSymbol
+      , frameIsDirty = isDirty
       } = do
+
   maybeNextCurrentFrameState <- drawFrameShort currentFrame
   maybeNextPreviousFrameState <- drawFrameShort previousFrame
+
   let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol) =
           maybeNextCurrentFrameState
       (nextPreviousFrame, isPreviousContentDirty, _) =
           maybeNextPreviousFrameState
       nextNextCurrentFrame = nextFrame nextCurrentFrame
       nextNextPreviousFrame = nextFrame nextPreviousFrame
-      nextState = outputState 
-        { currentFrame = nextNextCurrentFrame
-        , previousFrame = nextNextPreviousFrame
-        }
+      nextJustSelectedSymbol =
+          if isJust nextAddedSymbol
+            then nextAddedSymbol
+            else justSelectedSymbol
       nextDirty = any id
         [ isDirty
         , isDirtyFrame nextNextCurrentFrame
@@ -253,15 +282,12 @@ drawFrames resources bounds
         , isCurrentContentDirty
         , isPreviousContentDirty
         ]
-      nextSelectedSymbol =
-          if isJust selectedSymbol
-            then selectedSymbol
-            else nextAddedSymbol
-  return frameOutput
-    { outputState = nextState
-    , isDirty = nextDirty
-    , addedSymbol = nextAddedSymbol
-    , selectedSymbol = nextSelectedSymbol
+  return stuff
+    { frameCurrentFrame = nextNextCurrentFrame
+    , framePreviousFrame = nextNextPreviousFrame
+    , frameAddedSymbol = nextAddedSymbol
+    , frameJustSelectedSymbol = nextJustSelectedSymbol
+    , frameIsDirty = nextDirty
     } 
   where
     drawFrameShort = drawFrame resources bounds
@@ -333,17 +359,15 @@ nextFrame (Just frame) = Just $ frame
   , alphaAnimation = next $ alphaAnimation frame
   }
 
-drawNextSymbol :: Resources -> Box -> FrameOutput -> IO FrameOutput
+drawNextSymbol :: Resources -> FrameStuff -> IO FrameStuff
 
-drawNextSymbol _ _
-    frameOutput@FrameOutput
-      { outputState = FrameState { nextSymbol = "" }
-      } =
-  return frameOutput
+drawNextSymbol _ stuff@FrameStuff { frameNextSymbol = "" } =
+  return stuff
 
-drawNextSymbol resources bounds
-    frameOutput@FrameOutput
-      { outputState = FrameState { nextSymbol = nextSymbol }
+drawNextSymbol resources 
+    stuff@FrameStuff
+      { frameBounds = bounds
+      , frameNextSymbol = nextSymbol
       } = do
 
   boundingBox <- measureText textSpec
@@ -370,20 +394,19 @@ drawNextSymbol resources bounds
     translate $ vector3 (-centerX) (-centerY) 0
     renderText textSpec
 
-  return frameOutput
+  return stuff
 
   where
     textSpec = TextSpec (font resources) 48  nextSymbol
     textBubblePadding = 15
 
-drawDraggedChart :: Resources -> Box -> FrameOutput -> IO FrameOutput
-drawDraggedChart resources bounds
-    frameOutput@FrameOutput
-      { outputState = outputState@FrameState
-        { currentFrame = currentFrame
-        , draggedMiniChartState = draggedMiniChartState
-        }
-      , isDirty = isDirty
+drawDraggedChart :: Resources -> FrameStuff -> IO FrameStuff
+drawDraggedChart resources
+    stuff@FrameStuff
+      { frameBounds = bounds
+      , frameCurrentFrame = currentFrame
+      , frameDraggedChart = draggedMiniChartState
+      , frameIsDirty = isDirty
       }
   | draggingChartInBounds = do
       let Just (Frame { content = Chart symbol chartState }) = currentFrame
@@ -404,18 +427,14 @@ drawDraggedChart resources bounds
             (-(boxBottom bounds + boxHeight bounds / 2))  0
         translate $ vector3 mouseX mouseY 0
         M.drawMiniChart resources miniChartInput
-      return frameOutput
-        { outputState = outputState
-          { draggedMiniChartState = Just $ M.outputState miniChartOutput
-          }
-        , isDirty = isDirty || M.isDirty miniChartOutput
+      return stuff
+        { frameDraggedChart = Just $ M.outputState miniChartOutput
+        , frameIsDirty = isDirty || M.isDirty miniChartOutput
         }
-  | draggingChartOutOfBounds = return frameOutput
-      { draggedOutMiniChart = nextDraggedOutMiniChart
-      }
-  | otherwise = return frameOutput
-      { outputState = outputState { draggedMiniChartState = Nothing }
-      }
+  | draggingChartOutOfBounds =
+      return stuff { frameDraggedOutChart = nextDraggedOutMiniChart }
+  | otherwise =
+      return stuff { frameDraggedChart = Nothing }
   where
     isCurrentFrameChart =
         case currentFrame of
@@ -441,3 +460,33 @@ drawDraggedChart resources bounds
         if previouslyDraggingChartInBounds && draggingChartOutOfBounds
           then draggedMiniChartState
           else Nothing
+
+convertStuffToOutput :: FrameStuff -> IO FrameOutput
+convertStuffToOutput
+    FrameStuff
+      { frameCurrentSymbol = currentSymbol
+      , frameNextSymbol = nextSymbol
+      , frameCurrentFrame = currentFrame
+      , framePreviousFrame = previousFrame
+      , frameAddedSymbol = addedSymbol
+      , frameSelectedSymbol = selectedSymbol
+      , frameJustSelectedSymbol = justSelectedSymbol
+      , frameIsDirty = isDirty
+      , frameDraggedChart = draggedChart
+      , frameDraggedOutChart = draggedOutChart
+      } =
+  return FrameOutput
+    { outputState = FrameState
+      { currentSymbol = currentSymbol
+      , nextSymbol = nextSymbol
+      , currentFrame = currentFrame
+      , previousFrame = previousFrame
+      , draggedMiniChartState = draggedChart
+      }
+    , isDirty = isDirty
+    , addedSymbol = addedSymbol
+    , selectedSymbol = selectedSymbol
+    , justSelectedSymbol = justSelectedSymbol
+    , draggedOutMiniChart = draggedOutChart
+    }
+

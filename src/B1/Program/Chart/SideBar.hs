@@ -51,7 +51,7 @@ data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
   , newMiniChartDraggedIn :: Maybe M.MiniChartState
-  , selectedSymbol :: Maybe Symbol
+  , justSelectedSymbol :: Maybe Symbol
   , inputState :: SideBarState
   }
 
@@ -93,7 +93,7 @@ drawSideBar resources
       { bounds = bounds
       , newSymbols = newSymbols
       , newMiniChartDraggedIn = draggedInChart
-      , selectedSymbol = selectedSymbol
+      , justSelectedSymbol = justSelectedSymbol
       , inputState = inputState
       } = do
 
@@ -101,7 +101,7 @@ drawSideBar resources
 
   (drawSlots resources bounds  
       . addDraggingScrollAmount resources bounds
-      . calculateNextScrollAmount resources bounds selectedSymbol
+      . calculateNextScrollAmount resources bounds justSelectedSymbol
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
       . insertDraggedInSlot resources bounds draggedInChart
@@ -188,7 +188,7 @@ createDraggedInSlot draggedInChart =
 
 calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
     -> SideBarState -> SideBarState
-calculateNextScrollAmount resources bounds selectedSymbol
+calculateNextScrollAmount resources bounds justSelectedSymbol
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
@@ -202,12 +202,12 @@ calculateNextScrollAmount resources bounds selectedSymbol
     allShowing = areAllSlotsShowing bounds slots
     addedNewSlots = length newSlots > 0
 
-    needScrollToSelected = isJust selectedSymbol 
-        && any (containsSymbol (fromJust selectedSymbol)) slots
+    needScrollToSelected = isJust justSelectedSymbol 
+        && any (containsSymbol (fromJust justSelectedSymbol)) slots
         && not (boxContainsBox bounds selectedBounds)
 
     selectedIndex = (fst . head 
-        . filter (containsSymbol (fromJust selectedSymbol) . snd)) $
+        . filter (containsSymbol (fromJust justSelectedSymbol) . snd)) $
             zip [0..] slots
     selectedBounds = getSlotBounds bounds scrollAmount slots selectedIndex
     selectedScrollAmount 

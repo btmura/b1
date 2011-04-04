@@ -78,7 +78,7 @@ data ChartStuff = ChartStuff
   , chartVolumeBarsState :: V.VolumeBarsState
   , chartHeaderHeight :: GLfloat
   , chartAddedSymbol :: Maybe Symbol
-  , chartIsDirty :: Bool
+  , chartIsDirty :: Dirty
   }
 
 convertInputToStuff :: ChartInput -> IO ChartStuff
