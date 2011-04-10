@@ -27,6 +27,7 @@ import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.PriceGraph as P
+import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.VolumeBars as V
 
 data ChartInput = ChartInput
@@ -47,6 +48,7 @@ data ChartState = ChartState
   , headerState :: H.HeaderState
   , priceGraphState :: P.PriceGraphState
   , volumeBarsState :: V.VolumeBarsState
+  , stochasticsState :: S.StochasticLinesState
   }
 
 newChartState :: Symbol -> IO ChartState
@@ -57,6 +59,7 @@ newChartState symbol = do
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState
     , volumeBarsState = V.newVolumeBarsState
+    , stochasticsState = S.newStochasticLinesState
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
@@ -65,6 +68,7 @@ drawChart resources input =
       >>= drawHeader resources
       >>= drawPriceGraph resources
       >>= drawVolumeBars resources
+      >>= drawStochasticLines resources
       >>= drawHorizontalRules resources
       >>= convertStuffToOutput
 
@@ -76,6 +80,7 @@ data ChartStuff = ChartStuff
   , chartHeaderState :: H.HeaderState
   , chartPriceGraphState :: P.PriceGraphState
   , chartVolumeBarsState :: V.VolumeBarsState
+  , chartStochasticsState :: S.StochasticLinesState
   , chartHeaderHeight :: GLfloat
   , chartAddedSymbol :: Maybe Symbol
   , chartIsDirty :: Dirty
@@ -92,6 +97,7 @@ convertInputToStuff
         , headerState = headerState
         , priceGraphState = priceGraphState
         , volumeBarsState = volumeBarsState
+        , stochasticsState = stochasticsState
         }
       } = 
   return ChartStuff
@@ -102,6 +108,7 @@ convertInputToStuff
     , chartHeaderState = headerState
     , chartPriceGraphState = priceGraphState
     , chartVolumeBarsState = volumeBarsState
+    , chartStochasticsState = stochasticsState
     , chartHeaderHeight = 0
     , chartAddedSymbol = Nothing
     , chartIsDirty = False
@@ -145,25 +152,37 @@ drawHeader resources
     }
 
 getPriceGraphBounds :: Box -> GLfloat -> Box
-getPriceGraphBounds bounds headerHeight =
-  (getGraphBounds bounds headerHeight) !! 0
+getPriceGraphBounds bounds headerHeight = priceGraphBounds
+  where
+    (priceGraphBounds, _, _) = getGraphBounds bounds headerHeight
 
 getVolumeBarsBounds :: Box -> GLfloat -> Box
-getVolumeBarsBounds bounds headerHeight =
-  (getGraphBounds bounds headerHeight) !! 1
+getVolumeBarsBounds bounds headerHeight = volumeBounds
+  where
+    (_, volumeBounds, _) = getGraphBounds bounds headerHeight
 
-getGraphBounds :: Box -> GLfloat -> [Box]
-getGraphBounds bounds headerHeight = [priceGraphBounds, volumeBarsBounds]
+getStochasticsBounds :: Box -> GLfloat -> Box
+getStochasticsBounds bounds headerHeight = stochasticsBounds
+  where
+    (_, _, stochasticsBounds) = getGraphBounds bounds headerHeight
+
+getGraphBounds :: Box -> GLfloat -> (Box, Box, Box)
+getGraphBounds bounds headerHeight =
+  (priceGraphBounds, volumeBarsBounds, stochasticsBounds)
   where
     Box (left, top) (right, bottom) = bounds
     bottomPadding = 20
     remainingHeight = boxHeight bounds - headerHeight - bottomPadding
-    priceGraphHeight = remainingHeight * 0.75
+    priceGraphHeight = remainingHeight * 0.6
+    volumeBarsHeight = (remainingHeight - priceGraphHeight) / 2
+    stochasticsHeight = remainingHeight - priceGraphHeight - volumeBarsHeight
+
     priceGraphBounds = Box (left, top - headerHeight)
         (right, top - headerHeight - priceGraphHeight)
-    volumeBarsHeight = remainingHeight - priceGraphHeight
     volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
         (right, boxBottom priceGraphBounds - volumeBarsHeight)
+    stochasticsBounds = Box (left, boxBottom volumeBarsBounds)
+        (right, boxBottom volumeBarsBounds - stochasticsHeight)
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> GLfloat -> Box -> IO ()
@@ -235,6 +254,35 @@ drawVolumeBars resources
     , chartIsDirty = isDirty || isVolumeDirty
     }
 
+drawStochasticLines :: Resources -> ChartStuff -> IO ChartStuff
+drawStochasticLines resources
+    stuff@ChartStuff
+      { chartBounds = bounds@(Box (left, top) (right, bottom))
+      , chartAlpha = alpha
+      , chartStochasticsState = stochasticsState
+      , chartHeaderHeight = headerHeight
+      , chartIsDirty = isDirty
+      } = do
+  let inputBounds = getStochasticsBounds bounds headerHeight
+      stochasticsInput = S.StochasticLinesInput
+        { S.bounds = inputBounds
+        , S.alpha = alpha
+        , S.inputState = stochasticsState
+        }
+
+  stochasticsOutput <- preservingMatrix $ do
+    translateToCenter bounds headerHeight inputBounds
+    S.drawStochasticLines resources stochasticsInput
+
+  let S.StochasticLinesOutput
+        { S.outputState = outputStochasticsState
+        , S.isDirty = isStochasticsDirty
+        } = stochasticsOutput
+  return stuff
+    { chartStochasticsState = outputStochasticsState
+    , chartIsDirty = isDirty || isStochasticsDirty
+    }
+
 drawHorizontalRules :: Resources -> ChartStuff -> IO ChartStuff
 drawHorizontalRules resources
     stuff@ChartStuff
@@ -255,6 +303,7 @@ convertStuffToOutput
       , chartHeaderState = headerState
       , chartPriceGraphState = priceGraphState
       , chartVolumeBarsState = volumeBarsState
+      , chartStochasticsState = stochasticsState
       , chartIsDirty = isDirty
       , chartAddedSymbol = addedSymbol
       } =
@@ -264,6 +313,7 @@ convertStuffToOutput
       , headerState = headerState
       , priceGraphState = priceGraphState
       , volumeBarsState = volumeBarsState
+      , stochasticsState = stochasticsState
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol
