@@ -35,7 +35,7 @@ drawInstructions Resources { font = font }
     translate $ vector3 (-centerX) (-centerY) 0
     renderText textSpec
 
-  return $ InstructionsOutput { isDirty = False }
+  return InstructionsOutput { isDirty = False }
 
   where
     textSpec = TextSpec font 18 "Type in symbol and press ENTER..."

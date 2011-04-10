@@ -87,7 +87,7 @@ outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources input = do
+drawChartFrame resources input =
   convertInputToStuff input
       >>= refreshSymbolState resources
       >>= refreshSelectedSymbol
@@ -333,7 +333,7 @@ drawFrameContent :: Resources -> Box -> Content -> GLfloat
 
 drawFrameContent resources bounds Instructions alpha = do
   output <- I.drawInstructions resources input
-  return $ (Instructions, I.isDirty output, Nothing)
+  return (Instructions, I.isDirty output, Nothing)
   where
     input = I.InstructionsInput
       { I.bounds = bounds
@@ -342,7 +342,7 @@ drawFrameContent resources bounds Instructions alpha = do
 
 drawFrameContent resources bounds (Chart symbol state) alpha = do
   output <- C.drawChart resources input
-  return $ (Chart symbol (C.outputState output), C.isDirty output,
+  return (Chart symbol (C.outputState output), C.isDirty output,
       C.addedSymbol output)
   where
     input = C.ChartInput

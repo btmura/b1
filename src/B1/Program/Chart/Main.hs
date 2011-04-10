@@ -89,7 +89,7 @@ drawLoop resourcesRef windowDirtyRef action = do
       >>= refreshMouseWheelPosition
       >>= refreshKeysPressed
   resources <- readIORef resourcesRef
-  putStrLn $ show resources
+  print resources
 
   (Action nextAction, isContentDirty) <- action resources
 
@@ -121,7 +121,7 @@ drawLoop resourcesRef windowDirtyRef action = do
 refreshMousePosition :: IORef Resources -> IO (IORef Resources)
 refreshMousePosition resourcesRef = do
   position <- get mousePos
-  modifyIORef resourcesRef $
+  modifyIORef resourcesRef
       (invertMousePositionY . updateMousePosition position)
   return resourcesRef
 

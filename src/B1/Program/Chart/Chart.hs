@@ -52,7 +52,7 @@ data ChartState = ChartState
 newChartState :: Symbol -> IO ChartState
 newChartState symbol = do
   stockData <- newStockData symbol
-  return $ ChartState
+  return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState
@@ -128,7 +128,7 @@ drawHeader resources
         , H.inputState = headerState
         }
 
-  headerOutput <- preservingMatrix $ do
+  headerOutput <- preservingMatrix $
     H.drawHeader resources headerInput 
 
   let H.HeaderOutput

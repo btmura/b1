@@ -22,7 +22,7 @@ getTestGroup = testGroup "B1.Program.Chart.ConfigTest"
 
 case_readConfig_emptyFile :: Assertion
 case_readConfig_emptyFile =
-  assertConfig "" $
+  assertConfig ""
       Config
         { symbols = []
         , selectedSymbol = Nothing
@@ -30,7 +30,7 @@ case_readConfig_emptyFile =
 
 case_readConfig_noSymbols :: Assertion
 case_readConfig_noSymbols =
-  assertConfig "Config { symbols = [], selectedSymbol = Nothing}" $
+  assertConfig "Config { symbols = [], selectedSymbol = Nothing}"
       Config
         { symbols = []
         , selectedSymbol = Nothing
@@ -38,7 +38,7 @@ case_readConfig_noSymbols =
 
 case_readConfig_someSymbols :: Assertion
 case_readConfig_someSymbols =
-  assertConfig "Config { symbols = [\"SPY\"], selectedSymbol = Just \"IWM\"}" $
+  assertConfig "Config { symbols = [\"SPY\"], selectedSymbol = Just \"IWM\"}" 
       Config
         { symbols = ["SPY"]
         , selectedSymbol = Just "IWM"
@@ -54,12 +54,10 @@ assertConfig contents expectedConfig =
       )
 
 openTestFile :: String -> IO FilePath
-openTestFile contents = do
-  filePath <- createTestFile contents
-  return filePath
+openTestFile = createTestFile
 
 createTestFile :: String -> IO String
-createTestFile contents = do
+createTestFile contents =
   bracket (openTempFile "/tmp" "config.test")
       (hClose . snd)
       (\(filePath, handle) -> do

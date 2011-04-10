@@ -108,10 +108,10 @@ drawSideBar resources
       . addNewSlots newSlots) inputState
 
 createSlots :: [Symbol] -> IO [Slot]
-createSlots symbols = do
+createSlots =
   mapM (\symbol -> do
       miniChartState <- M.newMiniChartState symbol Nothing
-      return $ Slot
+      return Slot
         { symbol = symbol
         , remove = False
         , isBeingDragged = False
@@ -121,7 +121,7 @@ createSlots symbols = do
         , alphaAnimation = incomingAlphaAnimation
         , scaleAnimation = incomingScaleAnimation
         , miniChartState = miniChartState
-        }) symbols
+        })
 
 addNewSlots :: [Slot] -> SideBarState -> SideBarState 
 addNewSlots newSlots state@SideBarState { slots = slots } =
@@ -138,7 +138,7 @@ addOnlyUniqueSymbols slots newSlot
     alreadyAdded = any (containsSymbol (symbol newSlot)) slots
 
 containsSymbol :: Symbol -> Slot -> Bool
-containsSymbol newSymbol slot = (symbol slot) == newSymbol && not (remove slot)
+containsSymbol newSymbol slot = symbol slot == newSymbol && not (remove slot)
 
 insertDraggedInSlot :: Resources -> Box -> Maybe M.MiniChartState
     -> SideBarState -> SideBarState
@@ -325,7 +325,7 @@ reorderSlotsBeingDragged resources bounds
       , slots = slots
       }
   | length slots == 1 = state
-  | length indexedDragSlots == 0 = state
+  | null indexedDragSlots = state
   | isMouseDrag resources = state { slots = reorderedSlots }
   | otherwise = state
   where
@@ -432,15 +432,13 @@ convertDrawingOutputs state output = nextOutput
   where
     (outputStates, dirtyFlags) = unzip output
     nextSlots = filter (not . shouldRemoveSlot) $
-          map (uncurry updateMiniChartState) (zip (slots state) outputStates)
+          zipWith updateMiniChartState (slots state) outputStates
     nextState = state { slots = nextSlots } 
 
     isSideBarDirty = length (newSlots state) > 0
         || any M.isDirty outputStates
         || any id dirtyFlags
-    nextSymbolRequest = (listToMaybe
-        . catMaybes
-        . map M.symbolRequest) outputStates
+    nextSymbolRequest = (listToMaybe . mapMaybe M.symbolRequest) outputStates
     nextSymbols = map symbol nextSlots
     nextOutput = SideBarOutput
       { isDirty = isSideBarDirty

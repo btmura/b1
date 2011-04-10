@@ -18,7 +18,7 @@ data Config = Config
 readConfig :: FilePath -> IO Config
 readConfig filePath = do
   contents <- readFile filePath
-  return $ case (reads contents)::[(Config, String)] of
+  return $ case reads contents::[(Config, String)] of
     ((config, _):_) -> config
     _ -> Config
         { symbols = []

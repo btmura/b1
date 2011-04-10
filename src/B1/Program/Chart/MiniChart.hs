@@ -49,7 +49,7 @@ newMiniChartState symbol maybeStockData = do
   stockData <- case maybeStockData of
     Just existingStockData -> return existingStockData
     _ -> newStockData symbol
-  return $ MiniChartState
+  return MiniChartState
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
@@ -66,7 +66,7 @@ drawMiniChart resources
         , stockData = stockData
         , headerState = headerState
         }
-      } = do
+      } =
   preservingMatrix $ do
     color finalColor
     drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
@@ -101,7 +101,7 @@ drawMiniChart resources
               && boxContains paddedBox (mousePosition resources)
               && isMouseButtonClicked resources ButtonLeft = Just symbol
           | otherwise = Nothing
-    return $ MiniChartOutput
+    return MiniChartOutput
       { isDirty = isHeaderDirty || isJust nextSymbolRequest || nextRemoveChart
       , symbolRequest = nextSymbolRequest
       , removeChart = nextRemoveChart

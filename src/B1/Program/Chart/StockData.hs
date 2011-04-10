@@ -31,7 +31,7 @@ newStockData symbol = do
     startDate <- getStartDate
     endDate <- getEndDate
     prices <- getGooglePrices startDate endDate symbol
-    putMVar priceDataMVar $ StockPriceData
+    putMVar priceDataMVar StockPriceData
       { startDate = startDate
       , endDate = endDate
       , prices = prices
