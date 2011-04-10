@@ -145,21 +145,23 @@ drawHeader resources
     }
 
 getPriceGraphBounds :: Box -> GLfloat -> Box
-getPriceGraphBounds bounds headerHeight = priceGraphBounds
+getPriceGraphBounds bounds headerHeight =
+  (getGraphBounds bounds headerHeight) !! 0
+
+getVolumeBarsBounds :: Box -> GLfloat -> Box
+getVolumeBarsBounds bounds headerHeight =
+  (getGraphBounds bounds headerHeight) !! 1
+
+getGraphBounds :: Box -> GLfloat -> [Box]
+getGraphBounds bounds headerHeight = [priceGraphBounds, volumeBarsBounds]
   where
     Box (left, top) (right, bottom) = bounds
-    remainingHeight = boxHeight bounds - headerHeight
+    bottomPadding = 20
+    remainingHeight = boxHeight bounds - headerHeight - bottomPadding
     priceGraphHeight = remainingHeight * 0.75
     priceGraphBounds = Box (left, top - headerHeight)
         (right, top - headerHeight - priceGraphHeight)
-
-getVolumeBarsBounds :: Box -> GLfloat -> Box
-getVolumeBarsBounds bounds headerHeight = volumeBarsBounds
-  where
-    Box (left, top) (right, bottom) = bounds
-    priceGraphBounds = getPriceGraphBounds bounds headerHeight
-    volumeBarsHeight = boxHeight bounds - headerHeight
-        - boxHeight priceGraphBounds
+    volumeBarsHeight = remainingHeight - priceGraphHeight
     volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
         (right, boxBottom priceGraphBounds - volumeBarsHeight)
 
