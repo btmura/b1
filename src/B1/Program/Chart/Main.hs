@@ -89,7 +89,7 @@ drawLoop resourcesRef windowDirtyRef action = do
       >>= refreshMouseWheelPosition
       >>= refreshKeysPressed
   resources <- readIORef resourcesRef
-  print resources
+--  print resources
 
   (Action nextAction, isContentDirty) <- action resources
 

@@ -331,6 +331,8 @@ cornerVertices = 5::Int
 drawFrameContent :: Resources -> Box -> Content -> GLfloat
     -> IO (Content, Dirty, Maybe Symbol)
 
+drawFrameContent _ _ content 0 = return (content, False, Nothing)
+
 drawFrameContent resources bounds Instructions alpha = do
   output <- I.drawInstructions resources input
   return (Instructions, I.isDirty output, Nothing)
