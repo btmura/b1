@@ -50,10 +50,12 @@ data HeaderOutput = HeaderOutput
 
 data HeaderState = HeaderState
   { button :: HeaderButton
-  , getStatus :: StockData -> IO String
+  , getStatus :: StockData -> IO HeaderStatus
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
   }
+
+data HeaderStatus = HeaderStatus String (GLfloat -> Color4 GLfloat)
 
 data HeaderStatusStyle = ShortStatus | LongStatus
 
@@ -97,7 +99,7 @@ drawHeader resources@Resources
 
     symbolBox <- measureText symbolTextSpec
 
-    statusText <- getStatus stockData
+    HeaderStatus statusText statusColor <- getStatus stockData
     let statusTextSpec = headerTextSpec statusText
     statusBox <- measureText statusTextSpec
 
@@ -114,12 +116,12 @@ drawHeader resources@Resources
 
     preservingMatrix $ do
       translate $ vector3 padding symbolY 0
-      color $ green alpha
+      color $ statusColor alpha
       renderText symbolTextSpec
 
     preservingMatrix $ do
       translate $ vector3 (padding + symbolWidth) statusY 0
-      color $ green $ min alpha statusAlpha
+      color $ statusColor $ min alpha statusAlpha
       renderText statusTextSpec
 
     -- TODO: Improve texture choosing to not hardcode numbers
@@ -165,20 +167,20 @@ drawHeader resources@Resources
     headerTextSpec = TextSpec font fontSize
     symbolTextSpec = headerTextSpec symbol
 
-getLongStatus :: StockData -> IO String
+getLongStatus :: StockData -> IO HeaderStatus
 getLongStatus = renderStatus renderLongStatus
  
-getShortStatus :: StockData -> IO String
+getShortStatus :: StockData -> IO HeaderStatus
 getShortStatus = renderStatus renderShortStatus
 
-renderStatus :: (StockPriceData -> String) -> StockData -> IO String
+renderStatus :: (StockPriceData -> HeaderStatus) -> StockData -> IO HeaderStatus
 renderStatus renderFunction stockData = do
   maybePriceData <- getStockPriceData stockData
   return $ case maybePriceData of
     (Just priceData) -> renderFunction priceData
-    _ -> ""
+    _ -> HeaderStatus "" gray
 
-renderLongStatus :: StockPriceData -> String
+renderLongStatus :: StockPriceData -> HeaderStatus
 renderLongStatus priceData =
   case prices priceData of
     (Just (todaysPrice:yesterdaysPrice:_), _) ->
@@ -186,17 +188,22 @@ renderLongStatus priceData =
             todaysChange = todaysClose - close yesterdaysPrice
             date = formatTime defaultTimeLocale "%-m/%-d/%y"
                 (endTime todaysPrice)
-        in printf "  %0.2f  %+0.2f  %s" todaysClose todaysChange date
-    _ -> "  -  -  -"
+            statusText = printf "  %0.2f  %+0.2f  %s" todaysClose
+                todaysChange date
+            color = if todaysChange >= 0 then green else red
+        in HeaderStatus statusText color
+    _ -> HeaderStatus "  -  -  -" gray
 
-renderShortStatus :: StockPriceData -> String
+renderShortStatus :: StockPriceData -> HeaderStatus
 renderShortStatus priceData =
   case prices priceData of
     (Just (todaysPrice:yesterdaysPrice:_), _) ->
         let todaysClose = close todaysPrice
             todaysChange = todaysClose - close yesterdaysPrice
-        in printf "  %0.2f  %+0.2f" todaysClose todaysChange
-    _ -> "  -  -" 
+            statusText = printf "  %0.2f  %+0.2f" todaysClose todaysChange
+            color = if todaysChange >= 0 then green else red
+        in HeaderStatus statusText color
+    _ -> HeaderStatus "  -  -" gray
 
 drawHeaderButton :: GLfloat -> GLfloat -> Int -> GLfloat -> IO ()
 drawHeaderButton width height textureNumber alpha = 
