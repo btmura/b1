@@ -110,8 +110,8 @@ renderSingleBar :: Price -> GLfloat -> GLfloat -> GLfloat -> Int -> IO ()
 renderSingleBar price barWidth maxBarHeight alpha maxVolume = do
   color $ barColor alpha
   renderPrimitive Quads $ do
-    vertex $ vertex2 0 0
-    vertex $ vertex2 0 barHeight
+    vertex $ vertex2 1 0
+    vertex $ vertex2 1 barHeight
     vertex $ vertex2 barWidth barHeight
     vertex $ vertex2 barWidth 0
   where
