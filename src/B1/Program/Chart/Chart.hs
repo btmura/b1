@@ -177,12 +177,12 @@ getGraphBounds bounds headerHeight =
     volumeBarsHeight = (remainingHeight - priceGraphHeight) / 2
     stochasticsHeight = remainingHeight - priceGraphHeight - volumeBarsHeight
 
-    priceGraphBounds = Box (left, top - headerHeight)
-        (right, top - headerHeight - priceGraphHeight)
-    volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
-        (right, boxBottom priceGraphBounds - volumeBarsHeight)
-    stochasticsBounds = Box (left, boxBottom volumeBarsBounds)
-        (right, boxBottom volumeBarsBounds - stochasticsHeight)
+    priceGraphBounds = boxShrink (Box (left, top - headerHeight)
+        (right, top - headerHeight - priceGraphHeight)) 1
+    volumeBarsBounds = boxShrink (Box (left, boxBottom priceGraphBounds)
+        (right, boxBottom priceGraphBounds - volumeBarsHeight)) 1
+    stochasticsBounds = boxShrink (Box (left, boxBottom volumeBarsBounds)
+        (right, boxBottom volumeBarsBounds - stochasticsHeight)) 1
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> GLfloat -> Box -> IO ()

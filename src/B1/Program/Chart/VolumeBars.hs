@@ -95,10 +95,11 @@ renderVolumeBars
           preservingMatrix $ do
             translate $ vector3 (-(boxWidth bounds) / 2)
                 (-(boxHeight bounds) / 2) 0
-            mapM_ (\price -> do
-              renderSingleBar price barWidth maxBarHeight finalAlpha maxVolume
+            mapM_ (\index -> do
+              renderSingleBar allPrices index barWidth maxBarHeight finalAlpha
+                  maxVolume
               translate $ vector3 barWidth 0 0
-              ) allPrices
+              ) [0 .. length allPrices - 1]
           return stuff
             { volumeAlphaAnimation = next alphaAnimation
             , volumeIsDirty = isDirty || (snd . current) alphaAnimation
@@ -106,8 +107,9 @@ renderVolumeBars
         _ -> return stuff
     _ -> return stuff { volumeIsDirty = True }
 
-renderSingleBar :: Price -> GLfloat -> GLfloat -> GLfloat -> Int -> IO ()
-renderSingleBar price barWidth maxBarHeight alpha maxVolume = do
+renderSingleBar :: [Price] -> Int -> GLfloat -> GLfloat -> GLfloat -> Int
+    -> IO ()
+renderSingleBar prices index barWidth maxBarHeight alpha maxVolume = do
   color $ barColor alpha
   renderPrimitive Quads $ do
     vertex $ vertex2 1 0
@@ -115,11 +117,21 @@ renderSingleBar price barWidth maxBarHeight alpha maxVolume = do
     vertex $ vertex2 barWidth barHeight
     vertex $ vertex2 barWidth 0
   where
-    barColor = if close price - open price >= 0
-      then green
-      else red
-    percentage = realToFrac (volume price) / realToFrac maxVolume
+    barColor = getBarColor prices index
+    percentage = realToFrac (volume (prices !! index)) / realToFrac maxVolume
     barHeight = maxBarHeight * percentage
+
+getBarColor :: [Price] -> Int -> (GLfloat -> Color4 GLfloat)
+getBarColor prices index 
+  | length prices < 2 = gray
+  | index < 1 = gray
+  | change >= 0 = green
+  | otherwise = red
+  where
+    previousClose = close $ prices !! (index - 1)
+    currentClose = close $ prices !! index
+    change = currentClose - previousClose
+
 
 convertStuffToOutput :: VolumeBarsStuff -> IO VolumeBarsOutput
 convertStuffToOutput 

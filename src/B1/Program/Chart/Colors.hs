@@ -36,7 +36,7 @@ green :: GLfloat -> Color4 GLfloat
 green = color4 0.25 1 0
 
 red :: GLfloat -> Color4 GLfloat
-red = color4 1 0.1 0
+red = color4 1 0.3 0
 
 white :: GLfloat -> Color4 GLfloat
 white = color4 1 1 1

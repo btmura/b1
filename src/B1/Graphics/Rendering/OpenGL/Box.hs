@@ -43,6 +43,7 @@ boxContainsBox (Box (parentLeft, parentTop) (parentRight, parentBottom))
       && parentTop >= childTop
       && parentBottom <= childBottom
 
+-- TODO: Make shrink factor the first argument.
 boxShrink :: Box -> GLfloat -> Box
 boxShrink (Box (left, top) (right, bottom)) shrink =
   Box (left + shrink, top - shrink) (right - shrink, bottom + shrink)
