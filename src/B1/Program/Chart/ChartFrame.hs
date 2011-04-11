@@ -75,16 +75,16 @@ newFrameState = FrameState
   }
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
-incomingScaleAnimation = animateOnce $ linearRange 1 1 30
+incomingScaleAnimation = animateOnce $ linearRange 1 1 20
 
 incomingAlphaAnimation :: Animation (GLfloat, Dirty)
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 30
+incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
 
 outgoingScaleAnimation :: Animation (GLfloat, Dirty)
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 30
+outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
 
 outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
-outgoingAlphaAnimation = animateOnce $ linearRange 1 0 30
+outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources input =
