@@ -38,10 +38,6 @@ drawPriceGraph resources
       , alpha = alpha
       , inputState = state
       } = do
-  preservingMatrix $ do
-    color $ blue alpha
-    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
-    drawSquarePlaceholder
   return PriceGraphOutput
     { outputState = state
     , isDirty = False

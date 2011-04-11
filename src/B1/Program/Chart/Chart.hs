@@ -177,12 +177,12 @@ getGraphBounds bounds headerHeight =
     volumeBarsHeight = (remainingHeight - priceGraphHeight) / 2
     stochasticsHeight = remainingHeight - priceGraphHeight - volumeBarsHeight
 
-    priceGraphBounds = boxShrink (Box (left, top - headerHeight)
-        (right, top - headerHeight - priceGraphHeight)) 1
-    volumeBarsBounds = boxShrink (Box (left, boxBottom priceGraphBounds)
-        (right, boxBottom priceGraphBounds - volumeBarsHeight)) 1
-    stochasticsBounds = boxShrink (Box (left, boxBottom volumeBarsBounds)
-        (right, boxBottom volumeBarsBounds - stochasticsHeight)) 1
+    priceGraphBounds = Box (left, top - headerHeight)
+        (right, top - headerHeight - priceGraphHeight)
+    volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
+        (right, boxBottom priceGraphBounds - volumeBarsHeight)
+    stochasticsBounds = Box (left, boxBottom volumeBarsBounds)
+        (right, boxBottom volumeBarsBounds - stochasticsHeight)
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> GLfloat -> Box -> IO ()
@@ -234,7 +234,7 @@ drawVolumeBars resources
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
       } = do
-  let inputBounds = getVolumeBarsBounds bounds headerHeight
+  let inputBounds = boxShrink (getVolumeBarsBounds bounds headerHeight) 1
       volumeBarsInput = V.VolumeBarsInput
         { V.bounds = inputBounds
         , V.alpha = alpha
@@ -291,10 +291,22 @@ drawHorizontalRules resources
       , chartHeaderHeight = headerHeight
       } = do
   preservingMatrix $ do
-    translate $ vector3 0 (boxHeight bounds / 2 - headerHeight) 0
-    color $ outlineColor resources bounds alpha 
-    drawHorizontalRule (boxWidth bounds - 1) 
+    translate $ vector3 0 (boxHeight bounds / 2) 0
+    mapM_ (\offset -> do
+        translate $ vector3 0 (-offset) 0
+        color $ outlineColor resources bounds alpha 
+        drawHorizontalRule (boxWidth bounds - 1) 
+      ) offsets
   return stuff
+  where
+    (priceGraphBounds, volumeBounds, stochasticBounds) =
+        getGraphBounds bounds headerHeight
+    offsets =
+      [ headerHeight
+      , boxHeight priceGraphBounds
+      , boxHeight volumeBounds
+      , boxHeight stochasticBounds
+      ]
 
 convertStuffToOutput :: ChartStuff -> IO ChartOutput
 convertStuffToOutput 
