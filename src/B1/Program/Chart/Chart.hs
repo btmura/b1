@@ -57,7 +57,7 @@ newChartState symbol = do
   return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-    , priceGraphState = P.newPriceGraphState
+    , priceGraphState = P.newPriceGraphState stockData
     , volumeBarsState = V.newVolumeBarsState stockData
     , stochasticsState = S.newStochasticLinesState
     }
