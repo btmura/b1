@@ -96,6 +96,7 @@ data Bar = Bar
   , translateY :: GLfloat
   , barWidth :: GLfloat
   , barHeight :: GLfloat
+  , barColor :: GLfloat -> Color4 GLfloat
   }
 
 renderBar :: GLfloat -> Bar -> IO ()
@@ -103,6 +104,7 @@ renderBar alpha bar =
   preservingMatrix $ do
     translate $ vector3 (translateX bar) (translateY bar) 0
     scale3 (barWidth bar / 2) (barHeight bar / 2) 1
+    color $ barColor bar alpha
     renderPrimitive Quads $ do
       vertex $ vertex2 (-1) (-1)
       vertex $ vertex2 (-1) 1
@@ -118,6 +120,7 @@ createBar bounds prices index = Bar
   , translateY = translateY
   , barWidth = barWidth
   , barHeight = barHeight
+  , barColor = barColor
   }
   where
     translateX = boxWidth bounds / 2 - barWidth / 2
@@ -139,6 +142,17 @@ createBar bounds prices index = Bar
     lowerRange = low price - minPrice
     lowerHeightPercentage = lowerRange / totalRange
     lowerHeight = boxHeight bounds * realToFrac lowerHeightPercentage
+
+    barColor = if getPriceChange prices index >= 0 then green else red
+
+getPriceChange :: [Price] -> Int -> Float
+getPriceChange prices index 
+  | index + 1 < length prices = change
+  | otherwise = 0
+  where
+    currClose = close $ prices !! index
+    prevClose = close $ prices !! (index + 1)
+    change = currClose - prevClose
 
 renderError :: PriceGraphStuff -> String -> IO PriceGraphStuff
 renderError stuff error = return stuff { priceIsDirty = False }
