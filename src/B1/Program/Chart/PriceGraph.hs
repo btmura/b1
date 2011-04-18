@@ -163,15 +163,6 @@ createBar bounds prices index = Bar
 
     barColor = if getPriceChange prices index >= 0 then green else red
 
-getPriceChange :: [Price] -> Int -> Float
-getPriceChange prices index 
-  | index + 1 < length prices = change
-  | otherwise = 0
-  where
-    currClose = close $ prices !! index
-    prevClose = close $ prices !! (index + 1)
-    change = currClose - prevClose
-
 renderError :: PriceGraphStuff -> String -> IO PriceGraphStuff
 renderError stuff error = return stuff { priceIsDirty = False }
 

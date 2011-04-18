@@ -1,6 +1,7 @@
 -- | Module for getting stock prices.
 module B1.Data.Price
   ( Price (..)
+  , getPriceChange
   ) where
 
 import Data.Time
@@ -15,4 +16,13 @@ data Price = Price
   , close :: Float -- ^ Closing price of the trading period.
   , volume :: Int -- ^ Volume of the trading period.
   } deriving (Show, Eq)
+
+getPriceChange :: [Price] -> Int -> Float
+getPriceChange prices index 
+  | index + 1 < length prices = change
+  | otherwise = 0
+  where
+    currClose = close $ prices !! index
+    prevClose = close $ prices !! (index + 1)
+    change = currClose - prevClose
 

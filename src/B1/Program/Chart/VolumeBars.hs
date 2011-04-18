@@ -86,8 +86,9 @@ renderVolumeBars
   maybePricesData <- getStockPriceData stockData
   maybe (return stuff)
       (\pricesData ->
-        either (\allPrices -> do
-          let barWidth = boxWidth bounds / realToFrac (length allPrices)
+        either (\prices -> do
+          let allPrices = reverse prices
+              barWidth = boxWidth bounds / realToFrac (length allPrices)
               maxBarHeight = boxHeight bounds
               maxVolume = maximum $ map volume allPrices
               finalAlpha = min alpha $ (fst . current) alphaAnimation
