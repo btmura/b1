@@ -2,6 +2,7 @@ module B1.Program.Prices.Main
   ( main
   ) where
   
+import Data.Either
 import Data.Time
 import System.Environment
 
@@ -20,12 +21,12 @@ main = do
   maybePrices <- getPrices (dataSource options) (symbol options)
   putStrLn $ "Prices: " ++ show maybePrices
 
-getPrices :: DataSource -> String -> IO (Maybe [Price], [String])
+getPrices :: DataSource -> String -> IO (Either [Price] String)
 getPrices Google symbol = do
   now <- getCurrentDate
   getGooglePrices (getStartDate now) (getEndDate now) symbol
 
-getPrices Mock _ = return (Just (getMockPrices 5), [])
+getPrices Mock _ = return $ Left (getMockPrices 5)
 
 getCurrentDate :: IO LocalTime
 getCurrentDate = do

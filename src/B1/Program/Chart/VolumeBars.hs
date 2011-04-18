@@ -84,10 +84,9 @@ renderVolumeBars
       , volumeIsDirty = isDirty
       } = do
   maybePricesData <- getStockPriceData stockData
-  case maybePricesData of
-    Just pricesData -> do
-      case prices pricesData of
-        (Just allPrices, []) -> do
+  maybe (return stuff)
+      (\pricesData ->
+        either (\allPrices -> do
           let barWidth = boxWidth bounds / realToFrac (length allPrices)
               maxBarHeight = boxHeight bounds
               maxVolume = maximum $ map volume allPrices
@@ -104,8 +103,11 @@ renderVolumeBars
             { volumeAlphaAnimation = next alphaAnimation
             , volumeIsDirty = isDirty || (snd . current) alphaAnimation
             }
-        _ -> return stuff
-    _ -> return stuff { volumeIsDirty = True }
+          )
+          (\_ -> return stuff)
+          (pricesOrError pricesData)
+      )
+      maybePricesData
 
 renderSingleBar :: [Price] -> Int -> GLfloat -> GLfloat -> GLfloat -> Int
     -> IO ()

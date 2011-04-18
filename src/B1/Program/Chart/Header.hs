@@ -168,42 +168,46 @@ drawHeader resources@Resources
     symbolTextSpec = headerTextSpec symbol
 
 getLongStatus :: StockData -> IO HeaderStatus
-getLongStatus = renderStatus renderLongStatus
+getLongStatus = renderStatus renderLongStatus 
  
 getShortStatus :: StockData -> IO HeaderStatus
 getShortStatus = renderStatus renderShortStatus
 
-renderStatus :: (StockPriceData -> HeaderStatus) -> StockData -> IO HeaderStatus
+renderStatus :: ([Price] -> HeaderStatus) -> StockData -> IO HeaderStatus
 renderStatus renderFunction stockData = do
   maybePriceData <- getStockPriceData stockData
-  return $ case maybePriceData of
-    (Just priceData) -> renderFunction priceData
-    _ -> HeaderStatus "" gray
+  return $ maybe (HeaderStatus "" gray)
+      (\priceData -> either renderFunction (\_ -> renderEmptyStatus)
+          (pricesOrError priceData))
+      maybePriceData
 
-renderLongStatus :: StockPriceData -> HeaderStatus
-renderLongStatus priceData =
-  case prices priceData of
-    (Just (todaysPrice:yesterdaysPrice:_), _) ->
-        let todaysClose = close todaysPrice
-            todaysChange = todaysClose - close yesterdaysPrice
-            date = formatTime defaultTimeLocale "%-m/%-d/%y"
-                (endTime todaysPrice)
-            statusText = printf "  %0.2f  %+0.2f  %s" todaysClose
-                todaysChange date
-            color = if todaysChange >= 0 then green else red
-        in HeaderStatus statusText color
-    _ -> HeaderStatus "  -  -  -" gray
+renderLongStatus :: [Price] -> HeaderStatus
+renderLongStatus prices =
+  case prices of
+    (todaysPrice:yesterdaysPrice:_) ->
+      let todaysClose = close todaysPrice
+          todaysChange = todaysClose - close yesterdaysPrice
+          date = formatTime defaultTimeLocale "%-m/%-d/%y"
+              (endTime todaysPrice)
+          statusText = printf "  %0.2f  %+0.2f  %s" todaysClose
+              todaysChange date
+          color = if todaysChange >= 0 then green else red
+      in HeaderStatus statusText color
+    _ -> renderEmptyStatus
 
-renderShortStatus :: StockPriceData -> HeaderStatus
-renderShortStatus priceData =
-  case prices priceData of
-    (Just (todaysPrice:yesterdaysPrice:_), _) ->
-        let todaysClose = close todaysPrice
-            todaysChange = todaysClose - close yesterdaysPrice
-            statusText = printf "  %0.2f  %+0.2f" todaysClose todaysChange
-            color = if todaysChange >= 0 then green else red
-        in HeaderStatus statusText color
-    _ -> HeaderStatus "  -  -" gray
+renderShortStatus :: [Price] -> HeaderStatus
+renderShortStatus prices =
+  case prices of
+    (todaysPrice:yesterdaysPrice:_) ->
+      let todaysClose = close todaysPrice
+          todaysChange = todaysClose - close yesterdaysPrice
+          statusText = printf "  %0.2f  %+0.2f" todaysClose todaysChange
+          color = if todaysChange >= 0 then green else red
+      in HeaderStatus statusText color
+    _ -> renderEmptyStatus
+
+renderEmptyStatus :: HeaderStatus
+renderEmptyStatus = HeaderStatus " - - -" gray
 
 drawHeaderButton :: GLfloat -> GLfloat -> Int -> GLfloat -> IO ()
 drawHeaderButton width height textureNumber alpha = 

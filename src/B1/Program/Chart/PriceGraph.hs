@@ -38,14 +38,43 @@ newPriceGraphState stockData =
     }
 
 drawPriceGraph :: Resources -> PriceGraphInput -> IO PriceGraphOutput
-drawPriceGraph resources
+drawPriceGraph resources input = 
+  convertInputToStuff input
+      >>= convertStuffToOutput
+
+data PriceGraphStuff = PriceGraphStuff
+  { priceBounds :: Box
+  , priceAlpha :: GLfloat
+  , priceStockData :: StockData
+  , priceIsDirty :: Dirty
+  }
+
+convertInputToStuff :: PriceGraphInput -> IO PriceGraphStuff
+convertInputToStuff
     PriceGraphInput
       { bounds = bounds
       , alpha = alpha
-      , inputState = state
-      } = do
+      , inputState = PriceGraphState
+        { stockData = stockData
+        }
+      } =
+  return PriceGraphStuff
+    { priceBounds = bounds
+    , priceAlpha = alpha
+    , priceStockData = stockData
+    , priceIsDirty = False
+    }
+
+convertStuffToOutput :: PriceGraphStuff -> IO PriceGraphOutput
+convertStuffToOutput
+    PriceGraphStuff
+      { priceStockData = stockData
+      , priceIsDirty = isDirty
+      } =
   return PriceGraphOutput
-    { outputState = state
-    , isDirty = False
+    { outputState = PriceGraphState
+      { stockData = stockData
+      }
+    , isDirty = isDirty
     }
 

@@ -2,6 +2,7 @@ module B1.Data.Price.GoogleTest
   ( getTestGroup
   ) where
 
+import Data.Either
 import Data.Time
 import Test.Framework
 import qualified Test.Framework.Providers.API
@@ -58,27 +59,27 @@ badFormat = "Error 404\n"
 case_parseGoogleCsv_good :: Assertion
 case_parseGoogleCsv_good =
   let csv = foldl (++) "" (headers:goodLines)
-  in assertEqual "" (Just goodPrices, []) (parseGoogleCsv csv) 
+  in assertEqual "" (Left goodPrices) (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_missingField :: Assertion
 case_parseGoogleCsv_missingField =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [missingField])
-  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
+  in assertEqual "" (Right "Invalid CSV format") (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_invalidField :: Assertion
 case_parseGoogleCsv_invalidField =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [invalidField])
-  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
+  in assertEqual "" (Right "Invalid CSV format") (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_badFormat :: Assertion
 case_parseGoogleCsv_badFormat =
   let csv = foldl (++) "" ([headers] ++ goodLines ++ [badFormat])
-  in assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv csv) 
+  in assertEqual "" (Right "Invalid CSV format") (parseGoogleCsv csv) 
 
 case_parseGoogleCsv_noLines :: Assertion
 case_parseGoogleCsv_noLines =
-  assertEqual "" (parseGoogleCsv headers) (Just [], [])
+  assertEqual "" (Left []) (parseGoogleCsv headers)
 
 case_parseGoogleCsv_nothing :: Assertion
 case_parseGoogleCsv_nothing =
-  assertEqual "" (Nothing, ["Invalid CSV format"]) (parseGoogleCsv "") 
+  assertEqual "" (Right "Invalid CSV format") (parseGoogleCsv "") 

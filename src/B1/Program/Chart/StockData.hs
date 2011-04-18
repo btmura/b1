@@ -7,6 +7,7 @@ module B1.Program.Chart.StockData
 
 import Control.Concurrent
 import Control.Concurrent.MVar
+import Data.Either
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.LocalTime
@@ -21,7 +22,7 @@ data StockData = StockData (MVar StockPriceData)
 data StockPriceData = StockPriceData
   { startDate :: LocalTime
   , endDate :: LocalTime
-  , prices :: Prices
+  , pricesOrError :: Either [Price] String
   }
 
 newStockData :: Symbol -> IO StockData
@@ -30,11 +31,11 @@ newStockData symbol = do
   forkIO $ do
     startDate <- getStartDate
     endDate <- getEndDate
-    prices <- getGooglePrices startDate endDate symbol
+    pricesOrError <- getGooglePrices startDate endDate symbol
     putMVar priceDataMVar StockPriceData
       { startDate = startDate
       , endDate = endDate
-      , prices = prices
+      , pricesOrError = pricesOrError
       }
   return $ StockData priceDataMVar
 
