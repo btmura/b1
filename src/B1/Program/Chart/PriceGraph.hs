@@ -133,22 +133,45 @@ createBar bounds prices index = Bar
   , closePercentage = closePercentage
   }
   where
-    translateX = boxWidth bounds / 2 - barWidth / 2
-        - barWidth * realToFrac index
-    translateY = -(boxHeight bounds / 2) + barHeight / 2
-        + lowerHeight
-
+    rightPadding = 10
     numPrices = length prices
-    barWidth = boxWidth bounds / realToFrac numPrices
+    barWidth = (boxWidth bounds - rightPadding) / realToFrac numPrices
+
+    -- 1. Move all the way to the right edge.
+    -- 2. Move left to account for right padding.
+    -- 3. Move left some number of bars.
+    -- 4. Move left half a bar to center the bar.
+    translateX = boxWidth bounds / 2
+        - rightPadding
+        - barWidth * realToFrac index
+        - barWidth / 2
+
     maxPrice = maximum $ map high prices
     minPrice = minimum $ map low prices
     totalRange = maxPrice - minPrice
+
+    topPadding = 10
+    bottomPadding = 10
+    availableHeight = boxHeight bounds - topPadding - bottomPadding
 
     price = prices !! index
     priceRange = high price - low price
     heightPercentage = priceRange / totalRange
     barHeight = boxHeight bounds * realToFrac heightPercentage
  
+    lowerRange = low price - minPrice
+    lowerHeightPercentage = lowerRange / totalRange
+    lowerHeight = availableHeight * realToFrac lowerHeightPercentage
+
+    -- 1. Move all the way to the bottom.
+    -- 2. Move up to account for bottom padding.
+    -- 3. Move up to the bottom of the bar.
+    -- 4. Move up half a bar to center the bar.
+    translateY = -(boxHeight bounds / 2)
+        + bottomPadding
+        + lowerHeight
+        + barHeight / 2
+
     lowPrice = low price
     highPrice = highPrice
     openPrice = open price
@@ -156,10 +179,6 @@ createBar bounds prices index = Bar
 
     openPercentage = (openPrice - lowPrice) / priceRange
     closePercentage = (closePrice - lowPrice) / priceRange
-
-    lowerRange = low price - minPrice
-    lowerHeightPercentage = lowerRange / totalRange
-    lowerHeight = boxHeight bounds * realToFrac lowerHeightPercentage
 
     barColor = if getPriceChange prices index >= 0 then green else red
 
