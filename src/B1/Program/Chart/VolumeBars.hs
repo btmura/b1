@@ -87,19 +87,8 @@ renderVolumeBars
   maybe (return stuff)
       (\pricesData ->
         either (\prices -> do
-          let allPrices = reverse prices
-              barWidth = boxWidth bounds / realToFrac (length allPrices)
-              maxBarHeight = boxHeight bounds
-              maxVolume = maximum $ map volume allPrices
-              finalAlpha = min alpha $ (fst . current) alphaAnimation
-          preservingMatrix $ do
-            translate $ vector3 (-(boxWidth bounds) / 2)
-                (-(boxHeight bounds) / 2) 0
-            mapM_ (\index -> do
-              renderSingleBar allPrices index barWidth maxBarHeight finalAlpha
-                  maxVolume
-              translate $ vector3 barWidth 0 0
-              ) [0 .. length allPrices - 1]
+          let finalAlpha = min alpha $ (fst . current) alphaAnimation
+          mapM_ (renderBar finalAlpha) $ getBars bounds prices
           return stuff
             { volumeAlphaAnimation = next alphaAnimation
             , volumeIsDirty = isDirty || (snd . current) alphaAnimation
@@ -110,31 +99,58 @@ renderVolumeBars
       )
       maybePricesData
 
-renderSingleBar :: [Price] -> Int -> GLfloat -> GLfloat -> GLfloat -> Int
-    -> IO ()
-renderSingleBar prices index barWidth maxBarHeight alpha maxVolume = do
-  color $ barColor alpha
-  renderPrimitive Quads $ do
-    vertex $ vertex2 1 0
-    vertex $ vertex2 1 barHeight
-    vertex $ vertex2 barWidth barHeight
-    vertex $ vertex2 barWidth 0
-  where
-    barColor = getBarColor prices index
-    percentage = realToFrac (volume (prices !! index)) / realToFrac maxVolume
-    barHeight = maxBarHeight * percentage
+data Bar = Bar
+  { translateX :: GLfloat
+  , translateY :: GLfloat
+  , barWidth :: GLfloat
+  , barHeight :: GLfloat
+  , barColor :: GLfloat -> Color4 GLfloat
+  }
 
-getBarColor :: [Price] -> Int -> (GLfloat -> Color4 GLfloat)
-getBarColor prices index 
-  | length prices < 2 = gray
-  | index < 1 = gray
-  | change >= 0 = green
-  | otherwise = red
-  where
-    previousClose = close $ prices !! (index - 1)
-    currentClose = close $ prices !! index
-    change = currentClose - previousClose
+renderBar :: GLfloat -> Bar -> IO ()
+renderBar alpha bar =
+  preservingMatrix $ do
+    color $ barColor bar alpha
+    translate $ vector3 (translateX bar) (translateY bar) 0
+    scale3 (barWidth bar / 2) (barHeight bar / 2) 1
+    renderPrimitive Quads $ do
+      vertex $ vertex2 (-1) (-1)
+      vertex $ vertex2 (-1) 1
+      vertex $ vertex2 1 1
+      vertex $ vertex2 1 (-1)
 
+getBars :: Box -> [Price] -> [Bar]
+getBars bounds prices = map (createBar bounds prices) [0 .. length prices - 1]
+
+createBar :: Box -> [Price] -> Int -> Bar
+createBar bounds prices index = Bar
+  { translateX = translateX 
+  , translateY = translateY
+  , barWidth = barWidth - 1
+  , barHeight = barHeight
+  , barColor = barColor
+  }
+  where
+    rightPadding = 10
+    numPrices = length prices
+    barWidth = (boxWidth bounds - rightPadding) / realToFrac numPrices
+
+    translateX = boxWidth bounds / 2
+        - rightPadding
+        - barWidth * realToFrac index
+        - barWidth / 2
+
+    topPadding = 10
+    availableHeight = boxHeight bounds - topPadding
+
+    price = prices !! index
+    maxVolume = maximum $ map volume prices
+    volumePercentage = realToFrac (volume price) / realToFrac maxVolume
+    barHeight = availableHeight * realToFrac volumePercentage
+
+    translateY = -(boxHeight bounds / 2) + barHeight / 2
+
+    barColor = if getPriceChange prices index > 0 then green else red
 
 convertStuffToOutput :: VolumeBarsStuff -> IO VolumeBarsOutput
 convertStuffToOutput 
