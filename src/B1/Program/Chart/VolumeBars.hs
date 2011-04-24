@@ -131,7 +131,7 @@ createBar bounds prices index = Bar
   , barColor = barColor
   }
   where
-    rightPadding = 10
+    rightPadding = 0
     numPrices = length prices
     barWidth = (boxWidth bounds - rightPadding) / realToFrac numPrices
 

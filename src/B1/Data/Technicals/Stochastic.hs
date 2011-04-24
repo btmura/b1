@@ -3,9 +3,9 @@ module B1.Data.Technicals.Stochastic
   , getStochastics
   , kFast
   , simpleMovingAverage
-  , group
   ) where
 
+import B1.Data.List
 import B1.Data.Price
 
 data Stochastic = Stochastic Float Float
@@ -14,7 +14,7 @@ data Stochastic = Stochastic Float Float
 getStochastics :: Int -> Int -> [Price] -> [Stochastic]
 getStochastics kPeriods dPeriods prices = stochastics
   where
-    priceGroups = group kPeriods prices
+    priceGroups = groupElements kPeriods prices
     kFastValues = map kFast priceGroups
     kSlowValues = simpleMovingAverage dPeriods kFastValues
     dSlowValues = simpleMovingAverage dPeriods kSlowValues
@@ -39,15 +39,7 @@ kFast prices
 simpleMovingAverage :: Int -> [Float] -> [Float]
 simpleMovingAverage numPeriods list = averages
   where
-    groups = group numPeriods list
+    groups = groupElements numPeriods list
     sums = map sum groups
     averages = map (/ (realToFrac numPeriods)) sums
-
-group :: Int -> [a] -> [[a]]
-group numPerGroup list
-  | numPerGroup > length list = []
-  | otherwise = first:rest
-  where
-    first = take numPerGroup list
-    rest = group numPerGroup $ drop 1 list
 

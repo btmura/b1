@@ -19,7 +19,6 @@ getTestGroup = testGroup "B1.Data.Technicals.StochasticTest"
   [ testCase "case_getStochastics" case_getStochastics
   , testCase "case_kFast" case_kFast
   , testCase "case_simpleMovingAverage" case_simpleMovingAverage
-  , testCase "case_group" case_group
   ]
 
 case_getStochastics :: Assertion
@@ -74,14 +73,6 @@ case_simpleMovingAverage =
     list = [1, 2, 3, 4, 5, 6]
     numPeriods = 3
     expected = [2, 3, 4, 5]
-
-case_group :: Assertion
-case_group =
-  assertEqual "" expected $ group numPerGroup list
-  where
-    list = [1, 2, 3, 4, 5, 6]
-    numPerGroup = 3
-    expected = [[1, 2, 3], [2, 3, 4], [3, 4, 5], [4, 5, 6]]
 
 createHighLowClosePrice :: Float -> Float -> Float -> Price
 createHighLowClosePrice high low close =

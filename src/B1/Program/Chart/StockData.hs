@@ -15,6 +15,7 @@ import System.IO
 
 import B1.Data.Price
 import B1.Data.Price.Google
+import B1.Data.Technicals.Stochastic
 import B1.Program.Chart.Symbol
 
 data StockData = StockData (MVar StockPriceData)
@@ -23,6 +24,7 @@ data StockPriceData = StockPriceData
   { startDate :: LocalTime
   , endDate :: LocalTime
   , pricesOrError :: Either [Price] String
+  , dailyStochasticsOrError :: Either [Stochastic] String
   }
 
 newStockData :: Symbol -> IO StockData
@@ -32,10 +34,15 @@ newStockData symbol = do
     startDate <- getStartDate
     endDate <- getEndDate
     pricesOrError <- getGooglePrices startDate endDate symbol
+    let dailyStochasticsOrError = either
+            (\prices -> Left $ getStochastics 10 3 prices)
+            Right
+            pricesOrError
     putMVar priceDataMVar StockPriceData
       { startDate = startDate
       , endDate = endDate
       , pricesOrError = pricesOrError
+      , dailyStochasticsOrError = dailyStochasticsOrError
       }
   return $ StockData priceDataMVar
 

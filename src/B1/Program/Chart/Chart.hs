@@ -59,7 +59,7 @@ newChartState symbol = do
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState stockData
     , volumeBarsState = V.newVolumeBarsState stockData
-    , stochasticsState = S.newStochasticLinesState
+    , stochasticsState = S.newStochasticLinesState stockData
     }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
