@@ -11,8 +11,7 @@ import B1.Data.Price
 data Stochastic = Stochastic 
   { k :: Float
   , d :: Float
-  }
-  deriving (Show, Eq)
+  } deriving (Show, Eq)
 
 getStochastics :: Int -> Int -> [Price] -> [Stochastic]
 getStochastics kPeriods dPeriods prices = stochastics

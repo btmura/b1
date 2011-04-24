@@ -24,7 +24,7 @@ data StockPriceData = StockPriceData
   { startDate :: LocalTime
   , endDate :: LocalTime
   , pricesOrError :: Either [Price] String
-  , dailyStochasticsOrError :: Either [Stochastic] String
+  , stochasticsOrError :: Either [Stochastic] String
   }
 
 newStockData :: Symbol -> IO StockData
@@ -34,7 +34,7 @@ newStockData symbol = do
     startDate <- getStartDate
     endDate <- getEndDate
     pricesOrError <- getGooglePrices startDate endDate symbol
-    let dailyStochasticsOrError = either
+    let stochasticsOrError = either
             (\prices -> Left $ getStochastics 10 3 prices)
             Right
             pricesOrError
@@ -42,7 +42,7 @@ newStockData symbol = do
           { startDate = startDate
           , endDate = endDate
           , pricesOrError = pricesOrError
-          , dailyStochasticsOrError = dailyStochasticsOrError
+          , stochasticsOrError = stochasticsOrError
           }
     putMVar priceDataMVar $ trimStockData stockData
   return $ StockData priceDataMVar
@@ -67,22 +67,22 @@ trimStockData :: StockPriceData -> StockPriceData
 trimStockData
     stockPriceData@StockPriceData
       { pricesOrError = pricesOrError
-      , dailyStochasticsOrError = dailyStochasticsOrError
+      , stochasticsOrError = stochasticsOrError
       } = 
   stockPriceData
     { pricesOrError = trimmedPricesOrError
-    , dailyStochasticsOrError = trimmedDailyStochasticsOrError
+    , stochasticsOrError = trimmedStochasticsOrError
     }
   where
     lengthOfEither either = map length $ lefts [either]
     listLengths = concat
         [ lengthOfEither pricesOrError
-        , lengthOfEither dailyStochasticsOrError
+        , lengthOfEither stochasticsOrError
         ]
     minLength = minimum listLengths
     trim = trimListOrError minLength
     trimmedPricesOrError = trim pricesOrError
-    trimmedDailyStochasticsOrError = trim dailyStochasticsOrError
+    trimmedStochasticsOrError = trim stochasticsOrError
 
 trimListOrError :: Int -> Either [a] String -> Either [a] String
 trimListOrError length listOrError = either

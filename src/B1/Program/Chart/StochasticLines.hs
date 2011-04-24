@@ -77,7 +77,7 @@ renderStuff stuff = do
       (\priceData -> either
           (renderLines stuff)
           (renderError stuff)
-          (dailyStochasticsOrError priceData))
+          (stochasticsOrError priceData))
       maybePriceData
 
 renderLines :: StochasticStuff -> [Stochastic] -> IO StochasticStuff
