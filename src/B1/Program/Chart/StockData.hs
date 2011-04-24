@@ -38,12 +38,13 @@ newStockData symbol = do
             (\prices -> Left $ getStochastics 10 3 prices)
             Right
             pricesOrError
-    putMVar priceDataMVar StockPriceData
-      { startDate = startDate
-      , endDate = endDate
-      , pricesOrError = pricesOrError
-      , dailyStochasticsOrError = dailyStochasticsOrError
-      }
+        stockData = StockPriceData
+          { startDate = startDate
+          , endDate = endDate
+          , pricesOrError = pricesOrError
+          , dailyStochasticsOrError = dailyStochasticsOrError
+          }
+    putMVar priceDataMVar $ trimStockData stockData
   return $ StockData priceDataMVar
 
 getStartDate :: IO LocalTime
@@ -61,6 +62,33 @@ getEndDate = do
   time <- getCurrentTime
   let localTime = utcToLocalTime timeZone time 
   return $ localTime { localTimeOfDay = midnight }
+
+trimStockData :: StockPriceData -> StockPriceData
+trimStockData
+    stockPriceData@StockPriceData
+      { pricesOrError = pricesOrError
+      , dailyStochasticsOrError = dailyStochasticsOrError
+      } = 
+  stockPriceData
+    { pricesOrError = trimmedPricesOrError
+    , dailyStochasticsOrError = trimmedDailyStochasticsOrError
+    }
+  where
+    lengthOfEither either = map length $ lefts [either]
+    listLengths = concat
+        [ lengthOfEither pricesOrError
+        , lengthOfEither dailyStochasticsOrError
+        ]
+    minLength = minimum listLengths
+    trim = trimListOrError minLength
+    trimmedPricesOrError = trim pricesOrError
+    trimmedDailyStochasticsOrError = trim dailyStochasticsOrError
+
+trimListOrError :: Int -> Either [a] String -> Either [a] String
+trimListOrError length listOrError = either
+    (\list -> Left $ take length list)
+    (\error -> Right error)
+    listOrError
 
 getStockPriceData :: StockData -> IO (Maybe StockPriceData)
 getStockPriceData (StockData pricesMVar) = do
