@@ -8,7 +8,10 @@ module B1.Data.Technicals.Stochastic
 import B1.Data.List
 import B1.Data.Price
 
-data Stochastic = Stochastic Float Float
+data Stochastic = Stochastic 
+  { k :: Float
+  , d :: Float
+  }
   deriving (Show, Eq)
 
 getStochastics :: Int -> Int -> [Price] -> [Stochastic]
@@ -22,7 +25,7 @@ getStochastics kPeriods dPeriods prices = stochastics
     maxLength = maximum $ map length [kSlowValues, dSlowValues]
     trimmedKSlowValues = take maxLength kSlowValues
     trimmedDSlowValues = take maxLength dSlowValues
-    stochastics = map (\(k, d) -> Stochastic k d) $
+    stochastics = map (\(k, d) -> Stochastic { k = k, d = d}) $
         zip trimmedKSlowValues trimmedDSlowValues
 
 kFast :: [Price] -> Float

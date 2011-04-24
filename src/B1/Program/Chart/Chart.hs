@@ -205,7 +205,7 @@ drawPriceGraph resources
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
       } = do
-  let inputBounds = getPriceGraphBounds bounds headerHeight
+  let inputBounds = boxShrink (getPriceGraphBounds bounds headerHeight) 1
       priceGraphInput = P.PriceGraphInput
         { P.bounds = inputBounds
         , P.alpha = alpha
@@ -263,7 +263,7 @@ drawStochasticLines resources
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
       } = do
-  let inputBounds = getStochasticsBounds bounds headerHeight
+  let inputBounds = boxShrink (getStochasticsBounds bounds headerHeight) 1
       stochasticsInput = S.StochasticLinesInput
         { S.bounds = inputBounds
         , S.alpha = alpha
@@ -289,15 +289,16 @@ drawHorizontalRules resources
       { chartBounds = bounds
       , chartAlpha = alpha
       , chartHeaderHeight = headerHeight
-      } = do
+      } =
   preservingMatrix $ do
+    lineWidth $= 1
     translate $ vector3 0 (boxHeight bounds / 2) 0
     mapM_ (\offset -> do
         translate $ vector3 0 (-offset) 0
         color $ outlineColor resources bounds alpha 
         drawHorizontalRule (boxWidth bounds - 1) 
       ) offsets
-  return stuff
+    return stuff
   where
     (priceGraphBounds, volumeBounds, stochasticBounds) =
         getGraphBounds bounds headerHeight

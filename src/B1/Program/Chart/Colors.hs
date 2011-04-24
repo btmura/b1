@@ -7,6 +7,7 @@ module B1.Program.Chart.Colors
   , green
   , red
   , white
+  , yellow
   , outlineColor
   ) where
 
@@ -40,6 +41,9 @@ red = color4 1 0.3 0
 
 white :: GLfloat -> Color4 GLfloat
 white = color4 1 1 1
+
+yellow :: GLfloat -> Color4 GLfloat
+yellow = color4 1 1 0
 
 outlineColor :: Resources -> Box -> GLfloat -> Color4 GLfloat
 outlineColor resources@Resources { mousePosition = mousePosition } bounds

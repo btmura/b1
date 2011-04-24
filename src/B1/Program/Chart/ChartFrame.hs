@@ -312,6 +312,7 @@ drawFrame resources bounds
       , alphaAnimation = alphaAnimation
       }) = 
   preservingMatrix $ do
+    lineWidth $= 1
     scale3 scaleAmount scaleAmount 1
     color $ outlineColor resources paddedBounds alphaAmount
     drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)

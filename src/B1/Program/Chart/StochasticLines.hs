@@ -88,36 +88,44 @@ renderLines
       }
     stochastics =
   preservingMatrix $ do
-    color $ green alpha
-    renderPrimitive Lines $ mapM_ renderLineSegment lineSegments
+    lineWidth $= 2
+    renderPrimitive Lines $ mapM_ (renderLineSegment alpha) lines
     return stuff { stoIsDirty = False }
   where 
-    lineSegments = getLineSegments bounds stochastics
+    lines = concat
+        [ getLineSegments bounds red $ map k stochastics
+        , getLineSegments bounds yellow $ map d stochastics
+        ]
 
 data LineSegment = LineSegment
   { leftPoint :: Point
   , rightPoint :: Point
+  , lineColor :: GLfloat -> Color4 GLfloat
   }
 
-renderLineSegment :: LineSegment -> IO ()
-renderLineSegment lineSegment = do
+renderLineSegment :: GLfloat -> LineSegment -> IO ()
+renderLineSegment alpha lineSegment = do
+  color $ lineColor lineSegment alpha
   vertex $ vertex2 leftX leftY
   vertex $ vertex2 rightX rightY
   where
     (leftX, leftY) = leftPoint lineSegment
     (rightX, rightY) = rightPoint lineSegment
 
-getLineSegments :: Box -> [Stochastic] -> [LineSegment]
-getLineSegments bounds stochastics = 
-  map (createLineSegment bounds stochasticGroups) groupIndices
+getLineSegments :: Box -> (GLfloat -> Color4 GLfloat) -> [Float]
+    -> [LineSegment]
+getLineSegments bounds lineColor stochasticValues = 
+  map (createLineSegment bounds lineColor stochasticGroups) groupIndices
   where
-    stochasticGroups = groupElements 2 $ reverse stochastics
+    stochasticGroups = groupElements 2 $ reverse stochasticValues
     groupIndices = [0 .. length stochasticGroups - 1]
 
-createLineSegment :: Box -> [[Stochastic]] -> Int -> LineSegment
-createLineSegment bounds stochasticGroups index = LineSegment
+createLineSegment :: Box -> (GLfloat -> Color4 GLfloat) -> [[Float]] -> Int
+    -> LineSegment
+createLineSegment bounds lineColor stochasticGroups index = LineSegment
   { leftPoint = (leftX, leftY)
   , rightPoint = (rightX, rightY)
+  , lineColor = lineColor
   }
   where
     numGroups = length stochasticGroups
@@ -125,13 +133,14 @@ createLineSegment bounds stochasticGroups index = LineSegment
     leftX = -(boxWidth bounds / 2) + lineWidth * realToFrac index
     rightX = leftX + lineWidth
 
-    (leftStochastic:rightStochastic:_) = stochasticGroups !! index
-    Stochastic leftK leftD = leftStochastic
-    Stochastic rightK rightD = rightStochastic
-
-    maxHeight = realToFrac $ boxHeight bounds
-    leftY = -(boxHeight bounds / 2) + realToFrac leftK * maxHeight
-    rightY = -(boxHeight bounds / 2) + realToFrac rightK * maxHeight
+    topPadding = 5
+    bottomPadding = 5
+    maxHeight = realToFrac $ boxHeight bounds - topPadding - bottomPadding
+    (leftValue:rightValue:_) = stochasticGroups !! index
+    leftY = -(boxHeight bounds / 2) + bottomPadding
+        + realToFrac leftValue * maxHeight
+    rightY = -(boxHeight bounds / 2) + bottomPadding
+        + realToFrac rightValue * maxHeight
 
 renderError :: StochasticStuff -> String -> IO StochasticStuff
 renderError stuff errorMessage = return stuff

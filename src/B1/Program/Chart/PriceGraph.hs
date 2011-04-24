@@ -87,6 +87,7 @@ renderGraph
       , priceAlpha = alpha
       }
     prices = do
+  lineWidth $= 1
   mapM_ (renderBar alpha) $ getBars bounds prices
   return stuff { priceIsDirty = False }
 
