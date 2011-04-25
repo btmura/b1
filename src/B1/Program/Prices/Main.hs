@@ -18,8 +18,21 @@ main = do
   putStrLn $ "Symbol: " ++ symbol options
   putStrLn $ "Data source: " ++ show (dataSource options)
 
-  maybePrices <- getPrices (dataSource options) (symbol options)
-  putStrLn $ "Prices: " ++ show maybePrices
+  pricesOrError <- getPrices (dataSource options) (symbol options)
+  either printAllPrices
+      (\error -> putStrLn $ "  Error: " ++ error)
+      pricesOrError
+
+printAllPrices :: [Price] -> IO ()
+printAllPrices prices = do
+  printPrices prices
+  printPrices $ getWeeklyPrices prices
+
+printPrices :: [Price] -> IO ()
+printPrices prices = do
+  putStrLn $ "Prices (" ++ show (length prices) ++ "):" 
+  mapM_ (\price -> putStrLn $ "  " ++ show price) prices
+  putStrLn ""
 
 getPrices :: DataSource -> String -> IO (Either [Price] String)
 getPrices Google symbol = do

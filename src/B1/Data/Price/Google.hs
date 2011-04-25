@@ -93,7 +93,8 @@ parsePriceTokens (date:open:high:low:close:volume:_) = maybePrice
 parsePriceTokens _ = Nothing
 
 parseDateString :: String -> Maybe LocalTime
-parseDateString = parseTime defaultTimeLocale "%e-%b-%g"
+parseDateString time =
+  parseTime defaultTimeLocale "%e-%b-%y-%C" (time ++ "-20")
 
 parseValue :: (Read a) => String -> Maybe a
 parseValue string =

@@ -31,8 +31,8 @@ goodLines =
 
 goodPrices =
   [ Price
-    { startTime = LocalTime (fromGregorian 1910 12 17) midnight
-    , endTime = LocalTime (fromGregorian 1910 12 17) midnight
+    { startTime = LocalTime (fromGregorian 2010 12 17) midnight
+    , endTime = LocalTime (fromGregorian 2010 12 17) midnight
     , open = 124.08
     , high = 124.46
     , low = 123.82
@@ -40,8 +40,8 @@ goodPrices =
     , volume = 141075278
     }
   , Price
-    { startTime = LocalTime (fromGregorian 1910 12 9) midnight
-    , endTime = LocalTime (fromGregorian 1910 12 9) midnight
+    { startTime = LocalTime (fromGregorian 2010 12 9) midnight
+    , endTime = LocalTime (fromGregorian 2010 12 9) midnight
     , open = 123.97
     , high = 124.02
     , low = 123.15
