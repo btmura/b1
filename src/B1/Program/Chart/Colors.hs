@@ -6,6 +6,7 @@ module B1.Program.Chart.Colors
   , gray
   , green
   , red
+  , purple
   , white
   , yellow
   , outlineColor
@@ -38,6 +39,9 @@ green = color4 0.25 1 0
 
 red :: GLfloat -> Color4 GLfloat
 red = color4 1 0.3 0
+
+purple :: GLfloat -> Color4 GLfloat
+purple = color4 0.5 0 1
 
 white :: GLfloat -> Color4 GLfloat
 white = color4 1 1 1

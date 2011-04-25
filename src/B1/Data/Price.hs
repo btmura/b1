@@ -34,7 +34,8 @@ getWeeklyPrices dailyPrices =
   map flattenWeeklyPriceGroup $ getWeeklyPriceGroups dailyPrices
 
 getWeeklyPriceGroups :: [Price] -> [[Price]]
-getWeeklyPriceGroups dailyPrices = groupBy sameWeekNumber dailyPrices
+getWeeklyPriceGroups dailyPrices =
+  groupBy sameWeekNumber dailyPrices
 
 sameWeekNumber :: Price -> Price -> Bool
 sameWeekNumber price otherPrice =

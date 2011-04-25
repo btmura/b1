@@ -25,6 +25,8 @@ data StockPriceData = StockPriceData
   , endDate :: LocalTime
   , pricesOrError :: Either [Price] String
   , stochasticsOrError :: Either [Stochastic] String
+  , weeklyPricesOrError :: Either [Price] String
+  , weeklyStochasticsOrError :: Either [Stochastic] String
   }
 
 newStockData :: Symbol -> IO StockData
@@ -38,11 +40,24 @@ newStockData symbol = do
             (\prices -> Left $ getStochastics 10 3 prices)
             Right
             pricesOrError
+
+        weeklyPricesOrError = either
+            (\prices -> Left $ getWeeklyPrices prices)
+            Right
+            pricesOrError
+
+        weeklyStochasticsOrError = either
+            (\prices -> Left $ getStochastics 10 3 prices)
+            Right
+            weeklyPricesOrError
+
         stockData = StockPriceData
           { startDate = startDate
           , endDate = endDate
           , pricesOrError = pricesOrError
           , stochasticsOrError = stochasticsOrError
+          , weeklyPricesOrError = weeklyPricesOrError
+          , weeklyStochasticsOrError = weeklyStochasticsOrError
           }
     putMVar priceDataMVar $ trimStockData stockData
   return $ StockData priceDataMVar

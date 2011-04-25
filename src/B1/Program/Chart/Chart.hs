@@ -14,6 +14,7 @@ import Graphics.Rendering.OpenGL
 import Text.Printf
 
 import B1.Data.Range
+import B1.Data.Technicals.Stochastic
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
@@ -49,6 +50,7 @@ data ChartState = ChartState
   , priceGraphState :: P.PriceGraphState
   , volumeBarsState :: V.VolumeBarsState
   , stochasticsState :: S.StochasticLinesState
+  , weeklyStochasticsState :: S.StochasticLinesState
   }
 
 newChartState :: Symbol -> IO ChartState
@@ -59,9 +61,34 @@ newChartState symbol = do
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState stockData
     , volumeBarsState = V.newVolumeBarsState stockData
-    , stochasticsState = S.newStochasticLinesState stockData
+    , stochasticsState = S.newStochasticLinesState stockData dailySpecs
+    , weeklyStochasticsState = S.newStochasticLinesState stockData weeklySpecs
     }
-
+  where
+    dailySpecs =
+      [ S.StochasticLineSpec 
+        { S.timeSpec = S.Daily
+        , S.lineColorFunction = red
+        , S.stochasticFunction = k
+        }
+      , S.StochasticLineSpec
+        { S.timeSpec = S.Daily
+        , S.lineColorFunction = yellow
+        , S.stochasticFunction = d
+        }
+      ]
+    weeklySpecs =
+      [ S.StochasticLineSpec 
+        { S.timeSpec = S.Weekly
+        , S.lineColorFunction = red
+        , S.stochasticFunction = k
+        }
+      , S.StochasticLineSpec
+        { S.timeSpec = S.Weekly
+        , S.lineColorFunction = purple
+        , S.stochasticFunction = d
+        }
+      ]
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources input =
   convertInputToStuff input
@@ -69,6 +96,7 @@ drawChart resources input =
       >>= drawPriceGraph resources
       >>= drawVolumeBars resources
       >>= drawStochasticLines resources
+      >>= drawWeeklyStochasticLines resources
       >>= drawHorizontalRules resources
       >>= convertStuffToOutput
 
@@ -81,6 +109,7 @@ data ChartStuff = ChartStuff
   , chartPriceGraphState :: P.PriceGraphState
   , chartVolumeBarsState :: V.VolumeBarsState
   , chartStochasticsState :: S.StochasticLinesState
+  , chartWeeklyStochasticsState :: S.StochasticLinesState
   , chartHeaderHeight :: GLfloat
   , chartAddedSymbol :: Maybe Symbol
   , chartIsDirty :: Dirty
@@ -98,6 +127,7 @@ convertInputToStuff
         , priceGraphState = priceGraphState
         , volumeBarsState = volumeBarsState
         , stochasticsState = stochasticsState
+        , weeklyStochasticsState = weeklyStochasticsState
         }
       } = 
   return ChartStuff
@@ -109,6 +139,7 @@ convertInputToStuff
     , chartPriceGraphState = priceGraphState
     , chartVolumeBarsState = volumeBarsState
     , chartStochasticsState = stochasticsState
+    , chartWeeklyStochasticsState = weeklyStochasticsState
     , chartHeaderHeight = 0
     , chartAddedSymbol = Nothing
     , chartIsDirty = False
@@ -154,28 +185,36 @@ drawHeader resources
 getPriceGraphBounds :: Box -> GLfloat -> Box
 getPriceGraphBounds bounds headerHeight = priceGraphBounds
   where
-    (priceGraphBounds, _, _) = getGraphBounds bounds headerHeight
+    (priceGraphBounds, _, _, _) = getGraphBounds bounds headerHeight
 
 getVolumeBarsBounds :: Box -> GLfloat -> Box
 getVolumeBarsBounds bounds headerHeight = volumeBounds
   where
-    (_, volumeBounds, _) = getGraphBounds bounds headerHeight
+    (_, volumeBounds, _, _) = getGraphBounds bounds headerHeight
 
 getStochasticsBounds :: Box -> GLfloat -> Box
 getStochasticsBounds bounds headerHeight = stochasticsBounds
   where
-    (_, _, stochasticsBounds) = getGraphBounds bounds headerHeight
+    (_, _, stochasticsBounds, _) = getGraphBounds bounds headerHeight
 
-getGraphBounds :: Box -> GLfloat -> (Box, Box, Box)
+getWeeklyStochasticsBounds :: Box -> GLfloat -> Box
+getWeeklyStochasticsBounds bounds headerHeight = stochasticsBounds
+  where
+    (_, _, _, stochasticsBounds) = getGraphBounds bounds headerHeight
+
+getGraphBounds :: Box -> GLfloat -> (Box, Box, Box, Box)
 getGraphBounds bounds headerHeight =
-  (priceGraphBounds, volumeBarsBounds, stochasticsBounds)
+  ( priceGraphBounds, volumeBarsBounds,
+      stochasticsBounds, weeklyStochasticsBounds)
   where
     Box (left, top) (right, bottom) = bounds
     bottomPadding = 20
     remainingHeight = boxHeight bounds - headerHeight - bottomPadding
-    priceGraphHeight = remainingHeight * 0.6
-    volumeBarsHeight = (remainingHeight - priceGraphHeight) / 2
-    stochasticsHeight = remainingHeight - priceGraphHeight - volumeBarsHeight
+    priceGraphHeight = remainingHeight * 0.55
+    volumeBarsHeight = (remainingHeight - priceGraphHeight) / 3
+    stochasticsHeight = volumeBarsHeight
+    weeklyStochasticsHeight = remainingHeight - priceGraphHeight
+        - volumeBarsHeight - stochasticsHeight
 
     priceGraphBounds = Box (left, top - headerHeight)
         (right, top - headerHeight - priceGraphHeight)
@@ -183,6 +222,8 @@ getGraphBounds bounds headerHeight =
         (right, boxBottom priceGraphBounds - volumeBarsHeight)
     stochasticsBounds = Box (left, boxBottom volumeBarsBounds)
         (right, boxBottom volumeBarsBounds - stochasticsHeight)
+    weeklyStochasticsBounds = Box (left, boxBottom stochasticsBounds)
+        (right, boxBottom stochasticsBounds - weeklyStochasticsHeight)
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> GLfloat -> Box -> IO ()
@@ -283,6 +324,35 @@ drawStochasticLines resources
     , chartIsDirty = isDirty || isStochasticsDirty
     }
 
+drawWeeklyStochasticLines :: Resources -> ChartStuff -> IO ChartStuff
+drawWeeklyStochasticLines resources
+    stuff@ChartStuff
+      { chartBounds = bounds@(Box (left, top) (right, bottom))
+      , chartAlpha = alpha
+      , chartWeeklyStochasticsState = stochasticsState
+      , chartHeaderHeight = headerHeight
+      , chartIsDirty = isDirty
+      } = do
+  let inputBounds = boxShrink (getWeeklyStochasticsBounds bounds headerHeight) 1
+      stochasticsInput = S.StochasticLinesInput
+        { S.bounds = inputBounds
+        , S.alpha = alpha
+        , S.inputState = stochasticsState
+        }
+
+  stochasticsOutput <- preservingMatrix $ do
+    translateToCenter bounds headerHeight inputBounds
+    S.drawStochasticLines resources stochasticsInput
+
+  let S.StochasticLinesOutput
+        { S.outputState = outputStochasticsState
+        , S.isDirty = isStochasticsDirty
+        } = stochasticsOutput
+  return stuff
+    { chartWeeklyStochasticsState = outputStochasticsState
+    , chartIsDirty = isDirty || isStochasticsDirty
+    }
+
 drawHorizontalRules :: Resources -> ChartStuff -> IO ChartStuff
 drawHorizontalRules resources
     stuff@ChartStuff
@@ -300,13 +370,14 @@ drawHorizontalRules resources
       ) offsets
     return stuff
   where
-    (priceGraphBounds, volumeBounds, stochasticBounds) =
+    (priceGraphBounds, volumeBounds, stochasticBounds, weeklyStochasticBounds) =
         getGraphBounds bounds headerHeight
     offsets =
       [ headerHeight
       , boxHeight priceGraphBounds
       , boxHeight volumeBounds
       , boxHeight stochasticBounds
+      , boxHeight weeklyStochasticBounds
       ]
 
 convertStuffToOutput :: ChartStuff -> IO ChartOutput
@@ -317,6 +388,7 @@ convertStuffToOutput
       , chartPriceGraphState = priceGraphState
       , chartVolumeBarsState = volumeBarsState
       , chartStochasticsState = stochasticsState
+      , chartWeeklyStochasticsState = weeklyStochasticsState
       , chartIsDirty = isDirty
       , chartAddedSymbol = addedSymbol
       } =
@@ -327,6 +399,7 @@ convertStuffToOutput
       , priceGraphState = priceGraphState
       , volumeBarsState = volumeBarsState
       , stochasticsState = stochasticsState
+      , weeklyStochasticsState = weeklyStochasticsState
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol

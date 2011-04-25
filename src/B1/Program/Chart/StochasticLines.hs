@@ -2,6 +2,8 @@ module B1.Program.Chart.StochasticLines
   ( StochasticLinesInput(..)
   , StochasticLinesOutput(..)
   , StochasticLinesState
+  , StochasticTimeSpec(..)
+  , StochasticLineSpec(..)
   , drawStochasticLines
   , newStochasticLinesState
   ) where
@@ -32,12 +34,23 @@ data StochasticLinesOutput = StochasticLinesOutput
 
 data StochasticLinesState = StochasticLinesState
   { stockData :: StockData
+  , lineSpecs :: [StochasticLineSpec]
   }
 
-newStochasticLinesState :: StockData -> StochasticLinesState
-newStochasticLinesState stockData =
+data StochasticTimeSpec = Daily | Weekly
+
+data StochasticLineSpec = StochasticLineSpec
+  { timeSpec :: StochasticTimeSpec
+  , lineColorFunction :: GLfloat -> Color4 GLfloat
+  , stochasticFunction :: Stochastic -> Float
+  }
+
+newStochasticLinesState :: StockData -> [StochasticLineSpec]
+    -> StochasticLinesState
+newStochasticLinesState stockData lineSpecs =
   StochasticLinesState
     { stockData = stockData
+    , lineSpecs = lineSpecs
     }
 
 drawStochasticLines :: Resources -> StochasticLinesInput
@@ -51,6 +64,7 @@ data StochasticStuff = StochasticStuff
   { stoBounds :: Box
   , stoAlpha :: GLfloat
   , stoStockData :: StockData
+  , stoLineSpecs :: [StochasticLineSpec]
   , stoIsDirty :: Dirty
   }
 
@@ -61,12 +75,14 @@ convertInputToStuff
       , alpha = alpha
       , inputState = StochasticLinesState
         { stockData = stockData
+        , lineSpecs = lineSpecs
         }
       } =
   return StochasticStuff
     { stoBounds = bounds
     , stoAlpha = alpha
     , stoStockData = stockData
+    , stoLineSpecs = lineSpecs
     , stoIsDirty = False
     }
 
@@ -74,28 +90,40 @@ renderStuff :: StochasticStuff -> IO StochasticStuff
 renderStuff stuff = do
   maybePriceData <- getStockPriceData $ stoStockData stuff
   maybe (return stuff { stoIsDirty = True })
-      (\priceData -> either
-          (renderLines stuff)
-          (renderError stuff)
-          (stochasticsOrError priceData))
+      (renderLines stuff)
       maybePriceData
 
-renderLines :: StochasticStuff -> [Stochastic] -> IO StochasticStuff
+renderLines :: StochasticStuff -> StockPriceData -> IO StochasticStuff
 renderLines
     stuff@StochasticStuff
       { stoBounds = bounds
       , stoAlpha = alpha
+      , stoLineSpecs = lineSpecs
       }
-    stochastics =
+    priceData =
   preservingMatrix $ do
     lineWidth $= 2
     renderPrimitive Lines $ mapM_ (renderLineSegment alpha) lines
     return stuff { stoIsDirty = False }
   where 
-    lines = concat
-        [ getLineSegments bounds red $ map k stochastics
-        , getLineSegments bounds yellow $ map d stochastics
-        ]
+    lines = concat $ map (convertLineSpecToSegments bounds priceData) lineSpecs
+
+convertLineSpecToSegments :: Box -> StockPriceData -> StochasticLineSpec
+    -> [LineSegment]
+convertLineSpecToSegments bounds priceData lineSpec = lineSegments
+  where
+    dataOrErrorFunction = case timeSpec lineSpec of
+        Daily -> stochasticsOrError
+        Weekly -> weeklyStochasticsOrError
+
+    dataOrError = dataOrErrorFunction priceData
+
+    lineSegments = either
+        (\stochasticsData ->
+            getLineSegments bounds (lineColorFunction lineSpec) $
+                map (stochasticFunction lineSpec) stochasticsData)
+        (\_ -> [])
+        dataOrError
 
 data LineSegment = LineSegment
   { leftPoint :: Point
@@ -149,11 +177,13 @@ convertStuffToOutput :: StochasticStuff -> IO StochasticLinesOutput
 convertStuffToOutput
     StochasticStuff
       { stoStockData = stockData
+      , stoLineSpecs = lineSpecs
       , stoIsDirty = isDirty
       } =
   return StochasticLinesOutput
     { outputState = StochasticLinesState
       { stockData = stockData
+      , lineSpecs = lineSpecs
       }
     , isDirty = isDirty
     }
