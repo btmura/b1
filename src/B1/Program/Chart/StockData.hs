@@ -21,9 +21,7 @@ import B1.Program.Chart.Symbol
 data StockData = StockData (MVar (Either StockPriceData String))
 
 data StockPriceData = StockPriceData
-  { startDate :: LocalTime -- TODO: Why do we need this?
-  , endDate :: LocalTime -- TODO: Why do we need this?
-  , prices :: [Price]
+  { prices :: [Price]
   , stochastics :: [Stochastic]
   , weeklyPrices :: [Price]
   , weeklyStochastics :: [Stochastic]
@@ -41,9 +39,7 @@ newStockData symbol = do
             let weeklyPrices = getWeeklyPrices prices
                 stochasticsFunction = getStochastics 10 3
             in Left StockPriceData
-              { startDate = startDate
-              , endDate = endDate
-              , prices = prices
+              { prices = prices
               , stochastics = stochasticsFunction prices
               , weeklyPrices =  weeklyPrices
               , weeklyStochastics = stochasticsFunction weeklyPrices
