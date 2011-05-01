@@ -85,18 +85,15 @@ renderVolumeBars
       } = do
   maybePricesData <- getStockPriceData stockData
   maybe (return stuff)
-      (\pricesData ->
-        either (\prices -> do
+      (either (\priceData -> do
           let finalAlpha = min alpha $ (fst . current) alphaAnimation
-          mapM_ (renderBar finalAlpha) $ getBars bounds prices
+          mapM_ (renderBar finalAlpha) $ getBars bounds (prices priceData)
           return stuff
             { volumeAlphaAnimation = next alphaAnimation
             , volumeIsDirty = isDirty || (snd . current) alphaAnimation
             }
           )
-          (\_ -> return stuff)
-          (pricesOrError pricesData)
-      )
+          (\_ -> return stuff))
       maybePricesData
 
 data Bar = Bar

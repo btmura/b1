@@ -177,8 +177,7 @@ renderStatus :: ([Price] -> HeaderStatus) -> StockData -> IO HeaderStatus
 renderStatus renderFunction stockData = do
   maybePriceData <- getStockPriceData stockData
   return $ maybe (HeaderStatus "" gray)
-      (\priceData -> either renderFunction (\_ -> renderEmptyStatus)
-          (pricesOrError priceData))
+      (either (renderFunction . prices) (\_ -> renderEmptyStatus))
       maybePriceData
 
 renderLongStatus :: [Price] -> HeaderStatus

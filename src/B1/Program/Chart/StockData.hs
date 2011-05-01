@@ -18,15 +18,15 @@ import B1.Data.Price.Google
 import B1.Data.Technicals.Stochastic
 import B1.Program.Chart.Symbol
 
-data StockData = StockData (MVar StockPriceData)
+data StockData = StockData (MVar (Either StockPriceData String))
 
 data StockPriceData = StockPriceData
-  { startDate :: LocalTime
-  , endDate :: LocalTime
-  , pricesOrError :: Either [Price] String
-  , stochasticsOrError :: Either [Stochastic] String
-  , weeklyPricesOrError :: Either [Price] String
-  , weeklyStochasticsOrError :: Either [Stochastic] String
+  { startDate :: LocalTime -- TODO: Why do we need this?
+  , endDate :: LocalTime -- TODO: Why do we need this?
+  , prices :: [Price]
+  , stochastics :: [Stochastic]
+  , weeklyPrices :: [Price]
+  , weeklyStochastics :: [Stochastic]
   }
 
 newStockData :: Symbol -> IO StockData
@@ -36,30 +36,21 @@ newStockData symbol = do
     startDate <- getStartDate
     endDate <- getEndDate
     pricesOrError <- getGooglePrices startDate endDate symbol
-    let stochasticsOrError = either
-            (\prices -> Left $ getStochastics 10 3 prices)
-            Right
-            pricesOrError
-
-        weeklyPricesOrError = either
-            (\prices -> Left $ getWeeklyPrices prices)
-            Right
-            pricesOrError
-
-        weeklyStochasticsOrError = either
-            (\prices -> Left $ getStochastics 10 3 prices)
-            Right
-            weeklyPricesOrError
-
-        stockData = StockPriceData
-          { startDate = startDate
-          , endDate = endDate
-          , pricesOrError = pricesOrError
-          , stochasticsOrError = stochasticsOrError
-          , weeklyPricesOrError = weeklyPricesOrError
-          , weeklyStochasticsOrError = weeklyStochasticsOrError
-          }
-    putMVar priceDataMVar $ trimStockData stockData
+    putMVar priceDataMVar $ either
+        (\prices ->
+            let weeklyPrices = getWeeklyPrices prices
+                stochasticsFunction = getStochastics 10 3
+            in Left StockPriceData
+              { startDate = startDate
+              , endDate = endDate
+              , prices = prices
+              , stochastics = stochasticsFunction prices
+              , weeklyPrices =  weeklyPrices
+              , weeklyStochastics = stochasticsFunction weeklyPrices
+              }
+            )
+        Right
+        pricesOrError
   return $ StockData priceDataMVar
 
 getStartDate :: IO LocalTime
@@ -78,34 +69,7 @@ getEndDate = do
   let localTime = utcToLocalTime timeZone time 
   return $ localTime { localTimeOfDay = midnight }
 
-trimStockData :: StockPriceData -> StockPriceData
-trimStockData
-    stockPriceData@StockPriceData
-      { pricesOrError = pricesOrError
-      , stochasticsOrError = stochasticsOrError
-      } = 
-  stockPriceData
-    { pricesOrError = trimmedPricesOrError
-    , stochasticsOrError = trimmedStochasticsOrError
-    }
-  where
-    lengthOfEither either = map length $ lefts [either]
-    listLengths = concat
-        [ lengthOfEither pricesOrError
-        , lengthOfEither stochasticsOrError
-        ]
-    minLength = minimum listLengths
-    trim = trimListOrError minLength
-    trimmedPricesOrError = trim pricesOrError
-    trimmedStochasticsOrError = trim stochasticsOrError
-
-trimListOrError :: Int -> Either [a] String -> Either [a] String
-trimListOrError length listOrError = either
-    (\list -> Left $ take length list)
-    (\error -> Right error)
-    listOrError
-
-getStockPriceData :: StockData -> IO (Maybe StockPriceData)
+getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
 getStockPriceData (StockData pricesMVar) = do
   maybePrices <- tryTakeMVar pricesMVar
   case maybePrices of

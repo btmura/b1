@@ -90,7 +90,7 @@ renderStuff :: StochasticStuff -> IO StochasticStuff
 renderStuff stuff = do
   maybePriceData <- getStockPriceData $ stoStockData stuff
   maybe (return stuff { stoIsDirty = True })
-      (renderLines stuff)
+      (either (renderLines stuff) (renderError stuff))
       maybePriceData
 
 renderLines :: StochasticStuff -> StockPriceData -> IO StochasticStuff
@@ -112,18 +112,13 @@ convertLineSpecToSegments :: Box -> StockPriceData -> StochasticLineSpec
     -> [LineSegment]
 convertLineSpecToSegments bounds priceData lineSpec = lineSegments
   where
-    dataOrErrorFunction = case timeSpec lineSpec of
-        Daily -> stochasticsOrError
-        Weekly -> weeklyStochasticsOrError
-
-    dataOrError = dataOrErrorFunction priceData
-
-    lineSegments = either
-        (\stochasticsData ->
-            getLineSegments bounds (lineColorFunction lineSpec) $
-                map (stochasticFunction lineSpec) stochasticsData)
-        (\_ -> [])
-        dataOrError
+    lineColor = lineColorFunction lineSpec
+    dataSetFunction = case timeSpec lineSpec of
+        Daily -> stochastics
+        Weekly -> weeklyStochastics
+    dataSet = dataSetFunction priceData
+    dataSetValues = map (stochasticFunction lineSpec) dataSet
+    lineSegments = getLineSegments bounds lineColor dataSetValues
 
 data LineSegment = LineSegment
   { leftPoint :: Point

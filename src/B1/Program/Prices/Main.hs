@@ -7,6 +7,7 @@ import Data.Time
 import System.Environment
 
 import B1.Data.Price
+import B1.Data.Technicals.Stochastic
 import B1.Data.Price.Google
 import B1.Data.Price.Mock
 import B1.Program.Prices.Options
@@ -19,20 +20,9 @@ main = do
   putStrLn $ "Data source: " ++ show (dataSource options)
 
   pricesOrError <- getPrices (dataSource options) (symbol options)
-  either printAllPrices
+  either printInfo
       (\error -> putStrLn $ "  Error: " ++ error)
       pricesOrError
-
-printAllPrices :: [Price] -> IO ()
-printAllPrices prices = do
-  printPrices prices
-  printPrices $ getWeeklyPrices prices
-
-printPrices :: [Price] -> IO ()
-printPrices prices = do
-  putStrLn $ "Prices (" ++ show (length prices) ++ "):" 
-  mapM_ (\price -> putStrLn $ "  " ++ show price) prices
-  putStrLn ""
 
 getPrices :: DataSource -> String -> IO (Either [Price] String)
 getPrices Google symbol = do
@@ -53,4 +43,25 @@ getStartDate currentDate@LocalTime { localDay = day } =
 
 getEndDate :: LocalTime -> LocalTime
 getEndDate currentDate = currentDate
+
+printInfo :: [Price] -> IO ()
+printInfo prices = do
+  printPrices prices
+  printStochastics $ getStochastics 10 3 prices
+  printPrices weeklyPrices
+  printStochastics $ getStochastics 10 3 weeklyPrices
+  where
+    weeklyPrices = getWeeklyPrices prices
+
+printPrices :: [Price] -> IO ()
+printPrices prices = do
+  putStrLn $ "Prices (" ++ show (length prices) ++ "):" 
+  mapM_ (\price -> putStrLn $ "  " ++ show price) prices
+  putStrLn ""
+
+printStochastics :: [Stochastic] -> IO ()
+printStochastics stochastics = do
+  putStrLn $ "Stochastics (" ++ show (length stochastics) ++ "):" 
+  mapM_ (\stochastic -> putStrLn $ "  " ++ show stochastic) stochastics
+  putStrLn ""
 

@@ -74,10 +74,7 @@ renderPriceGraph
       } = do
   maybePriceData <- getStockPriceData stockData
   maybe (return stuff { priceIsDirty = True })
-      (\priceData -> either
-          (renderGraph stuff)
-          (renderError stuff)
-          (pricesOrError priceData))
+      (either (renderGraph stuff . prices) (renderError stuff))
       maybePriceData
 
 renderGraph :: PriceGraphStuff -> [Price] -> IO PriceGraphStuff
