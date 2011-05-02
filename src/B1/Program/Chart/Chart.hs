@@ -89,6 +89,7 @@ newChartState symbol = do
         , S.stochasticFunction = d
         }
       ]
+
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources input =
   convertInputToStuff input

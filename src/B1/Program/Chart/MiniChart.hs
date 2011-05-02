@@ -12,6 +12,7 @@ import Graphics.Rendering.OpenGL
 
 import B1.Data.Range
 import B1.Data.Symbol
+import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
@@ -23,6 +24,7 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Header as H
+import qualified B1.Program.Chart.StochasticLines as S
 
 data MiniChartInput = MiniChartInput
   { bounds :: Box
@@ -42,6 +44,7 @@ data MiniChartState = MiniChartState
   { symbol :: Symbol
   , stockData :: StockData
   , headerState :: H.HeaderState
+  , stochasticsState :: S.StochasticLinesState
   }
 
 newMiniChartState :: Symbol -> Maybe StockData -> IO MiniChartState
@@ -53,7 +56,21 @@ newMiniChartState symbol maybeStockData = do
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
+    , stochasticsState = S.newStochasticLinesState stockData lineSpecs
     }
+  where
+    lineSpecs =
+      [ S.StochasticLineSpec
+        { S.timeSpec = S.Daily
+        , S.lineColorFunction = yellow
+        , S.stochasticFunction = d
+        }
+      , S.StochasticLineSpec
+        { S.timeSpec = S.Weekly
+        , S.lineColorFunction = purple
+        , S.stochasticFunction = d
+        }
+      ]
 
 drawMiniChart :: Resources -> MiniChartInput -> IO MiniChartOutput
 drawMiniChart resources
@@ -65,50 +82,77 @@ drawMiniChart resources
         { symbol = symbol
         , stockData = stockData
         , headerState = headerState
+        , stochasticsState = stochasticsState
         }
-      } =
+      } = do
+  color finalColor
+  lineWidth $= 1
+  drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
+      cornerRadius cornerVertices
+
+  let headerInput = H.HeaderInput
+        { H.bounds = paddedBox
+        , H.fontSize = 10
+        , H.padding = 5
+        , H.alpha = alpha
+        , H.symbol = symbol
+        , H.stockData = stockData
+        , H.inputState = headerState
+        }
+
+  headerOutput <- H.drawHeader resources headerInput
+
+  let H.HeaderOutput
+        { H.outputState = outputHeaderState
+        , H.height = headerHeight
+        , H.clickedSymbol = maybeRemovedSymbol
+        , H.isDirty = isHeaderDirty
+        } = headerOutput
+
   preservingMatrix $ do
-    color finalColor
-    drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
-        cornerRadius cornerVertices
-
-    let headerInput = H.HeaderInput
-          { H.bounds = paddedBox
-          , H.fontSize = 10
-          , H.padding = 5
-          , H.alpha = alpha
-          , H.symbol = symbol
-          , H.stockData = stockData
-          , H.inputState = headerState
-          }
-
-    headerOutput <- H.drawHeader resources headerInput
-
-    let H.HeaderOutput
-          { H.outputState = outputHeaderState
-          , H.height = headerHeight
-          , H.clickedSymbol = maybeRemovedSymbol
-          , H.isDirty = isHeaderDirty
-          } = headerOutput
-
     translate $ vector3 0 (boxHeight paddedBox / 2 - headerHeight) 0
     color finalColor
     drawHorizontalRule (boxWidth paddedBox - 1)
 
-    let nextRemoveChart = isJust maybeRemovedSymbol
-        nextSymbolRequest
-          | isNothing maybeRemovedSymbol
-              && boxContains paddedBox (mousePosition resources)
-              && isMouseButtonClicked resources ButtonLeft = Just symbol
-          | otherwise = Nothing
-    return MiniChartOutput
-      { isDirty = isHeaderDirty || isJust nextSymbolRequest || nextRemoveChart
-      , symbolRequest = nextSymbolRequest
-      , removeChart = nextRemoveChart
-      , outputState = inputState
-        { headerState = outputHeaderState
+  let stochasticsBounds = Box
+          (boxLeft paddedBox, boxTop paddedBox - headerHeight)
+          (boxRight paddedBox, boxBottom paddedBox)
+      stochasticsInput = S.StochasticLinesInput
+        { S.bounds = stochasticsBounds
+        , S.alpha = alpha
+        , S.inputState = stochasticsState
         }
+
+  stochasticsOutput <- preservingMatrix $ do
+    translate $ vector3 (-(boxWidth paddedBox / 2))
+        (-(boxHeight paddedBox / 2)) 0
+    translate $ vector3 (boxWidth stochasticsBounds / 2)
+        (boxHeight stochasticsBounds / 2) 0
+    S.drawStochasticLines resources stochasticsInput
+
+  let S.StochasticLinesOutput
+        { S.outputState = outputStochasticsState
+        , S.isDirty = isStochasticsDirty
+        } = stochasticsOutput
+
+  let nextRemoveChart = isJust maybeRemovedSymbol
+      nextSymbolRequest
+        | isNothing maybeRemovedSymbol
+            && boxContains paddedBox (mousePosition resources)
+            && isMouseButtonClicked resources ButtonLeft = Just symbol
+        | otherwise = Nothing
+  return MiniChartOutput
+    { isDirty = isHeaderDirty
+        || isStochasticsDirty
+        || isJust nextSymbolRequest
+        || nextRemoveChart
+    , symbolRequest = nextSymbolRequest
+    , removeChart = nextRemoveChart
+    , outputState = inputState
+      { headerState = outputHeaderState
+      , stochasticsState = outputStochasticsState
       }
+    }
   where
     cornerRadius = 5
     cornerVertices = 5
