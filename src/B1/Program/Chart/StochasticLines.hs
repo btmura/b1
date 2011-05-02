@@ -12,6 +12,7 @@ import Graphics.Rendering.OpenGL
 
 import B1.Data.List
 import B1.Data.Technicals.Stochastic
+import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
 import B1.Graphics.Rendering.OpenGL.Shapes
@@ -19,7 +20,6 @@ import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
-import B1.Program.Chart.StockData
 
 data StochasticLinesInput = StochasticLinesInput
   { bounds :: Box

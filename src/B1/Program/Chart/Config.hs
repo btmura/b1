@@ -8,7 +8,7 @@ import Data.Maybe
 import System.IO
 
 import B1.Data.String.Utils
-import B1.Program.Chart.Symbol
+import B1.Data.Symbol
 
 data Config = Config
   { symbols :: [Symbol]

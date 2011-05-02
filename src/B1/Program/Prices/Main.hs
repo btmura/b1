@@ -7,9 +7,10 @@ import Data.Time
 import System.Environment
 
 import B1.Data.Price
-import B1.Data.Technicals.Stochastic
 import B1.Data.Price.Google
 import B1.Data.Price.Mock
+import B1.Data.Technicals.Stochastic
+import B1.Data.Technicals.StockData
 import B1.Program.Prices.Options
 
 main = do
@@ -39,19 +40,29 @@ getCurrentDate = do
 
 getStartDate :: LocalTime -> LocalTime
 getStartDate currentDate@LocalTime { localDay = day } =
-  currentDate { localDay = addGregorianYearsClip (-1) day }
+  currentDate { localDay = addGregorianYearsClip (-3) day }
 
 getEndDate :: LocalTime -> LocalTime
 getEndDate currentDate = currentDate
 
 printInfo :: [Price] -> IO ()
-printInfo prices = do
-  printPrices prices
-  printStochastics $ getStochastics 10 3 prices
-  printPrices weeklyPrices
-  printStochastics $ getStochastics 10 3 weeklyPrices
+printInfo stockPrices = do
+{--
+  printPrices stockPrices
+  printStochastics $ getStochastics 10 3 stockPrices
+  printPrices weeklyStockPrices
+  printStochastics $ getStochastics 10 3 weeklyStockPrices
+  putStrLn ""
+  putStrLn ""
+--}
+
+  printPrices $ prices stockData
+  printStochastics $ stochastics stockData
+  printPrices $ weeklyPrices stockData
+  printStochastics $ weeklyStochastics stockData
   where
-    weeklyPrices = getWeeklyPrices prices
+    weeklyStockPrices = getWeeklyPrices stockPrices
+    stockData = createStockPriceData stockPrices
 
 printPrices :: [Price] -> IO ()
 printPrices prices = do

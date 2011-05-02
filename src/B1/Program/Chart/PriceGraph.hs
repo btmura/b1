@@ -9,13 +9,13 @@ module B1.Program.Chart.PriceGraph
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Price
+import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
-import B1.Program.Chart.StockData
 
 data PriceGraphInput = PriceGraphInput
   { bounds :: Box

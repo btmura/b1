@@ -1,4 +1,4 @@
-module B1.Program.Chart.Symbol
+module B1.Data.Symbol
   ( Symbol
   ) where
 

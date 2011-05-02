@@ -10,6 +10,7 @@ import Data.Maybe
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Range
+import B1.Data.Symbol
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
@@ -19,7 +20,6 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
-import B1.Program.Chart.Symbol
 
 import qualified B1.Program.Chart.MiniChart as M
 
