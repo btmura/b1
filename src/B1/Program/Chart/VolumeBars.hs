@@ -14,6 +14,7 @@ import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
@@ -22,6 +23,7 @@ import B1.Program.Chart.Resources
 data VolumeBarsInput = VolumeBarsInput
   { bounds :: Box
   , alpha :: GLfloat
+  , stockData :: StockData
   , inputState :: VolumeBarsState
   }
 
@@ -31,136 +33,94 @@ data VolumeBarsOutput = VolumeBarsOutput
   }
 
 data VolumeBarsState = VolumeBarsState
-  { stockData :: StockData
-  , alphaAnimation :: Animation (GLfloat, Dirty)
+  { maybeVbo :: Maybe Vbo
   }
 
-newVolumeBarsState :: StockData -> VolumeBarsState
-newVolumeBarsState stockData =
-  VolumeBarsState
-    { stockData = stockData
-    , alphaAnimation = animateOnce $ linearRange 0 1 20
-    }
+newVolumeBarsState :: VolumeBarsState
+newVolumeBarsState = VolumeBarsState { maybeVbo = Nothing }
 
 drawVolumeBars :: Resources -> VolumeBarsInput -> IO VolumeBarsOutput
-drawVolumeBars resources input =
-  convertInputToStuff input
-      >>= renderVolumeBars
-      >>= convertStuffToOutput
-
-data VolumeBarsStuff = VolumeBarsStuff
-  { volumeBounds :: Box
-  , volumeAlpha :: GLfloat
-  , volumeStockData :: StockData
-  , volumeAlphaAnimation :: Animation (GLfloat, Dirty)
-  , volumeIsDirty :: Dirty
-  }
-
-convertInputToStuff :: VolumeBarsInput -> IO VolumeBarsStuff
-convertInputToStuff
-    VolumeBarsInput
-      { bounds = bounds
-      , alpha = alpha
-      , inputState = VolumeBarsState
-        { stockData = stockData
-        , alphaAnimation = alphaAnimation
-        }
-      } = 
-  return VolumeBarsStuff
-    { volumeBounds = bounds
-    , volumeAlpha = alpha
-    , volumeStockData = stockData
-    , volumeAlphaAnimation = alphaAnimation
-    , volumeIsDirty = False
-    }
-
-renderVolumeBars :: VolumeBarsStuff -> IO VolumeBarsStuff
-renderVolumeBars 
-    stuff@VolumeBarsStuff
-      { volumeBounds = bounds
-      , volumeAlpha = alpha
-      , volumeStockData = stockData
-      , volumeAlphaAnimation = alphaAnimation
-      , volumeIsDirty = isDirty
-      } = do
-  maybePricesData <- getStockPriceData stockData
-  maybe (return stuff)
-      (either (\priceData -> do
-          let finalAlpha = min alpha $ (fst . current) alphaAnimation
-          mapM_ (renderBar finalAlpha) $ getBars bounds (prices priceData)
-          return stuff
-            { volumeAlphaAnimation = next alphaAnimation
-            , volumeIsDirty = isDirty || (snd . current) alphaAnimation
-            }
-          )
-          (\_ -> return stuff))
-      maybePricesData
-
-data Bar = Bar
-  { translateX :: GLfloat
-  , translateY :: GLfloat
-  , barWidth :: GLfloat
-  , barHeight :: GLfloat
-  , barColor :: GLfloat -> Color4 GLfloat
-  }
-
-renderBar :: GLfloat -> Bar -> IO ()
-renderBar alpha bar =
-  preservingMatrix $ do
-    color $ barColor bar alpha
-    translate $ vector3 (translateX bar) (translateY bar) 0
-    scale3 (barWidth bar / 2) (barHeight bar / 2) 1
-    renderPrimitive Quads $ do
-      vertex $ vertex2 (-1) (-1)
-      vertex $ vertex2 (-1) 1
-      vertex $ vertex2 1 1
-      vertex $ vertex2 1 (-1)
-
-getBars :: Box -> [Price] -> [Bar]
-getBars bounds prices = map (createBar bounds prices) [0 .. length prices - 1]
-
-createBar :: Box -> [Price] -> Int -> Bar
-createBar bounds prices index = Bar
-  { translateX = translateX 
-  , translateY = translateY
-  , barWidth = barWidth - 1
-  , barHeight = barHeight
-  , barColor = barColor
-  }
-  where
-    rightPadding = 0
-    numPrices = length prices
-    barWidth = (boxWidth bounds - rightPadding) / realToFrac numPrices
-
-    translateX = boxWidth bounds / 2
-        - rightPadding
-        - barWidth * realToFrac index
-        - barWidth / 2
-
-    topPadding = 10
-    availableHeight = boxHeight bounds - topPadding
-
-    price = prices !! index
-    maxVolume = maximum $ map volume prices
-    volumePercentage = realToFrac (volume price) / realToFrac maxVolume
-    barHeight = availableHeight * realToFrac volumePercentage
-
-    translateY = -(boxHeight bounds / 2) + barHeight / 2
-
-    barColor = if getPriceChange prices index > 0 then green else red
-
-convertStuffToOutput :: VolumeBarsStuff -> IO VolumeBarsOutput
-convertStuffToOutput 
-    VolumeBarsStuff
-      { volumeStockData = stockData
-      , volumeAlphaAnimation = alphaAnimation
-      , volumeIsDirty = isDirty
-      } =
-  return VolumeBarsOutput
-    { outputState = VolumeBarsState
+drawVolumeBars resources
+    input@VolumeBarsInput
       { stockData = stockData
-      , alphaAnimation = alphaAnimation
+      , inputState = state
+      } = do
+  maybePriceData <- getStockPriceData stockData
+  case maybePriceData of
+    Just priceDataOrError ->
+      either (renderPriceData input)
+          (renderError state)
+          priceDataOrError
+    _ -> renderNothing state
+
+renderPriceData :: VolumeBarsInput -> StockPriceData -> IO VolumeBarsOutput
+renderPriceData
+    input@VolumeBarsInput
+      { bounds = bounds
+      , inputState = state@VolumeBarsState { maybeVbo = maybeVbo }
       }
-    , isDirty = isDirty
+    priceData = do
+
+  vbo <- maybe (createVolumeBarsVbo priceData) return maybeVbo
+
+  preservingMatrix $ do
+    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
+    render vbo
+
+  return VolumeBarsOutput
+    { outputState = state { maybeVbo = Just vbo }
+    , isDirty = False
     }
+
+createVolumeBarsVbo :: StockPriceData -> IO Vbo
+createVolumeBarsVbo priceData = do
+  bufferObject <- createBufferObject vertices
+  return $ VertexVbo bufferObject Quads numElements
+  where
+    vertices = getVolumeBarQuads $ prices priceData
+    numElements = length vertices `div` 2
+
+getVolumeBarQuads :: [Price] -> [GLfloat]
+getVolumeBarQuads prices =
+  concat $ map (createQuad prices) [0 .. length prices - 1]
+
+createQuad :: [Price] -> Int -> [GLfloat]
+createQuad prices index =
+  [ leftX, -1
+  , leftX, topY
+  , rightX, topY
+  , rightX, -1
+  ]
+  where
+    totalWidth = 2
+    barWidth = realToFrac totalWidth / realToFrac (length prices)
+    spacing = barWidth / 3
+    rightX = totalWidth / 2 - realToFrac index * barWidth - spacing
+    leftX = rightX - barWidth + spacing
+
+    maxVolume = maximum $ map volume prices
+    minVolume = minimum $ map volume prices
+    totalRange = maxVolume - minVolume
+
+    currentVolume = volume $ prices !! index
+    range = currentVolume - minVolume
+    heightPercentage = realToFrac range / realToFrac totalRange
+    totalHeight = 2
+    height = totalHeight * realToFrac heightPercentage
+    topY = -(totalHeight / 2) + height
+
+renderError :: VolumeBarsState -> String -> IO VolumeBarsOutput
+renderError state errorMessage =
+  return VolumeBarsOutput
+    { outputState = state
+    , isDirty = False
+    }
+
+renderNothing :: VolumeBarsState -> IO VolumeBarsOutput
+renderNothing state =
+  return VolumeBarsOutput
+    { outputState = state
+    , isDirty = False
+    }
+
 
