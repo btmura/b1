@@ -17,6 +17,7 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
@@ -24,6 +25,7 @@ import B1.Program.Chart.Resources
 data StochasticLinesInput = StochasticLinesInput
   { bounds :: Box
   , alpha :: GLfloat
+  , stockData :: StockData
   , inputState :: StochasticLinesState
   }
 
@@ -33,8 +35,8 @@ data StochasticLinesOutput = StochasticLinesOutput
   }
 
 data StochasticLinesState = StochasticLinesState
-  { stockData :: StockData
-  , lineSpecs :: [StochasticLineSpec]
+  { lineSpecs :: [StochasticLineSpec]
+  , maybeVbo :: Maybe Vbo
   }
 
 data StochasticTimeSpec = Daily | Weekly
@@ -45,140 +47,100 @@ data StochasticLineSpec = StochasticLineSpec
   , stochasticFunction :: Stochastic -> Float
   }
 
-newStochasticLinesState :: StockData -> [StochasticLineSpec]
-    -> StochasticLinesState
-newStochasticLinesState stockData lineSpecs =
+newStochasticLinesState :: [StochasticLineSpec] -> StochasticLinesState
+newStochasticLinesState lineSpecs =
   StochasticLinesState
-    { stockData = stockData
-    , lineSpecs = lineSpecs
+    { lineSpecs = lineSpecs
+    , maybeVbo = Nothing
     }
 
 drawStochasticLines :: Resources -> StochasticLinesInput
     -> IO StochasticLinesOutput
-drawStochasticLines resources input = 
-  convertInputToStuff input
-      >>= renderStuff
-      >>= convertStuffToOutput
-
-data StochasticStuff = StochasticStuff
-  { stoBounds :: Box
-  , stoAlpha :: GLfloat
-  , stoStockData :: StockData
-  , stoLineSpecs :: [StochasticLineSpec]
-  , stoIsDirty :: Dirty
-  }
-
-convertInputToStuff :: StochasticLinesInput -> IO StochasticStuff
-convertInputToStuff
-    StochasticLinesInput
-      { bounds = bounds
-      , alpha = alpha
-      , inputState = StochasticLinesState
-        { stockData = stockData
-        , lineSpecs = lineSpecs
-        }
-      } =
-  return StochasticStuff
-    { stoBounds = bounds
-    , stoAlpha = alpha
-    , stoStockData = stockData
-    , stoLineSpecs = lineSpecs
-    , stoIsDirty = False
-    }
-
-renderStuff :: StochasticStuff -> IO StochasticStuff
-renderStuff stuff = do
-  maybePriceData <- getStockPriceData $ stoStockData stuff
-  maybe (return stuff { stoIsDirty = True })
-      (either (renderLines stuff) (renderError stuff))
-      maybePriceData
-
-renderLines :: StochasticStuff -> StockPriceData -> IO StochasticStuff
-renderLines
-    stuff@StochasticStuff
-      { stoBounds = bounds
-      , stoAlpha = alpha
-      , stoLineSpecs = lineSpecs
-      }
-    priceData =
-  preservingMatrix $ do
-    lineWidth $= 2
-    renderPrimitive Lines $ mapM_ (renderLineSegment alpha) lines
-    return stuff { stoIsDirty = False }
-  where 
-    lines = concat $ map (convertLineSpecToSegments bounds priceData) lineSpecs
-
-convertLineSpecToSegments :: Box -> StockPriceData -> StochasticLineSpec
-    -> [LineSegment]
-convertLineSpecToSegments bounds priceData lineSpec = lineSegments
-  where
-    lineColor = lineColorFunction lineSpec
-    dataSetFunction = case timeSpec lineSpec of
-        Daily -> stochastics
-        Weekly -> weeklyStochastics
-    dataSet = dataSetFunction priceData
-    dataSetValues = map (stochasticFunction lineSpec) dataSet
-    lineSegments = getLineSegments bounds lineColor dataSetValues
-
-data LineSegment = LineSegment
-  { leftPoint :: Point
-  , rightPoint :: Point
-  , lineColor :: GLfloat -> Color4 GLfloat
-  }
-
-renderLineSegment :: GLfloat -> LineSegment -> IO ()
-renderLineSegment alpha lineSegment = do
-  color $ lineColor lineSegment alpha
-  vertex $ vertex2 leftX leftY
-  vertex $ vertex2 rightX rightY
-  where
-    (leftX, leftY) = leftPoint lineSegment
-    (rightX, rightY) = rightPoint lineSegment
-
-getLineSegments :: Box -> (GLfloat -> Color4 GLfloat) -> [Float]
-    -> [LineSegment]
-getLineSegments bounds lineColor stochasticValues = 
-  map (createLineSegment bounds lineColor stochasticGroups) groupIndices
-  where
-    stochasticGroups = groupElements 2 $ reverse stochasticValues
-    groupIndices = [0 .. length stochasticGroups - 1]
-
-createLineSegment :: Box -> (GLfloat -> Color4 GLfloat) -> [[Float]] -> Int
-    -> LineSegment
-createLineSegment bounds lineColor stochasticGroups index = LineSegment
-  { leftPoint = (leftX, leftY)
-  , rightPoint = (rightX, rightY)
-  , lineColor = lineColor
-  }
-  where
-    numGroups = length stochasticGroups
-    lineWidth = boxWidth bounds / realToFrac numGroups
-    leftX = -(boxWidth bounds / 2) + lineWidth * realToFrac index
-    rightX = leftX + lineWidth
-
-    topPadding = 5
-    bottomPadding = 5
-    maxHeight = realToFrac $ boxHeight bounds - topPadding - bottomPadding
-    (leftValue:rightValue:_) = stochasticGroups !! index
-    leftY = -(boxHeight bounds / 2) + bottomPadding
-        + realToFrac leftValue * maxHeight
-    rightY = -(boxHeight bounds / 2) + bottomPadding
-        + realToFrac rightValue * maxHeight
-
-renderError :: StochasticStuff -> String -> IO StochasticStuff
-renderError stuff errorMessage = return stuff
-
-convertStuffToOutput :: StochasticStuff -> IO StochasticLinesOutput
-convertStuffToOutput
-    StochasticStuff
-      { stoStockData = stockData
-      , stoLineSpecs = lineSpecs
-      , stoIsDirty = isDirty
-      } =
-  return StochasticLinesOutput
-    { outputState = StochasticLinesState
+drawStochasticLines resources
+    input@StochasticLinesInput
       { stockData = stockData
-      , lineSpecs = lineSpecs
+      , inputState = state
+      } = do
+  maybePriceData <- getStockPriceData stockData
+  case maybePriceData of 
+    Just priceDataOrError ->
+      either (renderPriceData input)
+          (renderError state)
+          priceDataOrError
+    _ -> renderNothing state
+
+renderPriceData :: StochasticLinesInput -> StockPriceData
+    -> IO StochasticLinesOutput
+renderPriceData
+    input@StochasticLinesInput
+      { bounds = bounds
+      , inputState = state@StochasticLinesState
+        { lineSpecs = lineSpecs
+        , maybeVbo = maybeVbo
+        }
       }
-    , isDirty = isDirty
+    priceData  = do
+
+  vbo <- maybe (createStochasticLinesVbo lineSpecs priceData) return maybeVbo
+
+  preservingMatrix $ do
+    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
+    render vbo
+
+  return StochasticLinesOutput
+    { outputState = state { maybeVbo = Just vbo }
+    , isDirty = False
     }
+
+createStochasticLinesVbo :: [StochasticLineSpec] -> StockPriceData -> IO Vbo
+createStochasticLinesVbo lineSpecs priceData = do
+  bufferObject <- createBufferObject vertices
+  return $ VertexVbo bufferObject Lines numElements
+  where
+    vertices = getStochasticLines lineSpecs priceData
+    numElements = length vertices `div` 2
+
+getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> [GLfloat]
+getStochasticLines lineSpecs priceData =
+  concat $ map (createLine priceData) lineSpecs
+
+createLine :: StockPriceData -> StochasticLineSpec -> [GLfloat]
+createLine priceData lineSpec =
+  concat $ map (createLineSegment valueGroups) [0 .. length valueGroups - 1]
+  where
+    timeFunction = case timeSpec lineSpec of
+        Daily -> stochastics
+        _ -> weeklyStochastics
+    values = map (stochasticFunction lineSpec) $ timeFunction priceData
+    valueGroups = groupElements 2 values
+
+createLineSegment :: [[Float]] -> Int -> [GLfloat]
+createLineSegment valueGroups index =
+  [ leftX, leftY
+  , rightX, rightY
+  ]
+  where
+    totalWidth = 2
+    segmentWidth = realToFrac totalWidth / realToFrac (length valueGroups)
+    rightX = totalWidth / 2 - realToFrac index * segmentWidth
+    leftX = rightX - segmentWidth
+
+    totalHeight = 2
+    (rightValue:leftValue:_) = valueGroups !! index
+    rightY = -(totalHeight / 2) + realToFrac rightValue * totalHeight
+    leftY = -(totalHeight / 2) + realToFrac leftValue * totalHeight
+
+renderError :: StochasticLinesState -> String -> IO StochasticLinesOutput
+renderError state errorMessage =
+  return StochasticLinesOutput
+    { outputState = state
+    , isDirty = False
+    }
+
+renderNothing :: StochasticLinesState -> IO StochasticLinesOutput
+renderNothing state =
+  return StochasticLinesOutput
+    { outputState = state
+    , isDirty = False
+    }
+

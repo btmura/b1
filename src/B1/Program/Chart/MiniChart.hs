@@ -56,7 +56,7 @@ newMiniChartState symbol maybeStockData = do
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
-    , stochasticsState = S.newStochasticLinesState stockData lineSpecs
+    , stochasticsState = S.newStochasticLinesState lineSpecs
     }
   where
     lineSpecs =
@@ -120,6 +120,7 @@ drawMiniChart resources
       stochasticsInput = S.StochasticLinesInput
         { S.bounds = stochasticsBounds
         , S.alpha = alpha
+        , S.stockData = stockData
         , S.inputState = stochasticsState
         }
 

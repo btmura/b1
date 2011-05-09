@@ -61,8 +61,8 @@ newChartState symbol = do
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , priceGraphState = P.newPriceGraphState
     , volumeBarsState = V.newVolumeBarsState
-    , stochasticsState = S.newStochasticLinesState stockData dailySpecs
-    , weeklyStochasticsState = S.newStochasticLinesState stockData weeklySpecs
+    , stochasticsState = S.newStochasticLinesState dailySpecs
+    , weeklyStochasticsState = S.newStochasticLinesState weeklySpecs
     }
   where
     dailySpecs =
@@ -305,6 +305,7 @@ drawStochasticLines resources
     stuff@ChartStuff
       { chartBounds = bounds@(Box (left, top) (right, bottom))
       , chartAlpha = alpha
+      , chartStockData = stockData
       , chartStochasticsState = stochasticsState
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
@@ -313,6 +314,7 @@ drawStochasticLines resources
       stochasticsInput = S.StochasticLinesInput
         { S.bounds = inputBounds
         , S.alpha = alpha
+        , S.stockData = stockData
         , S.inputState = stochasticsState
         }
 
@@ -334,6 +336,7 @@ drawWeeklyStochasticLines resources
     stuff@ChartStuff
       { chartBounds = bounds@(Box (left, top) (right, bottom))
       , chartAlpha = alpha
+      , chartStockData = stockData
       , chartWeeklyStochasticsState = stochasticsState
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
@@ -342,6 +345,7 @@ drawWeeklyStochasticLines resources
       stochasticsInput = S.StochasticLinesInput
         { S.bounds = inputBounds
         , S.alpha = alpha
+        , S.stockData = stockData
         , S.inputState = stochasticsState
         }
 

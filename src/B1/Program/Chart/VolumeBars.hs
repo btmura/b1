@@ -123,4 +123,3 @@ renderNothing state =
     , isDirty = False
     }
 
-
