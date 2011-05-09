@@ -45,6 +45,7 @@ Executable b1-chart
   Main-is: B1/Program/Chart/Main.hs
   Ghc-options: -main-is B1.Program.Chart.Main
   Build-depends:
+    array >= 0.3.0.0,
     base >= 4,
     FTGL == 1.333,
     GLFW >= 0.4.2,

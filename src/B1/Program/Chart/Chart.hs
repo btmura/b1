@@ -59,7 +59,7 @@ newChartState symbol = do
   return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-    , priceGraphState = P.newPriceGraphState stockData
+    , priceGraphState = P.newPriceGraphState
     , volumeBarsState = V.newVolumeBarsState stockData
     , stochasticsState = S.newStochasticLinesState stockData dailySpecs
     , weeklyStochasticsState = S.newStochasticLinesState stockData weeklySpecs
@@ -243,6 +243,7 @@ drawPriceGraph resources
     stuff@ChartStuff
       { chartBounds = bounds
       , chartAlpha = alpha
+      , chartStockData = stockData
       , chartPriceGraphState = priceGraphState
       , chartHeaderHeight = headerHeight
       , chartIsDirty = isDirty
@@ -251,6 +252,7 @@ drawPriceGraph resources
       priceGraphInput = P.PriceGraphInput
         { P.bounds = inputBounds
         , P.alpha = alpha
+        , P.stockData = stockData
         , P.inputState = priceGraphState
         }
 

@@ -36,6 +36,8 @@ createWindow = do
   blendFunc $= (SrcAlpha, One)
   blend $= Enabled
 
+  clientState VertexArray $= Enabled
+
 loadTextures :: IO ()
 loadTextures = do
   mapM_ (uncurry bindTexture) (zip [0 ..] fileNames)
