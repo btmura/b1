@@ -4,6 +4,7 @@ module B1.Program.Chart.Chart
   , ChartState(stockData)
   , drawChart
   , newChartState
+  , cleanChartState
   ) where
 
 import Data.Maybe
@@ -52,6 +53,26 @@ data ChartState = ChartState
   , stochasticsState :: S.StochasticLinesState
   , weeklyStochasticsState :: S.StochasticLinesState
   }
+
+cleanChartState :: ChartState -> IO ChartState
+cleanChartState
+    state@ChartState
+      { priceGraphState = priceGraphState
+      , volumeBarsState = volumeBarsState
+      , stochasticsState = stochasticsState
+      , weeklyStochasticsState = weeklyStochasticsState
+      } = do
+  newPriceGraphState <- P.cleanPriceGraphState priceGraphState
+  newVolumeBarsState <- V.cleanVolumeBarsState volumeBarsState
+  newStochasticsState <- S.cleanStochasticLinesState stochasticsState
+  newWeeklyStochasticsState <- S.cleanStochasticLinesState
+      weeklyStochasticsState
+  return state
+    { priceGraphState = newPriceGraphState
+    , volumeBarsState = newVolumeBarsState
+    , stochasticsState = newStochasticsState
+    , weeklyStochasticsState = newStochasticsState
+    }
 
 newChartState :: Symbol -> IO ChartState
 newChartState symbol = do

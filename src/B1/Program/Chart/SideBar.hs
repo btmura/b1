@@ -391,7 +391,7 @@ drawSlots resources bounds
       } = do
   output <- mapM (drawOneSlot resources bounds scrollAmount slots)
       [0 .. length slots - 1]
-  return $ convertDrawingOutputs state output
+  convertDrawingOutputs state output
 
 drawOneSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
     -> IO (M.MiniChartOutput, Dirty)
@@ -427,12 +427,17 @@ drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
       }
 
 convertDrawingOutputs :: SideBarState -> [(M.MiniChartOutput, Dirty)]
-    -> SideBarOutput
-convertDrawingOutputs state output = nextOutput
+    -> IO SideBarOutput
+convertDrawingOutputs state output = do
+  mapM_ (M.cleanMiniChartState . miniChartState) cleanSlots
+  return nextOutput
   where
     (outputStates, dirtyFlags) = unzip output
-    nextSlots = filter (not . shouldRemoveSlot) $
-          zipWith updateMiniChartState (slots state) outputStates
+    updatedSlots = zipWith updateMiniChartState (slots state) outputStates
+    cleanSlots = filter
+        (\slot -> shouldRemoveSlot slot && not (dragFreely slot))
+        updatedSlots
+    nextSlots = filter (not . shouldRemoveSlot) updatedSlots
     nextState = state { slots = nextSlots } 
 
     isSideBarDirty = length (newSlots state) > 0

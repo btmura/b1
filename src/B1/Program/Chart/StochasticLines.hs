@@ -6,6 +6,7 @@ module B1.Program.Chart.StochasticLines
   , StochasticLineSpec(..)
   , drawStochasticLines
   , newStochasticLinesState
+  , cleanStochasticLinesState
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -54,6 +55,14 @@ newStochasticLinesState lineSpecs =
     , maybeVbo = Nothing
     }
 
+cleanStochasticLinesState :: StochasticLinesState -> IO StochasticLinesState
+cleanStochasticLinesState state@StochasticLinesState { maybeVbo = maybeVbo } =
+  case maybeVbo of
+    Just vbo -> do
+      deleteVbo vbo
+      return state { maybeVbo = Nothing }
+    _ -> return state
+
 drawStochasticLines :: Resources -> StochasticLinesInput
     -> IO StochasticLinesOutput
 drawStochasticLines resources
@@ -85,7 +94,7 @@ renderPriceData
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
-    render vbo
+    renderVbo vbo
 
   return StochasticLinesOutput
     { outputState = state { maybeVbo = Just vbo }

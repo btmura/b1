@@ -4,6 +4,7 @@ module B1.Program.Chart.VolumeBars
   , VolumeBarsState
   , drawVolumeBars
   , newVolumeBarsState
+  , cleanVolumeBarsState
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -39,6 +40,14 @@ data VolumeBarsState = VolumeBarsState
 newVolumeBarsState :: VolumeBarsState
 newVolumeBarsState = VolumeBarsState { maybeVbo = Nothing }
 
+cleanVolumeBarsState :: VolumeBarsState -> IO VolumeBarsState
+cleanVolumeBarsState state@VolumeBarsState { maybeVbo = maybeVbo } =
+  case maybeVbo of
+    Just vbo -> do
+      deleteVbo vbo
+      return state { maybeVbo = Nothing }
+    _ -> return state
+
 drawVolumeBars :: Resources -> VolumeBarsInput -> IO VolumeBarsOutput
 drawVolumeBars resources
     input@VolumeBarsInput
@@ -65,7 +74,7 @@ renderPriceData
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
-    render vbo
+    renderVbo vbo
 
   return VolumeBarsOutput
     { outputState = state { maybeVbo = Just vbo }

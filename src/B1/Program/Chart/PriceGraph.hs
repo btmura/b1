@@ -4,6 +4,7 @@ module B1.Program.Chart.PriceGraph
   , PriceGraphState
   , drawPriceGraph
   , newPriceGraphState
+  , cleanPriceGraphState
   ) where
 
 import Data.Maybe
@@ -38,6 +39,14 @@ data PriceGraphState = PriceGraphState
 newPriceGraphState :: PriceGraphState
 newPriceGraphState = PriceGraphState { maybeVbo = Nothing }
 
+cleanPriceGraphState :: PriceGraphState -> IO PriceGraphState
+cleanPriceGraphState state@PriceGraphState { maybeVbo = maybeVbo } =
+  case maybeVbo of
+    Just vbo -> do
+      deleteVbo vbo
+      return state { maybeVbo = Nothing }
+    _ -> return state
+
 drawPriceGraph :: Resources -> PriceGraphInput -> IO PriceGraphOutput
 drawPriceGraph resources
     input@PriceGraphInput
@@ -64,7 +73,7 @@ renderPriceData
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
-    render vbo
+    renderVbo vbo
 
   return PriceGraphOutput
     { outputState = state { maybeVbo = Just vbo }

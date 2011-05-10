@@ -55,6 +55,7 @@ data FrameState = FrameState
 
 data Frame = Frame
   { content :: Content
+  , removing :: Bool
   , scaleAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   }
@@ -67,6 +68,7 @@ newFrameState = FrameState
   , nextSymbol = ""
   , currentFrame = Just Frame
     { content = Instructions
+    , removing = False
     , scaleAnimation = incomingScaleAnimation
     , alphaAnimation = incomingAlphaAnimation
     }
@@ -201,6 +203,7 @@ newChartContent symbol = do
 newCurrentFrame :: Content -> Maybe Frame
 newCurrentFrame content = Just Frame
   { content = content
+  , removing = False
   , scaleAnimation = incomingScaleAnimation
   , alphaAnimation = incomingAlphaAnimation
   }
@@ -208,7 +211,8 @@ newCurrentFrame content = Just Frame
 newPreviousFrame :: Maybe Frame -> Maybe Frame
 newPreviousFrame Nothing = Nothing
 newPreviousFrame (Just frame) = Just $ frame 
-  { scaleAnimation = outgoingScaleAnimation
+  { removing = True
+  , scaleAnimation = outgoingScaleAnimation
   , alphaAnimation = outgoingAlphaAnimation
   }
 
@@ -269,9 +273,11 @@ drawFrames resources
           maybeNextCurrentFrameState
       (nextPreviousFrame, isPreviousContentDirty, _) =
           maybeNextPreviousFrameState
-      nextNextCurrentFrame = nextFrame nextCurrentFrame
-      nextNextPreviousFrame = nextFrame nextPreviousFrame
-      nextJustSelectedSymbol =
+
+  nextNextCurrentFrame <- nextFrame nextCurrentFrame
+  nextNextPreviousFrame <-  nextFrame nextPreviousFrame
+
+  let nextJustSelectedSymbol =
           if isJust nextAddedSymbol
             then nextAddedSymbol
             else justSelectedSymbol
@@ -355,12 +361,31 @@ drawFrameContent resources bounds (Chart symbol state) alpha = do
       , C.inputState = state
       }
 
-nextFrame :: Maybe Frame -> Maybe Frame
-nextFrame Nothing = Nothing
-nextFrame (Just frame) = Just $ frame
-  { scaleAnimation = next $ scaleAnimation frame
-  , alphaAnimation = next $ alphaAnimation frame
-  }
+nextFrame :: Maybe Frame -> IO (Maybe Frame)
+nextFrame Nothing = return Nothing
+nextFrame (Just frame) =
+  if shouldRemoveFrame 
+    then do
+      cleanFrameContent $ content frame
+      return Nothing
+    else
+      return $ Just nextFrame
+  where
+    shouldRemoveFrame = removing frame
+        && (fst . current . alphaAnimation) frame == 0.0
+    nextScaleAnimation = next $ scaleAnimation frame
+    nextAlphaAnimation = next $ alphaAnimation frame
+    nextFrame = frame
+      { scaleAnimation = nextScaleAnimation
+      , alphaAnimation = nextAlphaAnimation
+      }
+
+cleanFrameContent :: Content -> IO () 
+cleanFrameContent (Chart symbol state) = do
+  C.cleanChartState state
+  return ()
+
+cleanFrameContent _ = return ()
 
 drawNextSymbol :: Resources -> FrameStuff -> IO FrameStuff
 
@@ -414,7 +439,7 @@ drawDraggedChart resources
   | draggingChartInBounds = do
       let Just (Frame { content = Chart symbol chartState }) = currentFrame
       miniChartState <- case draggedMiniChartState of
-        Just state -> return $state
+        Just state -> return $ state
         _ -> M.newMiniChartState symbol $ Just (C.stockData chartState)
      
       let (mouseX, mouseY) = mousePosition resources
@@ -434,9 +459,14 @@ drawDraggedChart resources
         { frameDraggedChart = Just $ M.outputState miniChartOutput
         , frameIsDirty = isDirty || M.isDirty miniChartOutput
         }
-  | draggingChartOutOfBounds =
-      return stuff { frameDraggedOutChart = nextDraggedOutMiniChart }
-  | otherwise =
+  | draggingChartOutOfBounds = do
+      cleanedMiniChart <- maybeCleanMiniChart nextDraggedOutMiniChart
+      return stuff
+        { frameDraggedChart = cleanedMiniChart
+        , frameDraggedOutChart = cleanedMiniChart
+        }
+  | otherwise = do
+      maybeCleanMiniChart draggedMiniChartState
       return stuff { frameDraggedChart = Nothing }
   where
     isCurrentFrameChart =
@@ -463,6 +493,15 @@ drawDraggedChart resources
         if previouslyDraggingChartInBounds && draggingChartOutOfBounds
           then draggedMiniChartState
           else Nothing
+       
+    maybeCleanMiniChart :: Maybe M.MiniChartState -> IO (Maybe M.MiniChartState) 
+    maybeCleanMiniChart maybeChart =
+      case maybeChart of
+        Just chartState -> do
+          cleanState <- M.cleanMiniChartState chartState
+          return $ Just cleanState
+        _ ->
+          return Nothing
 
 convertStuffToOutput :: FrameStuff -> IO FrameOutput
 convertStuffToOutput

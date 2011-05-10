@@ -4,6 +4,7 @@ module B1.Program.Chart.MiniChart
   , MiniChartState(symbol)
   , drawMiniChart
   , newMiniChartState
+  , cleanMiniChartState
   ) where
 
 import Data.Maybe
@@ -71,6 +72,14 @@ newMiniChartState symbol maybeStockData = do
         , S.stochasticFunction = d
         }
       ]
+
+cleanMiniChartState :: MiniChartState -> IO MiniChartState
+cleanMiniChartState
+    state@MiniChartState
+      { stochasticsState = stochasticsState
+      } = do
+  newStochasticsState <- S.cleanStochasticLinesState stochasticsState
+  return state { stochasticsState = newStochasticsState }
 
 drawMiniChart :: Resources -> MiniChartInput -> IO MiniChartOutput
 drawMiniChart resources
