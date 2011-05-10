@@ -17,6 +17,7 @@ main :: IO ()
 main = do
   initialize
   createWindow
+  initClientState
   loadTextures
 
   resourcesRef <- createInitialResources
@@ -25,6 +26,7 @@ main = do
 
   drawLoop resourcesRef windowDirtyRef drawScreen
 
+  -- TODO: Need to clean up shader resources before leaving?
   closeWindow
   terminate
 
@@ -33,9 +35,10 @@ createWindow = do
   openWindow (Size 400 400) [DisplayAlphaBits 8] Window
   windowTitle $= "B1"
 
+initClientState :: IO ()
+initClientState = do
   blendFunc $= (SrcAlpha, One)
   blend $= Enabled
-
   clientState VertexArray $= Enabled
 
 loadTextures :: IO ()
@@ -64,7 +67,42 @@ bindTexture textureNumber fileName = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  newIORef $ newResources font
+  program <- loadProgram ["res/shaders/vertex-shader.txt"]
+      ["res/shaders/fragment-shader.txt"]
+  newIORef $ newResources font program
+
+loadProgram :: [FilePath] -> [FilePath] -> IO Program
+loadProgram vertexShaderPaths fragmentShaderPaths= do
+  vertexShaders <- mapM readAndCompileShader vertexShaderPaths
+  fragmentShaders <- mapM readAndCompileShader fragmentShaderPaths
+  createProgram vertexShaders fragmentShaders
+
+readAndCompileShader :: Shader s => FilePath -> IO s
+readAndCompileShader filePath = do
+  src <- readFile filePath
+  [shader] <- genObjectNames 1
+  shaderSource shader $= [src]
+  compileShader shader
+  ok <- get $ compileStatus shader
+  infoLog <- get $ shaderInfoLog shader
+  putStrLn $ "Shader info log: " ++ infoLog
+  unless ok $ do
+    deleteObjectNames [shader]
+    ioError $ userError "Shader compilation failed"
+  return shader
+
+createProgram :: [VertexShader] -> [FragmentShader] -> IO Program
+createProgram vertexShader fragmentShader = do
+  [program] <- genObjectNames 1
+  attachedShaders program $= (vertexShader, fragmentShader)
+  linkProgram program
+  ok <- get $ linkStatus program
+  infoLog <- get $ programInfoLog program
+  putStrLn $ "Program info log: " ++ infoLog
+  unless ok $ do
+    deleteObjectNames [program]
+    ioError $ userError "Program linking failed"
+  return program
 
 myWindowSizeCallback :: IORef Resources -> IORef Dirty -> Size -> IO ()
 myWindowSizeCallback resourcesRef windowDirtyRef size@(Size width height) = do

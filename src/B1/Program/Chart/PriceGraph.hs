@@ -56,13 +56,15 @@ drawPriceGraph resources
   maybePriceData <- getStockPriceData stockData
   case maybePriceData of
     Just priceDataOrError ->
-      either (renderPriceData input)
+      either (renderPriceData resources input)
           (renderError state)
           priceDataOrError
     _ -> renderNothing state
 
-renderPriceData :: PriceGraphInput -> StockPriceData -> IO PriceGraphOutput
+renderPriceData :: Resources -> PriceGraphInput -> StockPriceData
+    -> IO PriceGraphOutput
 renderPriceData
+    resources@Resources { program = program }
     input@PriceGraphInput
       { bounds = bounds
       , inputState = state@PriceGraphState { maybeVbo = maybeVbo }
@@ -73,7 +75,9 @@ renderPriceData
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
+    currentProgram $= Just program
     renderVbo vbo
+    currentProgram $= Nothing
 
   return PriceGraphOutput
     { outputState = state { maybeVbo = Just vbo }

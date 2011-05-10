@@ -60,5 +60,6 @@ case_updateWindowSize = do
 createResources :: IO Resources
 createResources = do
   font <- createTextureFont "noSuchFont"
-  return $ newResources font
+  [program] <- genObjectNames 1
+  return $ newResources font program
 
