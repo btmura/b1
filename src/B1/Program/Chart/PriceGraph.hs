@@ -18,6 +18,7 @@ import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 
 data PriceGraphInput = PriceGraphInput
@@ -76,6 +77,7 @@ renderPriceData
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
     currentProgram $= Just program
+    setAlpha program 1.0
     renderVbo vbo
     currentProgram $= Nothing
 
