@@ -5,10 +5,17 @@ module B1.Program.Chart.Colors
   , lighterBlue
   , gray
   , green
+  , green3
   , red
+  , red3
   , purple
+  , purple3
   , white
+  , white3
   , yellow
+  , yellow3
+
+  , color3ToList
   , outlineColor
   ) where
 
@@ -37,17 +44,35 @@ gray = color4 0.5 0.5 0.5
 green :: GLfloat -> Color4 GLfloat
 green = color4 0.25 1 0
 
+green3 :: Color3 GLfloat
+green3 = color3 0.25 1 0
+
 red :: GLfloat -> Color4 GLfloat
 red = color4 1 0.3 0
+
+red3 :: Color3 GLfloat
+red3 = color3 1 0.3 0
 
 purple :: GLfloat -> Color4 GLfloat
 purple = color4 0.5 0 1
 
+purple3 :: Color3 GLfloat
+purple3 = color3 0.5 0 1
+
 white :: GLfloat -> Color4 GLfloat
 white = color4 1 1 1
 
+white3 :: Color3 GLfloat
+white3 = color3 1 1 1
+
 yellow :: GLfloat -> Color4 GLfloat
 yellow = color4 1 1 0
+
+yellow3 :: Color3 GLfloat
+yellow3 = color3 1 1 0
+
+color3ToList :: Color3 GLfloat -> [GLfloat]
+color3ToList (Color3 r g b) = r:g:b:[]
 
 outlineColor :: Resources -> Box -> GLfloat -> Color4 GLfloat
 outlineColor resources@Resources { mousePosition = mousePosition } bounds

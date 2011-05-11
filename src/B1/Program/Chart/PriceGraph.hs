@@ -119,7 +119,7 @@ createGraphVbo priceData = do
   return $ VertexVbo bufferObject Lines numElements
   where
     vertices = getGraphLineVertices $ prices priceData
-    numElements = length vertices `div` 2
+    numElements = length vertices `div` 5
 
 getGraphLineVertices :: [Price] -> [GLfloat]
 getGraphLineVertices prices =
@@ -127,16 +127,18 @@ getGraphLineVertices prices =
 
 createLine :: [Price] -> Int -> [GLfloat]
 createLine prices index =
-  [ centerX, lowY
-  , centerX, highY
-
-  , leftX, openY
-  , centerX, openY
-  
-  , centerX, closeY
-  , rightX, closeY
-  ]
+  [centerX, lowY] ++ colorList
+      ++ [centerX, highY] ++ colorList
+      ++ [leftX, openY] ++ colorList
+      ++ [centerX, openY] ++ colorList
+      ++ [centerX, closeY] ++ colorList
+      ++ [rightX, closeY] ++ colorList
   where
+    colorList = color3ToList $
+        if getPriceChange prices index >= 0
+          then green3
+          else red3
+
     totalWidth = 2
     barWidth = realToFrac totalWidth / realToFrac (length prices)
     halfBarWidth = barWidth / 2

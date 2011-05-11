@@ -37,11 +37,13 @@ renderVbo :: Vbo -> IO Vbo
 renderVbo vbo@(VertexVbo bufferObject primitiveMode numElements) = do
   bindBuffer ArrayBuffer $= Just bufferObject
   arrayPointer VertexArray $= vertexArrayDescriptor
+  arrayPointer ColorArray $= colorArrayDescriptor
   drawArrays primitiveMode 0 $ fromIntegral numElements
   bindBuffer ArrayBuffer $= Nothing
   return vbo
   where
-    vertexArrayDescriptor = VertexArrayDescriptor 2 Float 8 $ offset 0
+    vertexArrayDescriptor = VertexArrayDescriptor 2 Float 20 $ offset 0
+    colorArrayDescriptor = VertexArrayDescriptor 3 Float 20 $ offset 8
 
 offset x = plusPtr nullPtr x
 

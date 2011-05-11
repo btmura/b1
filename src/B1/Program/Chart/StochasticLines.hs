@@ -49,7 +49,7 @@ data StochasticTimeSpec = Daily | Weekly
 
 data StochasticLineSpec = StochasticLineSpec
   { timeSpec :: StochasticTimeSpec
-  , lineColorFunction :: GLfloat -> Color4 GLfloat
+  , lineColor :: Color3 GLfloat
   , stochasticFunction :: Stochastic -> Float
   }
 
@@ -134,7 +134,7 @@ createStochasticLinesVbo lineSpecs priceData = do
   return $ VertexVbo bufferObject Lines numElements
   where
     vertices = getStochasticLines lineSpecs priceData
-    numElements = length vertices `div` 2
+    numElements = length vertices `div` 5
 
 getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> [GLfloat]
 getStochasticLines lineSpecs priceData =
@@ -142,20 +142,21 @@ getStochasticLines lineSpecs priceData =
 
 createLine :: StockPriceData -> StochasticLineSpec -> [GLfloat]
 createLine priceData lineSpec =
-  concat $ map (createLineSegment valueGroups) [0 .. length valueGroups - 1]
+  concat $ map (createLineSegment color valueGroups)
+      [0 .. length valueGroups - 1]
   where
+    color = lineColor lineSpec
     timeFunction = case timeSpec lineSpec of
         Daily -> stochastics
         _ -> weeklyStochastics
     values = map (stochasticFunction lineSpec) $ timeFunction priceData
     valueGroups = groupElements 2 values
 
-createLineSegment :: [[Float]] -> Int -> [GLfloat]
-createLineSegment valueGroups index =
-  [ leftX, leftY
-  , rightX, rightY
-  ]
+createLineSegment :: Color3 GLfloat -> [[Float]] -> Int -> [GLfloat]
+createLineSegment color valueGroups index =
+    [leftX, leftY] ++ colorList ++ [rightX, rightY] ++ colorList
   where
+    colorList = color3ToList color
     totalWidth = 2
     segmentWidth = realToFrac totalWidth / realToFrac (length valueGroups)
     rightX = totalWidth / 2 - realToFrac index * segmentWidth

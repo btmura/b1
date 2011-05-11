@@ -118,7 +118,7 @@ createVolumeBarsVbo priceData = do
   return $ VertexVbo bufferObject Quads numElements
   where
     vertices = getVolumeBarQuads $ prices priceData
-    numElements = length vertices `div` 2
+    numElements = length vertices `div` 5
 
 getVolumeBarQuads :: [Price] -> [GLfloat]
 getVolumeBarQuads prices =
@@ -126,12 +126,16 @@ getVolumeBarQuads prices =
 
 createQuad :: [Price] -> Int -> [GLfloat]
 createQuad prices index =
-  [ leftX, -1
-  , leftX, topY
-  , rightX, topY
-  , rightX, -1
-  ]
+  [leftX, -1] ++ colorList
+      ++ [leftX, topY] ++ colorList
+      ++ [rightX, topY] ++ colorList
+      ++ [rightX, -1] ++ colorList
   where
+    colorList = color3ToList $
+        if getPriceChange prices index >= 0
+          then green3
+          else red3
+
     totalWidth = 2
     barWidth = realToFrac totalWidth / realToFrac (length prices)
     spacing = barWidth / 3

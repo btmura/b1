@@ -89,24 +89,24 @@ newChartState symbol = do
     dailySpecs =
       [ S.StochasticLineSpec 
         { S.timeSpec = S.Daily
-        , S.lineColorFunction = red
+        , S.lineColor = red3
         , S.stochasticFunction = k
         }
       , S.StochasticLineSpec
         { S.timeSpec = S.Daily
-        , S.lineColorFunction = yellow
+        , S.lineColor = yellow3
         , S.stochasticFunction = d
         }
       ]
     weeklySpecs =
       [ S.StochasticLineSpec 
         { S.timeSpec = S.Weekly
-        , S.lineColorFunction = red
+        , S.lineColor = red3
         , S.stochasticFunction = k
         }
       , S.StochasticLineSpec
         { S.timeSpec = S.Weekly
-        , S.lineColorFunction = purple
+        , S.lineColor = purple3
         , S.stochasticFunction = d
         }
       ]

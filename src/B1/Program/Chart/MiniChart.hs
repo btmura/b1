@@ -63,12 +63,12 @@ newMiniChartState symbol maybeStockData = do
     lineSpecs =
       [ S.StochasticLineSpec
         { S.timeSpec = S.Daily
-        , S.lineColorFunction = yellow
+        , S.lineColor = yellow3
         , S.stochasticFunction = d
         }
       , S.StochasticLineSpec
         { S.timeSpec = S.Weekly
-        , S.lineColorFunction = purple
+        , S.lineColor = purple3
         , S.stochasticFunction = d
         }
       ]

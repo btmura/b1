@@ -40,6 +40,7 @@ initClientState = do
   blendFunc $= (SrcAlpha, One)
   blend $= Enabled
   clientState VertexArray $= Enabled
+  clientState ColorArray $= Enabled
 
 loadTextures :: IO ()
 loadTextures = do
