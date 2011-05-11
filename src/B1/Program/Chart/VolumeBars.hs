@@ -19,6 +19,7 @@ import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 
 data VolumeBarsInput = VolumeBarsInput
@@ -35,10 +36,19 @@ data VolumeBarsOutput = VolumeBarsOutput
 
 data VolumeBarsState = VolumeBarsState
   { maybeVbo :: Maybe Vbo
+  , alphaAnimation :: Animation (GLfloat, Dirty)
+  , dataStatus :: DataStatus
   }
 
+data DataStatus = Loading | Received
+
 newVolumeBarsState :: VolumeBarsState
-newVolumeBarsState = VolumeBarsState { maybeVbo = Nothing }
+newVolumeBarsState =
+  VolumeBarsState
+    { maybeVbo = Nothing
+    , alphaAnimation = animateOnce $ linearRange 0 0 1
+    , dataStatus = Loading
+    }
 
 cleanVolumeBarsState :: VolumeBarsState -> IO VolumeBarsState
 cleanVolumeBarsState state@VolumeBarsState { maybeVbo = maybeVbo } =
@@ -57,16 +67,23 @@ drawVolumeBars resources
   maybePriceData <- getStockPriceData stockData
   case maybePriceData of
     Just priceDataOrError ->
-      either (renderPriceData input)
+      either (renderPriceData resources input)
           (renderError state)
           priceDataOrError
     _ -> renderNothing state
 
-renderPriceData :: VolumeBarsInput -> StockPriceData -> IO VolumeBarsOutput
+renderPriceData :: Resources -> VolumeBarsInput -> StockPriceData
+    -> IO VolumeBarsOutput
 renderPriceData
+    Resources { program = program }
     input@VolumeBarsInput
       { bounds = bounds
-      , inputState = state@VolumeBarsState { maybeVbo = maybeVbo }
+      , alpha = alpha
+      , inputState = state@VolumeBarsState
+        { maybeVbo = maybeVbo
+        , alphaAnimation = alphaAnimation
+        , dataStatus = dataStatus
+        }
       }
     priceData = do
 
@@ -74,12 +91,26 @@ renderPriceData
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
+    currentProgram $= Just program
+    setAlpha program finalAlpha
     renderVbo vbo
+    currentProgram $= Nothing
 
   return VolumeBarsOutput
-    { outputState = state { maybeVbo = Just vbo }
-    , isDirty = False
+    { outputState = state
+      { maybeVbo = Just vbo
+      , alphaAnimation = nextAlphaAnimation
+      , dataStatus = Received
+      }
+    , isDirty = nextIsDirty
     }
+  where
+    currentAlphaAnimation = case dataStatus of
+        Loading -> animateOnce $ linearRange 0 1 30
+        Received -> alphaAnimation
+    finalAlpha = (min alpha . fst . current) currentAlphaAnimation
+    nextAlphaAnimation = next currentAlphaAnimation
+    nextIsDirty = (snd . current) nextAlphaAnimation
 
 createVolumeBarsVbo :: StockPriceData -> IO Vbo
 createVolumeBarsVbo priceData = do

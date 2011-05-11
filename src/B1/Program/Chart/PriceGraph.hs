@@ -11,11 +11,13 @@ import Data.Maybe
 import Graphics.Rendering.OpenGL
 
 import B1.Data.Price
+import B1.Data.Range
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Graphics.Rendering.OpenGL.Vbo
+import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
@@ -35,10 +37,19 @@ data PriceGraphOutput = PriceGraphOutput
 
 data PriceGraphState = PriceGraphState
   { maybeVbo :: Maybe Vbo
+  , alphaAnimation :: Animation (GLfloat, Dirty)
+  , dataStatus :: DataStatus
   }
 
+data DataStatus = Loading | Received
+
 newPriceGraphState :: PriceGraphState
-newPriceGraphState = PriceGraphState { maybeVbo = Nothing }
+newPriceGraphState =
+  PriceGraphState
+    { maybeVbo = Nothing
+    , alphaAnimation = animateOnce $ linearRange 0 0 1
+    , dataStatus = Loading
+    }
 
 cleanPriceGraphState :: PriceGraphState -> IO PriceGraphState
 cleanPriceGraphState state@PriceGraphState { maybeVbo = maybeVbo } =
@@ -65,10 +76,15 @@ drawPriceGraph resources
 renderPriceData :: Resources -> PriceGraphInput -> StockPriceData
     -> IO PriceGraphOutput
 renderPriceData
-    resources@Resources { program = program }
+    Resources { program = program }
     input@PriceGraphInput
       { bounds = bounds
-      , inputState = state@PriceGraphState { maybeVbo = maybeVbo }
+      , alpha = alpha
+      , inputState = state@PriceGraphState
+        { maybeVbo = maybeVbo
+        , alphaAnimation = alphaAnimation
+        , dataStatus = dataStatus
+        }
       }
     priceData = do
 
@@ -77,14 +93,25 @@ renderPriceData
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
     currentProgram $= Just program
-    setAlpha program 1.0
+    setAlpha program finalAlpha
     renderVbo vbo
     currentProgram $= Nothing
 
   return PriceGraphOutput
-    { outputState = state { maybeVbo = Just vbo }
-    , isDirty = False
+    { outputState = state
+      { maybeVbo = Just vbo
+      , alphaAnimation = nextAlphaAnimation
+      , dataStatus = Received
+      }
+    , isDirty = nextIsDirty
     }
+  where
+    currentAlphaAnimation = case dataStatus of
+        Loading -> animateOnce $ linearRange 0 1 30
+        Received -> alphaAnimation
+    finalAlpha = (min alpha . fst . current) currentAlphaAnimation
+    nextAlphaAnimation = next currentAlphaAnimation
+    nextIsDirty = (snd . current) nextAlphaAnimation
 
 createGraphVbo :: StockPriceData -> IO Vbo
 createGraphVbo priceData = do
