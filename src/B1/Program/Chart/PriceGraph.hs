@@ -12,6 +12,7 @@ import Graphics.Rendering.OpenGL
 
 import B1.Data.Price
 import B1.Data.Range
+import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
@@ -22,6 +23,7 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
+import B1.Program.Chart.StochasticColors
 
 data PriceGraphInput = PriceGraphInput
   { bounds :: Box
@@ -118,15 +120,19 @@ createGraphVbo priceData = do
   bufferObject <- createBufferObject vertices
   return $ VertexVbo bufferObject Lines numElements
   where
-    vertices = getGraphLineVertices $ prices priceData
+    vertices = getGraphLineVertices priceData
     numElements = length vertices `div` 5
 
-getGraphLineVertices :: [Price] -> [GLfloat]
-getGraphLineVertices prices =
-  concat $ map (createLine prices) [0 .. length prices - 1]
+getGraphLineVertices :: StockPriceData -> [GLfloat]
+getGraphLineVertices priceData =
+  concat $ map lineFunction [0 .. length stockPrices - 1]
+  where
+    stockPrices = prices priceData
+    colors = getStochasticColors $ stochastics priceData
+    lineFunction = createLine stockPrices colors
 
-createLine :: [Price] -> Int -> [GLfloat]
-createLine prices index =
+createLine :: [Price] -> [Color3 GLfloat] -> Int -> [GLfloat]
+createLine prices colors index =
   [centerX, lowY] ++ colorList
       ++ [centerX, highY] ++ colorList
       ++ [leftX, openY] ++ colorList
@@ -134,10 +140,7 @@ createLine prices index =
       ++ [centerX, closeY] ++ colorList
       ++ [rightX, closeY] ++ colorList
   where
-    colorList = color3ToList $
-        if getPriceChange prices index >= 0
-          then green3
-          else red3
+    colorList = color3ToList $ colors !! index
 
     totalWidth = 2
     barWidth = realToFrac totalWidth / realToFrac (length prices)
