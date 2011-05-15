@@ -117,12 +117,15 @@ createVolumeBarsVbo priceData = do
   bufferObject <- createBufferObject vertices
   return $ VertexVbo bufferObject Quads numElements
   where
-    vertices = getVolumeBarQuads $ prices priceData
+    vertices = getVolumeBarQuads priceData
     numElements = length vertices `div` 5
 
-getVolumeBarQuads :: [Price] -> [GLfloat]
-getVolumeBarQuads prices =
-  concat $ map (createQuad prices) [0 .. length prices - 1]
+getVolumeBarQuads :: StockPriceData -> [GLfloat]
+getVolumeBarQuads priceData =
+  concat $ map (createQuad stockPrices) indices
+  where
+    stockPrices = prices priceData
+    indices = dailyIndices priceData
 
 createQuad :: [Price] -> Int -> [GLfloat]
 createQuad prices index =

@@ -125,11 +125,12 @@ createGraphVbo priceData = do
 
 getGraphLineVertices :: StockPriceData -> [GLfloat]
 getGraphLineVertices priceData =
-  concat $ map lineFunction [0 .. length stockPrices - 1]
+  concat $ priceLines
   where
     stockPrices = prices priceData
     colors = getStochasticColors $ stochastics priceData
     lineFunction = createLine stockPrices colors
+    priceLines = map lineFunction $ dailyIndices priceData
 
 createLine :: [Price] -> [Color3 GLfloat] -> Int -> [GLfloat]
 createLine prices colors index =
@@ -140,8 +141,11 @@ createLine prices colors index =
       ++ [centerX, closeY] ++ colorList
       ++ [rightX, closeY] ++ colorList
   where
-    colorList = color3ToList $ colors !! index
-
+    colorList = color3ToList $
+        if index < length colors
+          then colors !! index
+          else if getPriceChange prices index >= 0 then green3 else red3
+   
     totalWidth = 2
     barWidth = realToFrac totalWidth / realToFrac (length prices)
     halfBarWidth = barWidth / 2

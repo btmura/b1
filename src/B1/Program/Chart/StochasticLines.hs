@@ -142,23 +142,26 @@ getStochasticLines lineSpecs priceData =
 
 createLine :: StockPriceData -> StochasticLineSpec -> [GLfloat]
 createLine priceData lineSpec =
-  concat $ map (createLineSegment color valueGroups)
-      [0 .. length valueGroups - 1]
+  concat $ map (createLineSegment color valueGroups numElements) indices
   where
     color = lineColor lineSpec
-    timeFunction = case timeSpec lineSpec of
-        Daily -> stochastics
-        _ -> weeklyStochastics
-    values = map (stochasticFunction lineSpec) $ timeFunction priceData
-    valueGroups = groupElements 2 values
+    (timeFunction, indicesFunction) = case timeSpec lineSpec of
+        Daily -> (stochastics, dailyIndices)
+        _ -> (weeklyStochastics, weeklyIndices)
+    valueGroups = groupElements 2 $
+        map (stochasticFunction lineSpec) $
+        timeFunction priceData
+    numElements = length indices
+    indices = indicesFunction priceData
 
-createLineSegment :: Color3 GLfloat -> [[Float]] -> Int -> [GLfloat]
-createLineSegment color valueGroups index =
-    [leftX, leftY] ++ colorList ++ [rightX, rightY] ++ colorList
+createLineSegment :: Color3 GLfloat -> [[Float]] -> Int -> Int -> [GLfloat]
+createLineSegment color valueGroups numElements index
+  | index >= length valueGroups = []
+  | otherwise = [leftX, leftY] ++ colorList ++ [rightX, rightY] ++ colorList
   where
     colorList = color3ToList color
     totalWidth = 2
-    segmentWidth = realToFrac totalWidth / realToFrac (length valueGroups)
+    segmentWidth = realToFrac totalWidth / realToFrac numElements
     rightX = totalWidth / 2 - realToFrac index * segmentWidth
     leftX = rightX - segmentWidth
 

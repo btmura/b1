@@ -17,6 +17,7 @@ import System.IO
 import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Symbol
+import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 
 data StockData = StockData (MVar (Either StockPriceData String))
@@ -26,6 +27,11 @@ data StockPriceData = StockPriceData
   , stochastics :: [Stochastic]
   , weeklyPrices :: [Price]
   , weeklyStochastics :: [Stochastic]
+  , movingAverage25 :: [MovingAverage]
+  , movingAverage50 :: [MovingAverage]
+  , movingAverage200 :: [MovingAverage]
+  , dailyIndices :: [Int]
+  , weeklyIndices :: [Int]
   }
 
 newStockData :: Symbol -> IO StockData
@@ -58,28 +64,26 @@ getEndDate = do
 createStockPriceData :: [Price] -> StockPriceData
 createStockPriceData prices = 
   StockPriceData
-    { prices = finalPrices
-    , stochastics = finalStochastics
-    , weeklyPrices =  trimmedWeeklyPrices
-    , weeklyStochastics = trimmedWeeklyStochastics
+    { prices = prices
+    , stochastics = stochastics
+    , weeklyPrices = weeklyPrices
+    , weeklyStochastics = weeklyStochastics
+    , movingAverage25 = movingAverage25
+    , movingAverage50 = movingAverage50
+    , movingAverage200 = movingAverage200
+    , dailyIndices = [0 .. length prices - 1]
+    , weeklyIndices = [0 .. length weeklyPrices - 1]
     }
   where
     stochasticsFunction = getStochastics 10 3
     stochastics = stochasticsFunction prices
+
     weeklyPrices = getWeeklyPrices prices
     weeklyStochastics = stochasticsFunction weeklyPrices
 
-    dailyLength = min (length prices) (length stochastics)
-    trimmedPrices = take dailyLength prices
-    trimmedStochastics = take dailyLength stochastics 
-
-    weeklyLength = min (length weeklyPrices) (length weeklyStochastics)
-    trimmedWeeklyPrices = take weeklyLength weeklyPrices
-    trimmedWeeklyStochastics = take weeklyLength weeklyStochastics
-
-    weeklyStartTime = (startTime . last) trimmedWeeklyPrices
-    finalPrices = takeWhile ((>= weeklyStartTime) . startTime) trimmedPrices
-    finalStochastics = take (length finalPrices) stochastics
+    movingAverage25 = getMovingAverage 25 prices
+    movingAverage50 = getMovingAverage 50 prices
+    movingAverage200 = getMovingAverage 200 prices
 
 getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
 getStockPriceData (StockData pricesMVar) = do
