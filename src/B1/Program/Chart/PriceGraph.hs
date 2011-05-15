@@ -10,8 +10,10 @@ module B1.Program.Chart.PriceGraph
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
+import B1.Data.List
 import B1.Data.Price
 import B1.Data.Range
+import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
@@ -126,14 +128,40 @@ createGraphVbo priceData = do
 getGraphLineVertices :: StockPriceData -> [GLfloat]
 getGraphLineVertices priceData =
   concat $ priceLines
+      ++ movingAverage25Lines
+      ++ movingAverage50Lines
+      ++ movingAverage200Lines
   where
-    stockPrices = prices priceData
+    priceRange = getPriceRange priceData
     colors = getStochasticColors $ stochastics priceData
-    lineFunction = createLine stockPrices colors
-    priceLines = map lineFunction $ dailyIndices priceData
+    indices = dailyIndices priceData
+    numElements = length indices
 
-createLine :: [Price] -> [Color3 GLfloat] -> Int -> [GLfloat]
-createLine prices colors index =
+    priceLines = map (createCandlestick priceRange
+        (prices priceData) colors numElements) indices
+    movingAverage25Lines = map (createMovingAverageLine priceRange
+        (movingAverage25 priceData) purple3 numElements) indices
+    movingAverage50Lines = map (createMovingAverageLine priceRange
+        (movingAverage50 priceData) yellow3 numElements) indices
+    movingAverage200Lines = map (createMovingAverageLine priceRange
+        (movingAverage200 priceData) white3 numElements) indices
+
+getPriceRange :: StockPriceData -> (Float, Float)
+getPriceRange priceData = (minimum allPrices, maximum allPrices)
+  where
+    highPrices = map high $ prices priceData
+    lowPrices = map low $ prices priceData
+    allPrices = concat
+        [ lowPrices
+        , highPrices
+        , movingAverage25 priceData
+        , movingAverage50 priceData
+        , movingAverage200 priceData
+        ] 
+
+createCandlestick :: (Float, Float) -> [Price] -> [Color3 GLfloat]
+    -> Int -> Int -> [GLfloat]
+createCandlestick priceRange prices colors numElements index =
   [centerX, lowY] ++ colorList
       ++ [centerX, highY] ++ colorList
       ++ [leftX, openY] ++ colorList
@@ -144,31 +172,50 @@ createLine prices colors index =
     colorList = color3ToList $
         if index < length colors
           then colors !! index
-          else if getPriceChange prices index >= 0 then green3 else red3
-   
-    totalWidth = 2
-    barWidth = realToFrac totalWidth / realToFrac (length prices)
-    halfBarWidth = barWidth / 2
+          else
+            if getPriceChange prices index >= 0
+              then green3
+              else red3
 
+    (leftX, centerX, rightX) = getXValues numElements index
+
+    price = prices !! index
+    lowY = getY priceRange $ low price
+    highY = getY priceRange $ high price
+    openY = getY priceRange $ open price
+    closeY = getY priceRange $ close price
+
+createMovingAverageLine :: (Float, Float) -> [MovingAverage] -> Color3 GLfloat
+    -> Int -> Int -> [GLfloat]
+createMovingAverageLine priceRange movingAverages color numElements index
+  | index >= length valueGroups = []
+  | otherwise = [leftX, leftY] ++ colorList
+      ++ [rightX, rightY] ++ colorList
+  where
+    colorList = color3ToList color
+    (leftX, _, rightX) = getXValues numElements index
+    valueGroups = groupElements 2 movingAverages
+    (rightValue:leftValue:_) = valueGroups !! index
+    leftY = getY priceRange leftValue
+    rightY = getY priceRange rightValue
+
+getXValues :: Int -> Int -> (GLfloat, GLfloat, GLfloat)
+getXValues numElements index = (leftX, centerX, rightX)
+  where
+    totalWidth = 2
+    barWidth = realToFrac totalWidth / realToFrac numElements
+    halfBarWidth = barWidth / 2
     centerX = totalWidth / 2 - halfBarWidth - realToFrac index * barWidth
     leftX = centerX - halfBarWidth
     rightX = centerX + halfBarWidth
 
-    price = prices !! index
-    lowY = getY prices $ low price
-    highY = getY prices $ high price
-    openY = getY prices $ open price
-    closeY = getY prices $ close price
-
-getY :: [Price] -> Float -> GLfloat
-getY prices value = y
+getY :: (Float, Float) -> Float -> GLfloat
+getY (minPrice, maxPrice) value = y
   where
-    maxPrice = maximum $ map high prices
-    minPrice = minimum $ map low prices
+    range = value - minPrice
     totalRange = maxPrice - minPrice
 
     totalHeight = 2
-    range = value - minPrice
     heightPercentage = range / totalRange
     height = totalHeight * realToFrac heightPercentage
 
