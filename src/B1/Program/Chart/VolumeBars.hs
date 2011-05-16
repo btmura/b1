@@ -113,12 +113,7 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createVolumeBarsVbo :: StockPriceData -> IO Vbo
-createVolumeBarsVbo priceData = do
-  bufferObject <- createBufferObject vertices
-  return $ VertexVbo bufferObject Quads numElements
-  where
-    vertices = getVolumeBarQuads priceData
-    numElements = length vertices `div` 5
+createVolumeBarsVbo priceData = createVbo Quads $ getVolumeBarQuads priceData
 
 getVolumeBarQuads :: StockPriceData -> [GLfloat]
 getVolumeBarQuads priceData =

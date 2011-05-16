@@ -129,12 +129,8 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createStochasticLinesVbo :: [StochasticLineSpec] -> StockPriceData -> IO Vbo
-createStochasticLinesVbo lineSpecs priceData = do
-  bufferObject <- createBufferObject vertices
-  return $ VertexVbo bufferObject Lines numElements
-  where
-    vertices = getStochasticLines lineSpecs priceData
-    numElements = length vertices `div` 5
+createStochasticLinesVbo lineSpecs priceData =
+  createVbo Lines $ getStochasticLines lineSpecs priceData
 
 getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> [GLfloat]
 getStochasticLines lineSpecs priceData =

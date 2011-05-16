@@ -119,11 +119,7 @@ renderPriceData
 
 createGraphVbo :: StockPriceData -> IO Vbo
 createGraphVbo priceData = do
-  bufferObject <- createBufferObject vertices
-  return $ VertexVbo bufferObject Lines numElements
-  where
-    vertices = getGraphLineVertices priceData
-    numElements = length vertices `div` 5
+  createVbo Lines $ getGraphLineVertices priceData
 
 getGraphLineVertices :: StockPriceData -> [GLfloat]
 getGraphLineVertices priceData =

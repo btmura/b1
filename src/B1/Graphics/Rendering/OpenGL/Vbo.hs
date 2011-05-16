@@ -1,6 +1,6 @@
 module B1.Graphics.Rendering.OpenGL.Vbo
-  ( Vbo(..)
-  , createBufferObject
+  ( Vbo
+  , createVbo
   , renderVbo
   , deleteVbo
   ) where
@@ -12,29 +12,30 @@ import Graphics.Rendering.OpenGL
 
 type NumElements = Int
 
-data Vbo = VertexVbo BufferObject PrimitiveMode NumElements
+data Vbo = Vbo BufferObject PrimitiveMode NumElements
 
-createBufferObject :: Storable a => [a] -> IO BufferObject
-createBufferObject elements = do
-  [vbo] <- genObjectNames 1
-  bindBuffer ArrayBuffer $= Just vbo
+createVbo :: Storable a => PrimitiveMode -> [a] -> IO Vbo
+createVbo primitiveMode elements = do
+  [bufferObject] <- genObjectNames 1
+  bindBuffer ArrayBuffer $= Just bufferObject
   array <- newListArray (0, length elements - 1) elements
   withStorableArray array (\ptr ->
       bufferData ArrayBuffer $= (ptrsize elements, ptr, StaticDraw))
   bindBuffer ArrayBuffer $= Nothing
-  putStrLn $ "Created VBO: " ++ show vbo
-  return vbo
+  putStrLn $ "Created VBO: " ++ show bufferObject
+  return $ Vbo bufferObject primitiveMode numElements
   where
     ptrsize [] = toEnum 0
     ptrsize (x:xs) = toEnum $ length elements * (sizeOf x)
+    numElements = length elements `div` 5
 
 deleteVbo :: Vbo -> IO ()
-deleteVbo (VertexVbo bufferObject _ _) = do
+deleteVbo (Vbo bufferObject _ _) = do
   putStrLn $ "Deleting VBO: " ++ show bufferObject
   deleteObjectNames [bufferObject]
 
 renderVbo :: Vbo -> IO Vbo
-renderVbo vbo@(VertexVbo bufferObject primitiveMode numElements) = do
+renderVbo vbo@(Vbo bufferObject primitiveMode numElements) = do
   bindBuffer ArrayBuffer $= Just bufferObject
   arrayPointer VertexArray $= vertexArrayDescriptor
   arrayPointer ColorArray $= colorArrayDescriptor
