@@ -134,7 +134,7 @@ getGraphLineVertices priceData =
   where
     priceRange = getPriceRange priceData
     colors = getStochasticColors $ stochastics priceData
-    indices = dailyIndices priceData
+    indices = [0 .. numDailyElements priceData - 1]
     numElements = length indices
 
     priceLines = map (createCandlestick priceRange
@@ -149,14 +149,16 @@ getGraphLineVertices priceData =
 getPriceRange :: StockPriceData -> (Float, Float)
 getPriceRange priceData = (minimum allPrices, maximum allPrices)
   where
-    highPrices = map high $ prices priceData
-    lowPrices = map low $ prices priceData
+    numElements = numDailyElements priceData
+    takeElements = take numElements
+    highPrices = map high $ takeElements $ prices priceData
+    lowPrices = map low $ takeElements $ prices priceData
     allPrices = concat
         [ lowPrices
         , highPrices
-        , movingAverage25 priceData
-        , movingAverage50 priceData
-        , movingAverage200 priceData
+        , takeElements $ movingAverage25 priceData
+        , takeElements $ movingAverage50 priceData
+        , takeElements $ movingAverage200 priceData
         ] 
 
 createCandlestick :: (Float, Float) -> [Price] -> [Color3 GLfloat]

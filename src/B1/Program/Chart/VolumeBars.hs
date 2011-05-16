@@ -122,13 +122,14 @@ createVolumeBarsVbo priceData = do
 
 getVolumeBarQuads :: StockPriceData -> [GLfloat]
 getVolumeBarQuads priceData =
-  concat $ map (createQuad stockPrices) indices
+  concat $ map (createQuad stockPrices numElements) indices
   where
     stockPrices = prices priceData
-    indices = dailyIndices priceData
+    numElements = numDailyElements priceData
+    indices = [0 .. numElements - 1]
 
-createQuad :: [Price] -> Int -> [GLfloat]
-createQuad prices index =
+createQuad :: [Price] -> Int -> Int -> [GLfloat]
+createQuad prices numElements index =
   [leftX, -1] ++ colorList
       ++ [leftX, topY] ++ colorList
       ++ [rightX, topY] ++ colorList
@@ -140,7 +141,7 @@ createQuad prices index =
           else red3
 
     totalWidth = 2
-    barWidth = realToFrac totalWidth / realToFrac (length prices)
+    barWidth = realToFrac totalWidth / realToFrac numElements
     spacing = barWidth / 3
     rightX = totalWidth / 2 - realToFrac index * barWidth - spacing
     leftX = rightX - barWidth + spacing

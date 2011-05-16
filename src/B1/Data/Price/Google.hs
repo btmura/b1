@@ -27,8 +27,8 @@ getGooglePrices startDate endDate symbol = pricesOrError
     formattedEndDate = formatDate endDate
 
     url = "http://www.google.com/finance/historical?output=csv&q=" ++ symbol
-        ++ "&startDate=" ++ formattedStartDate
-        ++ "&endDate=" ++ formattedEndDate
+        ++ "&startdate=" ++ formattedStartDate
+        ++ "&enddate=" ++ formattedEndDate
 
     pricesOrError = do
       exceptionOrResult <- try $ simpleHTTP (getRequest url)

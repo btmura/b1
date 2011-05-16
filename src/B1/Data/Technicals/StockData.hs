@@ -30,8 +30,8 @@ data StockPriceData = StockPriceData
   , movingAverage25 :: [MovingAverage]
   , movingAverage50 :: [MovingAverage]
   , movingAverage200 :: [MovingAverage]
-  , dailyIndices :: [Int]
-  , weeklyIndices :: [Int]
+  , numDailyElements :: Int
+  , numWeeklyElements :: Int
   }
 
 newStockData :: Symbol -> IO StockData
@@ -48,9 +48,13 @@ newStockData symbol = do
 getStartDate :: IO LocalTime
 getStartDate = do
   endDate <- getEndDate
-  let yearAgo = addGregorianYearsClip (-3) (localDay endDate)
+  let startDay = (addDays (-13)
+          . addDays (-200)
+          . addGregorianYearsClip (-1)
+          . localDay
+          ) endDate
   return endDate
-    { localDay = yearAgo
+    { localDay = startDay
     , localTimeOfDay = midnight
     }
 
@@ -71,19 +75,47 @@ createStockPriceData prices =
     , movingAverage25 = movingAverage25
     , movingAverage50 = movingAverage50
     , movingAverage200 = movingAverage200
-    , dailyIndices = [0 .. length prices - 1]
-    , weeklyIndices = [0 .. length weeklyPrices - 1]
+    , numDailyElements = numDailyElements
+    , numWeeklyElements = numWeeklyElements
     }
   where
     stochasticsFunction = getStochastics 10 3
     stochastics = stochasticsFunction prices
 
-    weeklyPrices = getWeeklyPrices prices
-    weeklyStochastics = stochasticsFunction weeklyPrices
-
     movingAverage25 = getMovingAverage 25 prices
     movingAverage50 = getMovingAverage 50 prices
     movingAverage200 = getMovingAverage 200 prices
+
+    weeklyPrices = getWeeklyPrices prices
+    weeklyStochastics = stochasticsFunction weeklyPrices
+
+    maxDailyElements = minimum
+        [ length prices
+        , length stochastics
+        , length movingAverage25
+        , length movingAverage50
+        , length movingAverage200
+        ]
+
+    maxWeeklyElements = minimum
+        [ length weeklyPrices
+        , length weeklyStochastics
+        ]
+   
+    earliestStartTime = (startTime
+        . last
+        . take maxWeeklyElements
+        ) weeklyPrices
+
+    numDailyElements = (length
+        . takeWhile ((>= earliestStartTime) . startTime)
+        . take maxDailyElements
+        ) prices
+
+    numWeeklyElements = (length
+        . takeWhile ((>= earliestStartTime) . startTime) 
+        . take maxWeeklyElements
+        ) weeklyPrices
 
 getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
 getStockPriceData (StockData pricesMVar) = do
