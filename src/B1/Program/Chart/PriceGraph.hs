@@ -19,13 +19,13 @@ import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
-import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
+import B1.Program.Chart.Vbo
 
 data PriceGraphInput = PriceGraphInput
   { bounds :: Box
@@ -119,7 +119,33 @@ renderPriceData
 
 createGraphVbo :: StockPriceData -> IO Vbo
 createGraphVbo priceData = do
-  createVbo Lines $ getGraphLineVertices priceData
+  putStrLn $ "Price graph size: " ++ show size
+  createVbo Lines size elements
+  where
+    size = getTotalSize priceData
+    elements = getGraphLineVertices priceData
+
+getTotalSize :: StockPriceData -> Int
+getTotalSize priceData = sum
+    [ getCandlesticksSize priceData
+    , getLineSize $ movingAverage25 priceData
+    , getLineSize $ movingAverage50 priceData
+    , getLineSize $ movingAverage200 priceData
+    ]
+
+getCandlesticksSize :: StockPriceData -> Int
+getCandlesticksSize priceData = size
+  where
+    numElements = numDailyElements priceData
+    numLines = 3 * numElements
+    size = numLines * (2 * (2 + 3))
+
+getLineSize :: [a] -> Int
+getLineSize list = size
+  where
+    numElements = length list
+    numLines = if numElements <= 1 then 0 else numElements - 1
+    size = numLines * (2 * (2 + 3))
 
 getGraphLineVertices :: StockPriceData -> [GLfloat]
 getGraphLineVertices priceData =

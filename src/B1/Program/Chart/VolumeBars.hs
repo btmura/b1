@@ -15,12 +15,12 @@ import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
-import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
+import B1.Program.Chart.Vbo
 
 data VolumeBarsInput = VolumeBarsInput
   { bounds :: Box
@@ -93,7 +93,7 @@ renderPriceData
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
     currentProgram $= Just program
     setAlpha program finalAlpha
-    renderVbo vbo
+    rendered <- renderVbo vbo
     currentProgram $= Nothing
 
   return VolumeBarsOutput
@@ -113,10 +113,21 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createVolumeBarsVbo :: StockPriceData -> IO Vbo
-createVolumeBarsVbo priceData = createVbo Quads $ getVolumeBarQuads priceData
+createVolumeBarsVbo priceData = do
+  putStrLn $ "Volume bars size: " ++ show size
+  createVbo Quads size elements
+  where
+    size = getSize priceData
+    elements = getVolumeBars priceData
 
-getVolumeBarQuads :: StockPriceData -> [GLfloat]
-getVolumeBarQuads priceData =
+getSize :: StockPriceData -> Int
+getSize priceData = size
+  where
+    numElements = numDailyElements priceData
+    size = numElements * (4 * (2 + 3))
+
+getVolumeBars :: StockPriceData -> [GLfloat]
+getVolumeBars priceData =
   concat $ map (createQuad stockPrices numElements) indices
   where
     stockPrices = prices priceData

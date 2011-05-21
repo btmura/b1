@@ -19,12 +19,12 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
-import B1.Graphics.Rendering.OpenGL.Vbo
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
+import B1.Program.Chart.Vbo
 
 data StochasticLinesInput = StochasticLinesInput
   { bounds :: Box
@@ -129,8 +129,26 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createStochasticLinesVbo :: [StochasticLineSpec] -> StockPriceData -> IO Vbo
-createStochasticLinesVbo lineSpecs priceData =
-  createVbo Lines $ getStochasticLines lineSpecs priceData
+createStochasticLinesVbo lineSpecs priceData = do
+  putStrLn $ "Stochastic lines size: " ++ show size
+  createVbo Lines size elements
+  where
+    size = getTotalSize lineSpecs priceData
+    elements = getStochasticLines lineSpecs priceData
+
+getTotalSize :: [StochasticLineSpec] -> StockPriceData -> Int
+getTotalSize lineSpecs priceData = 
+  sum $ map (getSize priceData) lineSpecs
+
+getSize :: StockPriceData -> StochasticLineSpec -> Int
+getSize priceData lineSpec = size
+  where
+    numElementsFunction = case timeSpec lineSpec of
+        Daily -> numDailyElements
+        _ -> numWeeklyElements
+    numElements = numElementsFunction priceData
+    numLines = if numElements <= 1 then 0 else numElements - 1
+    size = numLines * (2 * (2 + 3))
 
 getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> [GLfloat]
 getStochasticLines lineSpecs priceData =
