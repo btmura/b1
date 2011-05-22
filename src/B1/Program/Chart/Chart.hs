@@ -157,7 +157,12 @@ drawChart resources
   preservingMatrix $ do
     let subBounds = graphNumbersBounds boundsSet
     translateToCenter bounds subBounds
-    drawGraphNumbers resources alpha stockData subBounds
+    drawGraphNumbers resources alpha GN.Prices stockData subBounds
+
+  preservingMatrix $ do
+    let subBounds = volumeBarNumbersBounds boundsSet
+    translateToCenter bounds subBounds
+    drawGraphNumbers resources alpha GN.Volume stockData subBounds
 
   preservingMatrix $ do
     let subBounds = stochasticNumbersBounds boundsSet
@@ -215,6 +220,7 @@ data Bounds = Bounds
   { graphBounds :: Box
   , graphNumbersBounds :: Box
   , volumeBarsBounds :: Box
+  , volumeBarNumbersBounds :: Box
   , stochasticsBounds :: Box
   , stochasticNumbersBounds :: Box
   , weeklyStochasticsBounds :: Box
@@ -223,10 +229,12 @@ data Bounds = Bounds
 
 getBounds :: Resources -> Box -> GLfloat -> StockData -> IO Bounds
 getBounds resources bounds headerHeight stockData = do
-  graphNumbersWidth <- GN.getPreferredWidth resources stockData
+  graphNumbersWidth <- GN.getPreferredWidth resources GN.Prices stockData
+  volumeBarNumbersWidth <- GN.getPreferredWidth resources GN.Volume stockData
   stochasticNumbersWidth <- SN.getPreferredWidth resources
   let minNumbersWidth = maximum
         [ graphNumbersWidth
+        , volumeBarNumbersWidth
         , stochasticNumbersWidth
         ]
       numbersLeft = right - minNumbersWidth
@@ -248,6 +256,9 @@ getBounds resources bounds headerHeight stockData = do
 
       volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
           (numbersLeft, boxBottom priceGraphBounds - volumeBarsHeight)
+      volumeBarNumbersBounds = Box
+          (numbersLeft, boxTop volumeBarsBounds)
+          (right, boxBottom volumeBarsBounds)
 
       stochasticsBounds = Box
           (left, boxBottom volumeBarsBounds)
@@ -267,6 +278,7 @@ getBounds resources bounds headerHeight stockData = do
     { graphBounds = priceGraphBounds
     , graphNumbersBounds = graphNumbersBounds
     , volumeBarsBounds = volumeBarsBounds
+    , volumeBarNumbersBounds = volumeBarNumbersBounds
     , stochasticsBounds = stochasticsBounds
     , stochasticNumbersBounds = stochasticNumbersBounds
     , weeklyStochasticsBounds = weeklyStochasticsBounds
@@ -339,12 +351,14 @@ drawStochasticLines resources alpha stockData stochasticsState bounds = do
         } = stochasticsOutput
   return (outputStochasticsState, isStochasticsDirty)
 
-drawGraphNumbers :: Resources -> GLfloat -> StockData -> Box -> IO ()
-drawGraphNumbers resources alpha stockData bounds = do
+drawGraphNumbers :: Resources -> GLfloat -> GN.GraphNumbersType -> StockData
+    -> Box -> IO ()
+drawGraphNumbers resources alpha numbersType stockData bounds = do
   let numbersInput = GN.GraphNumbersInput
         { GN.bounds = bounds
         , GN.alpha = alpha
         , GN.stockData = stockData
+        , GN.numbersType = numbersType
         }
   GN.drawGraphNumbers resources numbersInput
 
