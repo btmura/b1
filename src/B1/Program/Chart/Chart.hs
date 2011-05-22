@@ -27,6 +27,7 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
+import qualified B1.Program.Chart.GraphNumbers as GN
 import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.PriceGraph as P
 import qualified B1.Program.Chart.StochasticLines as S
@@ -129,7 +130,7 @@ drawChart resources
       } = do
   (newHeaderState, headerDirty, addedSymbol, headerHeight)
       <- drawHeader resources alpha symbol stockData headerState bounds
-  boundsSet <- getBounds resources bounds headerHeight
+  boundsSet <- getBounds resources bounds headerHeight stockData
 
   (newPriceGraphState, priceGraphDirty) <- preservingMatrix $ do
     let subBounds = graphBounds boundsSet
@@ -152,6 +153,11 @@ drawChart resources
     translateToCenter bounds subBounds
     drawStochasticLines resources alpha stockData
         weeklyStochasticsState subBounds
+
+  preservingMatrix $ do
+    let subBounds = graphNumbersBounds boundsSet
+    translateToCenter bounds subBounds
+    drawGraphNumbers resources alpha stockData subBounds
 
   preservingMatrix $ do
     let subBounds = stochasticNumbersBounds boundsSet
@@ -207,6 +213,7 @@ drawHeader resources alpha symbol stockData headerState bounds = do
 
 data Bounds = Bounds
   { graphBounds :: Box
+  , graphNumbersBounds :: Box
   , volumeBarsBounds :: Box
   , stochasticsBounds :: Box
   , stochasticNumbersBounds :: Box
@@ -214,11 +221,13 @@ data Bounds = Bounds
   , weeklyStochasticNumbersBounds :: Box
   }
 
-getBounds :: Resources -> Box -> GLfloat -> IO Bounds
-getBounds resources bounds headerHeight = do
+getBounds :: Resources -> Box -> GLfloat -> StockData -> IO Bounds
+getBounds resources bounds headerHeight stockData = do
+  graphNumbersWidth <- GN.getPreferredWidth resources stockData
   stochasticNumbersWidth <- SN.getPreferredWidth resources
   let minNumbersWidth = maximum
-        [ stochasticNumbersWidth
+        [ graphNumbersWidth
+        , stochasticNumbersWidth
         ]
       numbersLeft = right - minNumbersWidth
 
@@ -233,6 +242,10 @@ getBounds resources bounds headerHeight = do
 
       priceGraphBounds = Box (left, top - headerHeight)
           (numbersLeft, top - headerHeight - priceGraphHeight)
+      graphNumbersBounds = Box
+          (numbersLeft, boxTop priceGraphBounds)
+          (right, boxBottom priceGraphBounds)
+
       volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
           (numbersLeft, boxBottom priceGraphBounds - volumeBarsHeight)
 
@@ -252,6 +265,7 @@ getBounds resources bounds headerHeight = do
 
   return Bounds
     { graphBounds = priceGraphBounds
+    , graphNumbersBounds = graphNumbersBounds
     , volumeBarsBounds = volumeBarsBounds
     , stochasticsBounds = stochasticsBounds
     , stochasticNumbersBounds = stochasticNumbersBounds
@@ -324,6 +338,15 @@ drawStochasticLines resources alpha stockData stochasticsState bounds = do
         , S.isDirty = isStochasticsDirty
         } = stochasticsOutput
   return (outputStochasticsState, isStochasticsDirty)
+
+drawGraphNumbers :: Resources -> GLfloat -> StockData -> Box -> IO ()
+drawGraphNumbers resources alpha stockData bounds = do
+  let numbersInput = GN.GraphNumbersInput
+        { GN.bounds = bounds
+        , GN.alpha = alpha
+        , GN.stockData = stockData
+        }
+  GN.drawGraphNumbers resources numbersInput
 
 drawStochasticNumbers :: Resources -> GLfloat -> Box -> IO ()
 drawStochasticNumbers resources alpha bounds = do

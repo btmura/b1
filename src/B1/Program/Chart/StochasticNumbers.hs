@@ -17,7 +17,7 @@ data StochasticNumbersInput = StochasticNumbersInput
   , alpha :: GLfloat
   }
 
-padding = 10
+padding = 5
 
 getTextSpec :: Resources -> String -> TextSpec
 getTextSpec resources = TextSpec (font resources) 10
