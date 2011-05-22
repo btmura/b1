@@ -30,7 +30,7 @@ boxCenter box@(Box (left, top) _) = (centerX, centerY)
     centerX = left + boxWidth box / 2
     centerY = top - boxHeight box / 2
 
--- TODO: Rename to boxContaintsPoint
+-- TODO: Rename to boxContainsPoint
 boxContains :: Box -> Point -> Bool
 boxContains (Box (left, top) (right, bottom)) (x, y) =
   x >= left && x <= right && y <= top && y >= bottom
@@ -43,9 +43,8 @@ boxContainsBox (Box (parentLeft, parentTop) (parentRight, parentBottom))
       && parentTop >= childTop
       && parentBottom <= childBottom
 
--- TODO: Make shrink factor the first argument.
-boxShrink :: Box -> GLfloat -> Box
-boxShrink (Box (left, top) (right, bottom)) shrink =
+boxShrink :: GLfloat -> Box -> Box
+boxShrink shrink (Box (left, top) (right, bottom)) =
   Box (left + shrink, top - shrink) (right - shrink, bottom + shrink)
 
 boxLeft :: Box -> GLfloat

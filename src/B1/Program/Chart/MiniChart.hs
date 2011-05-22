@@ -167,7 +167,7 @@ drawMiniChart resources
     cornerRadius = 5
     cornerVertices = 5
     padding = 5
-    paddedBox = boxShrink bounds padding
+    paddedBox = boxShrink padding bounds 
     finalColor
       | isBeingDragged = gray alpha
       | otherwise = outlineColor resources paddedBox alpha

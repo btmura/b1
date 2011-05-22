@@ -1,5 +1,6 @@
 module B1.Graphics.Rendering.OpenGL.Shapes
   ( drawHorizontalRule
+  , drawVerticalRule
   , drawRoundedRectangle
   , fillRoundedRectangle
   , drawSquarePlaceholder
@@ -88,4 +89,11 @@ drawHorizontalRule width =
   renderPrimitive Lines $ do
     vertex $ vertex2 (-width / 2) 0
     vertex $ vertex2 (width / 2) 0
+
+-- | Draws a vertical rule of height around (0, 0).
+drawVerticalRule :: GLfloat -> IO ()
+drawVerticalRule height =
+  renderPrimitive Lines $ do
+    vertex $ vertex2 0 (-height / 2)
+    vertex $ vertex2 0 (height / 2)
 

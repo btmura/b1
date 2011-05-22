@@ -77,13 +77,13 @@ newFrameState = FrameState
   }
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
-incomingScaleAnimation = animateOnce $ linearRange 1.5 1 20
+incomingScaleAnimation = animateOnce $ linearRange 1.25 1 20
 
 incomingAlphaAnimation :: Animation (GLfloat, Dirty)
 incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
 
 outgoingScaleAnimation :: Animation (GLfloat, Dirty)
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.2 20
+outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
 
 outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
@@ -327,7 +327,7 @@ drawFrame resources bounds
         bounds content alphaAmount
     return (Just frame { content = nextContent }, isDirty, addedSymbol)
   where
-    paddedBounds = boxShrink bounds contentPadding
+    paddedBounds = boxShrink contentPadding bounds
     scaleAmount = fst . current $ scaleAnimation
     alphaAmount = fst . current $ alphaAnimation
 
@@ -355,7 +355,7 @@ drawFrameContent resources bounds (Chart symbol state) alpha = do
       C.addedSymbol output)
   where
     input = C.ChartInput
-      { C.bounds = boxShrink bounds contentPadding
+      { C.bounds = boxShrink contentPadding bounds
       , C.alpha = alpha
       , C.symbol = symbol
       , C.inputState = state
