@@ -20,7 +20,7 @@ data StochasticNumbersInput = StochasticNumbersInput
 padding = 5
 
 getTextSpec :: Resources -> String -> TextSpec
-getTextSpec resources = TextSpec (font resources) 10
+getTextSpec resources = TextSpec (monoFont resources) 12
 
 getPreferredWidth :: Resources -> IO GLfloat
 getPreferredWidth resources = do

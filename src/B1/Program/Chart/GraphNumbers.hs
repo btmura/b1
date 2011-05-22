@@ -25,7 +25,7 @@ format = "%0.2f"
 padding = 5
 
 getTextSpec :: Resources -> String -> TextSpec
-getTextSpec resources = TextSpec (font resources) 10
+getTextSpec resources = TextSpec (monoFont resources) 12
 
 getPreferredWidth :: Resources -> StockData -> IO GLfloat
 getPreferredWidth resources stockData = do
