@@ -1,10 +1,10 @@
-module B1.Program.Chart.PriceGraph
-  ( PriceGraphInput(..)
-  , PriceGraphOutput(..)
-  , PriceGraphState
-  , drawPriceGraph
-  , newPriceGraphState
-  , cleanPriceGraphState
+module B1.Program.Chart.Graph
+  ( GraphInput(..)
+  , GraphOutput(..)
+  , GraphState
+  , drawGraph
+  , newGraphState
+  , cleanGraphState
   ) where
 
 import Data.Maybe
@@ -27,19 +27,19 @@ import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
 
-data PriceGraphInput = PriceGraphInput
+data GraphInput = GraphInput
   { bounds :: Box
   , alpha :: GLfloat
   , stockData :: StockData
-  , inputState :: PriceGraphState
+  , inputState :: GraphState
   }
 
-data PriceGraphOutput = PriceGraphOutput
-  { outputState :: PriceGraphState
+data GraphOutput = GraphOutput
+  { outputState :: GraphState
   , isDirty :: Dirty
   }
 
-data PriceGraphState = PriceGraphState
+data GraphState = GraphState
   { maybeVbo :: Maybe Vbo
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , dataStatus :: DataStatus
@@ -47,25 +47,25 @@ data PriceGraphState = PriceGraphState
 
 data DataStatus = Loading | Received
 
-newPriceGraphState :: PriceGraphState
-newPriceGraphState =
-  PriceGraphState
+newGraphState :: GraphState
+newGraphState =
+  GraphState
     { maybeVbo = Nothing
     , alphaAnimation = animateOnce $ linearRange 0 0 1
     , dataStatus = Loading
     }
 
-cleanPriceGraphState :: PriceGraphState -> IO PriceGraphState
-cleanPriceGraphState state@PriceGraphState { maybeVbo = maybeVbo } =
+cleanGraphState :: GraphState -> IO GraphState
+cleanGraphState state@GraphState { maybeVbo = maybeVbo } =
   case maybeVbo of
     Just vbo -> do
       deleteVbo vbo
       return state { maybeVbo = Nothing }
     _ -> return state
 
-drawPriceGraph :: Resources -> PriceGraphInput -> IO PriceGraphOutput
-drawPriceGraph resources
-    input@PriceGraphInput
+drawGraph :: Resources -> GraphInput -> IO GraphOutput
+drawGraph resources
+    input@GraphInput
       { stockData = stockData
       , inputState = state
       } = do
@@ -77,14 +77,14 @@ drawPriceGraph resources
           priceDataOrError
     _ -> renderNothing state
 
-renderPriceData :: Resources -> PriceGraphInput -> StockPriceData
-    -> IO PriceGraphOutput
+renderPriceData :: Resources -> GraphInput -> StockPriceData
+    -> IO GraphOutput
 renderPriceData
     Resources { program = program }
-    input@PriceGraphInput
+    input@GraphInput
       { bounds = bounds
       , alpha = alpha
-      , inputState = state@PriceGraphState
+      , inputState = state@GraphState
         { maybeVbo = maybeVbo
         , alphaAnimation = alphaAnimation
         , dataStatus = dataStatus
@@ -101,7 +101,7 @@ renderPriceData
     renderVbo vbo
     currentProgram $= Nothing
 
-  return PriceGraphOutput
+  return GraphOutput
     { outputState = state
       { maybeVbo = Just vbo
       , alphaAnimation = nextAlphaAnimation
@@ -245,16 +245,16 @@ getY (minPrice, maxPrice) value = y
 
     y = -(totalHeight / 2) + height
 
-renderError :: PriceGraphState -> String -> IO PriceGraphOutput
+renderError :: GraphState -> String -> IO GraphOutput
 renderError state errorMessage = 
-  return PriceGraphOutput
+  return GraphOutput
     { outputState = state
     , isDirty = False
     }
 
-renderNothing :: PriceGraphState -> IO PriceGraphOutput
+renderNothing :: GraphState -> IO GraphOutput
 renderNothing state =
-  return PriceGraphOutput
+  return GraphOutput
     { outputState = state
     , isDirty = False
     }

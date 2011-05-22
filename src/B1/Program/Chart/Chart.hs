@@ -27,9 +27,9 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
+import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.GraphNumbers as GN
 import qualified B1.Program.Chart.Header as H
-import qualified B1.Program.Chart.PriceGraph as P
 import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.StochasticNumbers as SN
 import qualified B1.Program.Chart.VolumeBars as V
@@ -50,7 +50,7 @@ data ChartOutput = ChartOutput
 data ChartState = ChartState
   { stockData :: StockData
   , headerState :: H.HeaderState
-  , priceGraphState :: P.PriceGraphState
+  , graphState :: G.GraphState
   , volumeBarsState :: V.VolumeBarsState
   , stochasticsState :: S.StochasticLinesState
   , weeklyStochasticsState :: S.StochasticLinesState
@@ -59,18 +59,18 @@ data ChartState = ChartState
 cleanChartState :: ChartState -> IO ChartState
 cleanChartState
     state@ChartState
-      { priceGraphState = priceGraphState
+      { graphState = graphState
       , volumeBarsState = volumeBarsState
       , stochasticsState = stochasticsState
       , weeklyStochasticsState = weeklyStochasticsState
       } = do
-  newPriceGraphState <- P.cleanPriceGraphState priceGraphState
+  newGraphState <- G.cleanGraphState graphState
   newVolumeBarsState <- V.cleanVolumeBarsState volumeBarsState
   newStochasticsState <- S.cleanStochasticLinesState stochasticsState
   newWeeklyStochasticsState <- S.cleanStochasticLinesState
       weeklyStochasticsState
   return state
-    { priceGraphState = newPriceGraphState
+    { graphState = newGraphState
     , volumeBarsState = newVolumeBarsState
     , stochasticsState = newStochasticsState
     , weeklyStochasticsState = newStochasticsState
@@ -82,7 +82,7 @@ newChartState symbol = do
   return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-    , priceGraphState = P.newPriceGraphState
+    , graphState = G.newGraphState
     , volumeBarsState = V.newVolumeBarsState
     , stochasticsState = S.newStochasticLinesState dailySpecs
     , weeklyStochasticsState = S.newStochasticLinesState weeklySpecs
@@ -122,7 +122,7 @@ drawChart resources
       , inputState = inputState@ChartState
         { stockData = stockData
         , headerState = headerState
-        , priceGraphState = priceGraphState
+        , graphState = graphState
         , volumeBarsState = volumeBarsState
         , stochasticsState = stochasticsState
         , weeklyStochasticsState = weeklyStochasticsState
@@ -132,10 +132,10 @@ drawChart resources
       <- drawHeader resources alpha symbol stockData headerState bounds
   boundsSet <- getBounds resources bounds headerHeight stockData
 
-  (newPriceGraphState, priceGraphDirty) <- preservingMatrix $ do
+  (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = graphBounds boundsSet
     translateToCenter bounds subBounds
-    drawPriceGraph resources alpha stockData priceGraphState subBounds
+    drawGraph resources alpha stockData graphState subBounds
 
   (newVolumeBarsState, volumeBarsDirty) <- preservingMatrix $ do
     let subBounds = volumeBarsBounds boundsSet
@@ -180,13 +180,13 @@ drawChart resources
   return ChartOutput
     { outputState = inputState
       { headerState = newHeaderState
-      , priceGraphState = newPriceGraphState
+      , graphState = newGraphState
       , volumeBarsState = newVolumeBarsState
       , stochasticsState = newStochasticsState
       , weeklyStochasticsState = newWeeklyStochasticsState
       }
     , isDirty = headerDirty
-        || priceGraphDirty
+        || graphDirty
         || volumeBarsDirty
         || stochasticsDirty
         || weeklyStochasticsDirty
@@ -242,20 +242,20 @@ getBounds resources bounds headerHeight stockData = do
       Box (left, top) (right, bottom) = bounds
       bottomPadding = 20
       remainingHeight = boxHeight bounds - headerHeight - bottomPadding
-      priceGraphHeight = remainingHeight * 0.55
-      volumeBarsHeight = (remainingHeight - priceGraphHeight) / 3
+      graphHeight = remainingHeight * 0.55
+      volumeBarsHeight = (remainingHeight - graphHeight) / 3
       stochasticsHeight = volumeBarsHeight
-      weeklyStochasticsHeight = remainingHeight - priceGraphHeight
+      weeklyStochasticsHeight = remainingHeight - graphHeight
           - volumeBarsHeight - stochasticsHeight
 
-      priceGraphBounds = Box (left, top - headerHeight)
-          (numbersLeft, top - headerHeight - priceGraphHeight)
+      graphBounds = Box (left, top - headerHeight)
+          (numbersLeft, top - headerHeight - graphHeight)
       graphNumbersBounds = Box
-          (numbersLeft, boxTop priceGraphBounds)
-          (right, boxBottom priceGraphBounds)
+          (numbersLeft, boxTop graphBounds)
+          (right, boxBottom graphBounds)
 
-      volumeBarsBounds = Box (left, boxBottom priceGraphBounds)
-          (numbersLeft, boxBottom priceGraphBounds - volumeBarsHeight)
+      volumeBarsBounds = Box (left, boxBottom graphBounds)
+          (numbersLeft, boxBottom graphBounds - volumeBarsHeight)
       volumeBarNumbersBounds = Box
           (numbersLeft, boxTop volumeBarsBounds)
           (right, boxBottom volumeBarsBounds)
@@ -275,7 +275,7 @@ getBounds resources bounds headerHeight stockData = do
           (right, boxBottom weeklyStochasticsBounds)
 
   return Bounds
-    { graphBounds = priceGraphBounds
+    { graphBounds = graphBounds
     , graphNumbersBounds = graphNumbersBounds
     , volumeBarsBounds = volumeBarsBounds
     , volumeBarNumbersBounds = volumeBarNumbersBounds
@@ -297,23 +297,23 @@ translateToCenter outerBounds innerBounds =
         + (boxTop innerBounds - boxBottom outerBounds) -- Goto top of inner
         - (boxHeight innerBounds / 2) -- Go down half of inner
 
-drawPriceGraph :: Resources -> GLfloat -> StockData -> P.PriceGraphState -> Box
-    -> IO (P.PriceGraphState, Dirty)
-drawPriceGraph resources alpha stockData priceGraphState bounds = do
-  let priceGraphInput = P.PriceGraphInput
-        { P.bounds = boxShrink 1 bounds
-        , P.alpha = alpha
-        , P.stockData = stockData
-        , P.inputState = priceGraphState
+drawGraph :: Resources -> GLfloat -> StockData -> G.GraphState -> Box
+    -> IO (G.GraphState, Dirty)
+drawGraph resources alpha stockData graphState bounds = do
+  let graphInput = G.GraphInput
+        { G.bounds = boxShrink 1 bounds
+        , G.alpha = alpha
+        , G.stockData = stockData
+        , G.inputState = graphState
         }
 
-  priceGraphOutput <- P.drawPriceGraph resources priceGraphInput
+  graphOutput <- G.drawGraph resources graphInput
 
-  let P.PriceGraphOutput
-        { P.outputState = outputPriceGraphState
-        , P.isDirty = isPriceGraphDirty
-        } = priceGraphOutput
-  return (outputPriceGraphState, isPriceGraphDirty)
+  let G.GraphOutput
+        { G.outputState = outputGraphState
+        , G.isDirty = isGraphDirty
+        } = graphOutput
+  return (outputGraphState, isGraphDirty)
 
 drawVolumeBars :: Resources -> GLfloat -> StockData -> V.VolumeBarsState -> Box
     -> IO (V.VolumeBarsState, Dirty)
