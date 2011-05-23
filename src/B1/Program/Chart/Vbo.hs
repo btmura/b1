@@ -1,5 +1,6 @@
 module B1.Program.Chart.Vbo
   ( Vbo
+  , VboSpec(..)
   , createVbo
   , renderVbo
   , deleteVbo
@@ -16,10 +17,18 @@ import Graphics.Rendering.OpenGL
 
 type NumElements = Int
 
-data Vbo = Vbo BufferObject (MVar Bool) PrimitiveMode NumElements
+data Vbo = Vbo
+  { bufferObject :: BufferObject
+  , unmapMVar :: MVar Bool
+  , primitiveGroups :: [(PrimitiveMode, NumElements)]
+  }
 
-createVbo :: PrimitiveMode -> Int -> [GLfloat] -> IO Vbo
-createVbo primitiveMode size elements = do
+type ArraySize = Int
+
+data VboSpec = VboSpec PrimitiveMode ArraySize [GLfloat]
+
+createVbo :: [VboSpec] -> IO Vbo
+createVbo vboSpecs = do
   [bufferObject] <- genObjectNames 1
   putStrLn $ "Created VBO: " ++ show bufferObject
 
@@ -32,21 +41,34 @@ createVbo primitiveMode size elements = do
   case maybePtr of
     Just ptr -> do
       forkIO $ do
-        pokeArray ptr elements
+        let allElements = concat $
+                map (\(VboSpec _ _ elements) -> elements) vboSpecs
+        pokeArray ptr allElements
         putMVar unmapMVar True
-        putStrLn $ "Size: " ++ show size
-            ++ " Real size: " ++ show (length elements)
+        putStrLn $ "Size: " ++ show totalSize
+            ++ " Real size: " ++ show (length allElements)
       return ()
     _ ->
       putStrLn "Couldn't map buffer..."
 
-  return $ Vbo bufferObject unmapMVar primitiveMode numElements
+  return Vbo
+    { bufferObject = bufferObject
+    , unmapMVar = unmapMVar
+    , primitiveGroups = primitiveGroups
+    }
   where
-    numBytes = toEnum $ size * 4
-    numElements = size `div` 5
+    totalSize = sum $ map (\(VboSpec _ size _) -> size) vboSpecs
+    numBytes = toEnum $ totalSize * 4
+    primitiveGroups = map
+        (\(VboSpec primitiveMode size _) -> (primitiveMode, size `div` 5))
+        vboSpecs
 
 deleteVbo :: Vbo -> IO ()
-deleteVbo (Vbo bufferObject unmapMVar _ _) = do
+deleteVbo
+    Vbo
+      { bufferObject = bufferObject
+      , unmapMVar = unmapMVar
+      } = do
   putStrLn $ "Deleting VBO: " ++ show bufferObject
   unmap <- takeMVar unmapMVar
   unmapIfNecessary unmap bufferObject
@@ -61,7 +83,12 @@ unmapIfNecessary unmap bufferObject = do
   bindBuffer ArrayBuffer $= Nothing
 
 renderVbo :: Vbo -> IO Bool
-renderVbo vbo@(Vbo bufferObject unmapMVar primitiveMode numElements) = do
+renderVbo
+    Vbo
+      { bufferObject = bufferObject
+      , unmapMVar = unmapMVar
+      , primitiveGroups = primitiveGroups
+      } = do
   maybeUnmap <- tryTakeMVar unmapMVar
   case maybeUnmap of
     Just unmap -> do
@@ -71,7 +98,7 @@ renderVbo vbo@(Vbo bufferObject unmapMVar primitiveMode numElements) = do
       bindBuffer ArrayBuffer $= Just bufferObject
       arrayPointer VertexArray $= vertexArrayDescriptor
       arrayPointer ColorArray $= colorArrayDescriptor
-      drawArrays primitiveMode 0 $ fromIntegral numElements
+      renderPrimitiveGroups primitiveGroups
       bindBuffer ArrayBuffer $= Nothing
 
       return True
@@ -80,6 +107,14 @@ renderVbo vbo@(Vbo bufferObject unmapMVar primitiveMode numElements) = do
   where
     vertexArrayDescriptor = VertexArrayDescriptor 2 Float 20 $ offset 0
     colorArrayDescriptor = VertexArrayDescriptor 3 Float 20 $ offset 8
+
+renderPrimitiveGroups :: [(PrimitiveMode, NumElements)] -> IO ()
+renderPrimitiveGroups primitiveGroups =
+  mapM_ (\(offset, (primitiveMode, numElements)) ->
+      drawArrays primitiveMode (fromIntegral offset) (fromIntegral numElements)
+      ) (zip offsets primitiveGroups)
+  where
+    offsets = scanl (+) 0 $ map snd primitiveGroups
 
 offset x = plusPtr nullPtr x
 

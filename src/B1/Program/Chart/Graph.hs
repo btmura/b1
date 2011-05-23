@@ -27,6 +27,9 @@ import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
 
+import qualified B1.Program.Chart.StochasticLines as S
+import qualified B1.Program.Chart.VolumeBars as V
+
 data GraphInput = GraphInput
   { bounds :: Box
   , alpha :: GLfloat
@@ -118,20 +121,61 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createGraphVbo :: StockPriceData -> IO Vbo
-createGraphVbo priceData = do
-  putStrLn $ "Price graph size: " ++ show size
-  createVbo Lines size elements
+createGraphVbo priceData = 
+  createVbo
+    [ getGraphVboSpec priceData graphBounds
+    , V.getVolumeBarsVboSpec priceData volumeBounds
+    , S.getStochasticLinesVboSpec priceData dailySpecs stochasticBounds
+    , S.getStochasticLinesVboSpec priceData weeklySpecs weeklyStochasticBounds
+    ]
   where
-    size = getTotalSize priceData
-    elements = getGraphLineVertices priceData
+    graphBounds = Box (-1, 1) (1, -0.1)
+    volumeBounds = Box (-1, -0.1) (1, -0.4)
+    stochasticBounds = Box (-1, -0.4) (1, -0.7)
+    weeklyStochasticBounds = Box (-1, -0.7) (1, -1)
+
+    dailySpecs =
+      [ S.StochasticLineSpec 
+        { S.timeSpec = S.Daily
+        , S.lineColor = red3
+        , S.stochasticFunction = k
+        }
+      , S.StochasticLineSpec
+        { S.timeSpec = S.Daily
+        , S.lineColor = yellow3
+        , S.stochasticFunction = d
+        }
+      ]
+
+    weeklySpecs =
+      [ S.StochasticLineSpec 
+        { S.timeSpec = S.Weekly
+        , S.lineColor = red3
+        , S.stochasticFunction = k
+        }
+      , S.StochasticLineSpec
+        { S.timeSpec = S.Weekly
+        , S.lineColor = purple3
+        , S.stochasticFunction = d
+        }
+      ]
+
+getGraphVboSpec :: StockPriceData -> Box -> VboSpec
+getGraphVboSpec priceData graphBounds =
+  VboSpec Lines graphSize graphElements
+  where
+    graphSize = getTotalSize priceData
+    graphElements = getGraphLineVertices priceData graphBounds
 
 getTotalSize :: StockPriceData -> Int
 getTotalSize priceData = sum
     [ getCandlesticksSize priceData
-    , getLineSize $ movingAverage25 priceData
-    , getLineSize $ movingAverage50 priceData
-    , getLineSize $ movingAverage200 priceData
+    , getLineSize $ trim $ movingAverage25 priceData
+    , getLineSize $ trim $ movingAverage50 priceData
+    , getLineSize $ trim $ movingAverage200 priceData
     ]
+  where
+    trim = take $ numDailyElements priceData
 
 getCandlesticksSize :: StockPriceData -> Int
 getCandlesticksSize priceData = size
@@ -147,8 +191,8 @@ getLineSize list = size
     numLines = if numElements <= 1 then 0 else numElements - 1
     size = numLines * (2 * (2 + 3))
 
-getGraphLineVertices :: StockPriceData -> [GLfloat]
-getGraphLineVertices priceData =
+getGraphLineVertices :: StockPriceData -> Box -> [GLfloat]
+getGraphLineVertices priceData bounds =
   concat $ priceLines
       ++ movingAverage25Lines
       ++ movingAverage50Lines
@@ -156,36 +200,34 @@ getGraphLineVertices priceData =
   where
     priceRange = getPriceRange priceData
     colors = getStochasticColors $ stochastics priceData
-    indices = [0 .. numDailyElements priceData - 1]
-    numElements = length indices
+    numElements = numDailyElements priceData
+    trim = take numElements
+    indices = [0 .. numElements - 1]
 
-    priceLines = map (createCandlestick priceRange
+    priceLines = map (createCandlestick bounds priceRange
         (prices priceData) colors numElements) indices
-    movingAverage25Lines = map (createMovingAverageLine priceRange
-        (movingAverage25 priceData) purple3 numElements) indices
-    movingAverage50Lines = map (createMovingAverageLine priceRange
-        (movingAverage50 priceData) yellow3 numElements) indices
-    movingAverage200Lines = map (createMovingAverageLine priceRange
-        (movingAverage200 priceData) white3 numElements) indices
+    movingAverage25Lines = map (createMovingAverageLine bounds priceRange
+        (trim (movingAverage25 priceData)) purple3 numElements) indices
+    movingAverage50Lines = map (createMovingAverageLine bounds priceRange
+        (trim (movingAverage50 priceData)) yellow3 numElements) indices
+    movingAverage200Lines = map (createMovingAverageLine bounds priceRange
+        (trim (movingAverage200 priceData)) white3 numElements) indices
 
 getPriceRange :: StockPriceData -> (Float, Float)
 getPriceRange priceData = (minimum allPrices, maximum allPrices)
   where
-    numElements = numDailyElements priceData
-    takeElements = take numElements
-    highPrices = map high $ takeElements $ prices priceData
-    lowPrices = map low $ takeElements $ prices priceData
-    allPrices = concat
-        [ lowPrices
-        , highPrices
-        , takeElements $ movingAverage25 priceData
-        , takeElements $ movingAverage50 priceData
-        , takeElements $ movingAverage200 priceData
+    takeElements = take $ numDailyElements priceData
+    allPrices = concat $ map takeElements
+        [ map high $ prices priceData
+        , map low $ prices priceData
+        , movingAverage25 priceData
+        , movingAverage50 priceData
+        , movingAverage200 priceData
         ] 
 
-createCandlestick :: (Float, Float) -> [Price] -> [Color3 GLfloat]
+createCandlestick :: Box -> (Float, Float) -> [Price] -> [Color3 GLfloat]
     -> Int -> Int -> [GLfloat]
-createCandlestick priceRange prices colors numElements index =
+createCandlestick bounds priceRange prices colors numElements index =
   [centerX, lowY] ++ colorList
       ++ [centerX, highY] ++ colorList
       ++ [leftX, openY] ++ colorList
@@ -201,49 +243,49 @@ createCandlestick priceRange prices colors numElements index =
               then green3
               else red3
 
-    (leftX, centerX, rightX) = getXValues numElements index
+    (leftX, centerX, rightX) = getXValues bounds numElements index
 
     price = prices !! index
-    lowY = getY priceRange $ low price
-    highY = getY priceRange $ high price
-    openY = getY priceRange $ open price
-    closeY = getY priceRange $ close price
+    lowY = getY bounds priceRange $ low price
+    highY = getY bounds priceRange $ high price
+    openY = getY bounds priceRange $ open price
+    closeY = getY bounds priceRange $ close price
 
-createMovingAverageLine :: (Float, Float) -> [MovingAverage] -> Color3 GLfloat
-    -> Int -> Int -> [GLfloat]
-createMovingAverageLine priceRange movingAverages color numElements index
+createMovingAverageLine :: Box -> (Float, Float) -> [MovingAverage]
+    -> Color3 GLfloat -> Int -> Int -> [GLfloat]
+createMovingAverageLine bounds priceRange movingAverages color numElements index
   | index >= length valueGroups = []
   | otherwise = [leftX, leftY] ++ colorList
       ++ [rightX, rightY] ++ colorList
   where
     colorList = color3ToList color
-    (leftX, _, rightX) = getXValues numElements index
+    (leftX, _, rightX) = getXValues bounds numElements index
     valueGroups = groupElements 2 movingAverages
     (rightValue:leftValue:_) = valueGroups !! index
-    leftY = getY priceRange leftValue
-    rightY = getY priceRange rightValue
+    leftY = getY bounds priceRange leftValue
+    rightY = getY bounds priceRange rightValue
 
-getXValues :: Int -> Int -> (GLfloat, GLfloat, GLfloat)
-getXValues numElements index = (leftX, centerX, rightX)
+getXValues :: Box -> Int -> Int -> (GLfloat, GLfloat, GLfloat)
+getXValues bounds numElements index = (leftX, centerX, rightX)
   where
-    totalWidth = 2
+    totalWidth = boxWidth bounds
     barWidth = realToFrac totalWidth / realToFrac numElements
     halfBarWidth = barWidth / 2
-    centerX = totalWidth / 2 - halfBarWidth - realToFrac index * barWidth
+    centerX = boxRight bounds - halfBarWidth - realToFrac index * barWidth
     leftX = centerX - halfBarWidth
     rightX = centerX + halfBarWidth
 
-getY :: (Float, Float) -> Float -> GLfloat
-getY (minPrice, maxPrice) value = y
+getY :: Box -> (Float, Float) -> Float -> GLfloat
+getY bounds (minPrice, maxPrice) value = y
   where
     range = value - minPrice
     totalRange = maxPrice - minPrice
 
-    totalHeight = 2
+    totalHeight = boxHeight bounds
     heightPercentage = range / totalRange
     height = totalHeight * realToFrac heightPercentage
 
-    y = -(totalHeight / 2) + height
+    y = boxBottom bounds + height
 
 renderError :: GraphState -> String -> IO GraphOutput
 renderError state errorMessage = 

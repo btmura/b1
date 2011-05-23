@@ -1,10 +1,5 @@
 module B1.Program.Chart.VolumeBars
-  ( VolumeBarsInput(..)
-  , VolumeBarsOutput(..)
-  , VolumeBarsState
-  , drawVolumeBars
-  , newVolumeBarsState
-  , cleanVolumeBarsState
+  ( getVolumeBarsVboSpec
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -22,103 +17,11 @@ import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Vbo
 
-data VolumeBarsInput = VolumeBarsInput
-  { bounds :: Box
-  , alpha :: GLfloat
-  , stockData :: StockData
-  , inputState :: VolumeBarsState
-  }
-
-data VolumeBarsOutput = VolumeBarsOutput
-  { outputState :: VolumeBarsState
-  , isDirty :: Dirty
-  }
-
-data VolumeBarsState = VolumeBarsState
-  { maybeVbo :: Maybe Vbo
-  , alphaAnimation :: Animation (GLfloat, Dirty)
-  , dataStatus :: DataStatus
-  }
-
-data DataStatus = Loading | Received
-
-newVolumeBarsState :: VolumeBarsState
-newVolumeBarsState =
-  VolumeBarsState
-    { maybeVbo = Nothing
-    , alphaAnimation = animateOnce $ linearRange 0 0 1
-    , dataStatus = Loading
-    }
-
-cleanVolumeBarsState :: VolumeBarsState -> IO VolumeBarsState
-cleanVolumeBarsState state@VolumeBarsState { maybeVbo = maybeVbo } =
-  case maybeVbo of
-    Just vbo -> do
-      deleteVbo vbo
-      return state { maybeVbo = Nothing }
-    _ -> return state
-
-drawVolumeBars :: Resources -> VolumeBarsInput -> IO VolumeBarsOutput
-drawVolumeBars resources
-    input@VolumeBarsInput
-      { stockData = stockData
-      , inputState = state
-      } = do
-  maybePriceData <- getStockPriceData stockData
-  case maybePriceData of
-    Just priceDataOrError ->
-      either (renderPriceData resources input)
-          (renderError state)
-          priceDataOrError
-    _ -> renderNothing state
-
-renderPriceData :: Resources -> VolumeBarsInput -> StockPriceData
-    -> IO VolumeBarsOutput
-renderPriceData
-    Resources { program = program }
-    input@VolumeBarsInput
-      { bounds = bounds
-      , alpha = alpha
-      , inputState = state@VolumeBarsState
-        { maybeVbo = maybeVbo
-        , alphaAnimation = alphaAnimation
-        , dataStatus = dataStatus
-        }
-      }
-    priceData = do
-
-  vbo <- maybe (createVolumeBarsVbo priceData) return maybeVbo
-
-  preservingMatrix $ do
-    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
-    currentProgram $= Just program
-    setAlpha program finalAlpha
-    rendered <- renderVbo vbo
-    currentProgram $= Nothing
-
-  return VolumeBarsOutput
-    { outputState = state
-      { maybeVbo = Just vbo
-      , alphaAnimation = nextAlphaAnimation
-      , dataStatus = Received
-      }
-    , isDirty = nextIsDirty
-    }
-  where
-    currentAlphaAnimation = case dataStatus of
-        Loading -> animateOnce $ linearRange 0 1 30
-        Received -> alphaAnimation
-    finalAlpha = (min alpha . fst . current) currentAlphaAnimation
-    nextAlphaAnimation = next currentAlphaAnimation
-    nextIsDirty = (snd . current) nextAlphaAnimation
-
-createVolumeBarsVbo :: StockPriceData -> IO Vbo
-createVolumeBarsVbo priceData = do
-  putStrLn $ "Volume bars size: " ++ show size
-  createVbo Quads size elements
+getVolumeBarsVboSpec :: StockPriceData -> Box -> VboSpec
+getVolumeBarsVboSpec priceData bounds = VboSpec Quads size quads
   where
     size = getSize priceData
-    elements = getVolumeBars priceData
+    quads = getQuads priceData bounds
 
 getSize :: StockPriceData -> Int
 getSize priceData = size
@@ -126,30 +29,30 @@ getSize priceData = size
     numElements = numDailyElements priceData
     size = numElements * (4 * (2 + 3))
 
-getVolumeBars :: StockPriceData -> [GLfloat]
-getVolumeBars priceData =
-  concat $ map (createQuad stockPrices numElements) indices
+getQuads :: StockPriceData -> Box -> [GLfloat]
+getQuads priceData bounds =
+  concat $ map (createQuad bounds stockPrices numElements) indices
   where
     stockPrices = prices priceData
     numElements = numDailyElements priceData
     indices = [0 .. numElements - 1]
 
-createQuad :: [Price] -> Int -> Int -> [GLfloat]
-createQuad prices numElements index =
-  [leftX, -1] ++ colorList
+createQuad :: Box -> [Price] -> Int -> Int -> [GLfloat]
+createQuad bounds prices numElements index =
+  [leftX, bottomY] ++ colorList
       ++ [leftX, topY] ++ colorList
       ++ [rightX, topY] ++ colorList
-      ++ [rightX, -1] ++ colorList
+      ++ [rightX, bottomY] ++ colorList
   where
     colorList = color3ToList $
         if getPriceChange prices index >= 0
           then green3
           else red3
 
-    totalWidth = 2
+    totalWidth = boxWidth bounds
     barWidth = realToFrac totalWidth / realToFrac numElements
     spacing = barWidth / 3
-    rightX = totalWidth / 2 - realToFrac index * barWidth - spacing
+    rightX = boxRight bounds - realToFrac index * barWidth - spacing
     leftX = rightX - barWidth + spacing
 
     maxVolume = maximum $ map volume prices
@@ -159,21 +62,8 @@ createQuad prices numElements index =
     currentVolume = volume $ prices !! index
     range = currentVolume - minVolume
     heightPercentage = realToFrac range / realToFrac totalRange
-    totalHeight = 2
+    totalHeight = boxHeight bounds
     height = totalHeight * realToFrac heightPercentage
-    topY = -(totalHeight / 2) + height
-
-renderError :: VolumeBarsState -> String -> IO VolumeBarsOutput
-renderError state errorMessage =
-  return VolumeBarsOutput
-    { outputState = state
-    , isDirty = False
-    }
-
-renderNothing :: VolumeBarsState -> IO VolumeBarsOutput
-renderNothing state =
-  return VolumeBarsOutput
-    { outputState = state
-    , isDirty = False
-    }
+    bottomY = boxBottom bounds
+    topY = bottomY + height
 

@@ -7,6 +7,7 @@ module B1.Program.Chart.StochasticLines
   , drawStochasticLines
   , newStochasticLinesState
   , cleanStochasticLinesState
+  , getStochasticLinesVboSpec 
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -129,15 +130,21 @@ renderPriceData
     nextIsDirty = (snd . current) nextAlphaAnimation
 
 createStochasticLinesVbo :: [StochasticLineSpec] -> StockPriceData -> IO Vbo
-createStochasticLinesVbo lineSpecs priceData = do
-  putStrLn $ "Stochastic lines size: " ++ show size
-  createVbo Lines size elements
+createStochasticLinesVbo lineSpecs priceData =
+  createVbo [getStochasticLinesVboSpec priceData lineSpecs bounds]
   where
-    size = getTotalSize lineSpecs priceData
-    elements = getStochasticLines lineSpecs priceData
+    bounds = (Box (-1, 1) (1, -1))
 
-getTotalSize :: [StochasticLineSpec] -> StockPriceData -> Int
-getTotalSize lineSpecs priceData = 
+getStochasticLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
+    -> VboSpec
+getStochasticLinesVboSpec priceData lineSpecs bounds =
+  VboSpec Lines size elements
+  where
+    size = getStochasticLinesSize lineSpecs priceData
+    elements = getStochasticLines lineSpecs priceData bounds
+
+getStochasticLinesSize :: [StochasticLineSpec] -> StockPriceData -> Int
+getStochasticLinesSize lineSpecs priceData = 
   sum $ map (getSize priceData) lineSpecs
 
 getSize :: StockPriceData -> StochasticLineSpec -> Int
@@ -150,13 +157,13 @@ getSize priceData lineSpec = size
     numLines = if numElements <= 1 then 0 else numElements - 1
     size = numLines * (2 * (2 + 3))
 
-getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> [GLfloat]
-getStochasticLines lineSpecs priceData =
-  concat $ map (createLine priceData) lineSpecs
+getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> Box -> [GLfloat]
+getStochasticLines lineSpecs priceData bounds =
+  concat $ map (createLine priceData bounds) lineSpecs
 
-createLine :: StockPriceData -> StochasticLineSpec -> [GLfloat]
-createLine priceData lineSpec =
-  concat $ map (createLineSegment color valueGroups numGroups) indices
+createLine :: StockPriceData -> Box -> StochasticLineSpec -> [GLfloat]
+createLine priceData bounds lineSpec =
+  concat $ map (createLineSegment bounds color valueGroups numGroups) indices
   where
     color = lineColor lineSpec
     (dataFunction, numElements) = case timeSpec lineSpec of
@@ -170,21 +177,22 @@ createLine priceData lineSpec =
     numGroups = length valueGroups
     indices = [0 .. length valueGroups - 1]
 
-createLineSegment :: Color3 GLfloat -> [[Float]] -> Int -> Int -> [GLfloat]
-createLineSegment color valueGroups numElements index
+createLineSegment :: Box -> Color3 GLfloat -> [[Float]] -> Int -> Int
+    -> [GLfloat]
+createLineSegment bounds color valueGroups numElements index
   | index >= length valueGroups = []
   | otherwise = [leftX, leftY] ++ colorList ++ [rightX, rightY] ++ colorList
   where
     colorList = color3ToList color
-    totalWidth = 2
+    totalWidth = boxWidth bounds
     segmentWidth = realToFrac totalWidth / realToFrac numElements
-    rightX = totalWidth / 2 - realToFrac index * segmentWidth
+    rightX = boxRight bounds - realToFrac index * segmentWidth
     leftX = rightX - segmentWidth
 
-    totalHeight = 2
+    totalHeight = boxHeight bounds
     (rightValue:leftValue:_) = valueGroups !! index
-    rightY = -(totalHeight / 2) + realToFrac rightValue * totalHeight
-    leftY = -(totalHeight / 2) + realToFrac leftValue * totalHeight
+    rightY = boxBottom bounds + realToFrac rightValue * totalHeight
+    leftY = boxBottom bounds + realToFrac leftValue * totalHeight
 
 renderError :: StochasticLinesState -> String -> IO StochasticLinesOutput
 renderError state errorMessage =

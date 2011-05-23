@@ -51,30 +51,12 @@ data ChartState = ChartState
   { stockData :: StockData
   , headerState :: H.HeaderState
   , graphState :: G.GraphState
-  , volumeBarsState :: V.VolumeBarsState
-  , stochasticsState :: S.StochasticLinesState
-  , weeklyStochasticsState :: S.StochasticLinesState
   }
 
 cleanChartState :: ChartState -> IO ChartState
-cleanChartState
-    state@ChartState
-      { graphState = graphState
-      , volumeBarsState = volumeBarsState
-      , stochasticsState = stochasticsState
-      , weeklyStochasticsState = weeklyStochasticsState
-      } = do
+cleanChartState state@ChartState { graphState = graphState } = do
   newGraphState <- G.cleanGraphState graphState
-  newVolumeBarsState <- V.cleanVolumeBarsState volumeBarsState
-  newStochasticsState <- S.cleanStochasticLinesState stochasticsState
-  newWeeklyStochasticsState <- S.cleanStochasticLinesState
-      weeklyStochasticsState
-  return state
-    { graphState = newGraphState
-    , volumeBarsState = newVolumeBarsState
-    , stochasticsState = newStochasticsState
-    , weeklyStochasticsState = newStochasticsState
-    }
+  return state { graphState = newGraphState }
 
 newChartState :: Symbol -> IO ChartState
 newChartState symbol = do
@@ -83,35 +65,9 @@ newChartState symbol = do
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , graphState = G.newGraphState
-    , volumeBarsState = V.newVolumeBarsState
-    , stochasticsState = S.newStochasticLinesState dailySpecs
-    , weeklyStochasticsState = S.newStochasticLinesState weeklySpecs
     }
-  where
-    dailySpecs =
-      [ S.StochasticLineSpec 
-        { S.timeSpec = S.Daily
-        , S.lineColor = red3
-        , S.stochasticFunction = k
-        }
-      , S.StochasticLineSpec
-        { S.timeSpec = S.Daily
-        , S.lineColor = yellow3
-        , S.stochasticFunction = d
-        }
-      ]
-    weeklySpecs =
-      [ S.StochasticLineSpec 
-        { S.timeSpec = S.Weekly
-        , S.lineColor = red3
-        , S.stochasticFunction = k
-        }
-      , S.StochasticLineSpec
-        { S.timeSpec = S.Weekly
-        , S.lineColor = purple3
-        , S.stochasticFunction = d
-        }
-      ]
+
+bottomPadding = 20
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput
 drawChart resources
@@ -123,9 +79,6 @@ drawChart resources
         { stockData = stockData
         , headerState = headerState
         , graphState = graphState
-        , volumeBarsState = volumeBarsState
-        , stochasticsState = stochasticsState
-        , weeklyStochasticsState = weeklyStochasticsState
         }
       } = do
   (newHeaderState, headerDirty, addedSymbol, headerHeight)
@@ -136,23 +89,6 @@ drawChart resources
     let subBounds = graphBounds boundsSet
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
-
-  (newVolumeBarsState, volumeBarsDirty) <- preservingMatrix $ do
-    let subBounds = volumeBarsBounds boundsSet
-    translateToCenter bounds subBounds
-    drawVolumeBars resources alpha stockData volumeBarsState subBounds
-
-  (newStochasticsState, stochasticsDirty) <- preservingMatrix $ do
-    let subBounds = stochasticsBounds boundsSet
-    translateToCenter bounds subBounds
-    drawStochasticLines resources alpha stockData
-        stochasticsState subBounds
-
-  (newWeeklyStochasticsState, weeklyStochasticsDirty) <- preservingMatrix $ do
-    let subBounds = weeklyStochasticsBounds boundsSet
-    translateToCenter bounds subBounds
-    drawStochasticLines resources alpha stockData
-        weeklyStochasticsState subBounds
 
   preservingMatrix $ do
     let subBounds = graphNumbersBounds boundsSet
@@ -181,15 +117,8 @@ drawChart resources
     { outputState = inputState
       { headerState = newHeaderState
       , graphState = newGraphState
-      , volumeBarsState = newVolumeBarsState
-      , stochasticsState = newStochasticsState
-      , weeklyStochasticsState = newWeeklyStochasticsState
       }
-    , isDirty = headerDirty
-        || graphDirty
-        || volumeBarsDirty
-        || stochasticsDirty
-        || weeklyStochasticsDirty
+    , isDirty = headerDirty || graphDirty
     , addedSymbol = addedSymbol
     }
 
@@ -219,14 +148,12 @@ drawHeader resources alpha symbol stockData headerState bounds = do
 data Bounds = Bounds
   { graphBounds :: Box
   , graphNumbersBounds :: Box
-  , volumeBarsBounds :: Box
   , volumeBarNumbersBounds :: Box
-  , stochasticsBounds :: Box
   , stochasticNumbersBounds :: Box
-  , weeklyStochasticsBounds :: Box
   , weeklyStochasticNumbersBounds :: Box
   }
 
+-- TODO: Move code to Graph
 getBounds :: Resources -> Box -> GLfloat -> StockData -> IO Bounds
 getBounds resources bounds headerHeight stockData = do
   graphNumbersWidth <- GN.getPreferredWidth resources GN.Prices stockData
@@ -240,22 +167,21 @@ getBounds resources bounds headerHeight stockData = do
       numbersLeft = right - minNumbersWidth
 
       Box (left, top) (right, bottom) = bounds
-      bottomPadding = 20
       remainingHeight = boxHeight bounds - headerHeight - bottomPadding
       graphHeight = remainingHeight * 0.55
-      volumeBarsHeight = (remainingHeight - graphHeight) / 3
-      stochasticsHeight = volumeBarsHeight
-      weeklyStochasticsHeight = remainingHeight - graphHeight
-          - volumeBarsHeight - stochasticsHeight
+      volumeBarsHeight = remainingHeight * 0.15
+      stochasticsHeight = remainingHeight * 0.15
+      weeklyStochasticsHeight = remainingHeight * 0.15
 
       graphBounds = Box (left, top - headerHeight)
-          (numbersLeft, top - headerHeight - graphHeight)
+          (numbersLeft, top - headerHeight - graphHeight - volumeBarsHeight
+              - stochasticsHeight - weeklyStochasticsHeight)
       graphNumbersBounds = Box
-          (numbersLeft, boxTop graphBounds)
-          (right, boxBottom graphBounds)
+          (numbersLeft, top - headerHeight)
+          (right, top - headerHeight - graphHeight)
 
-      volumeBarsBounds = Box (left, boxBottom graphBounds)
-          (numbersLeft, boxBottom graphBounds - volumeBarsHeight)
+      volumeBarsBounds = Box (left, top - headerHeight - graphHeight)
+          (numbersLeft, top - headerHeight - graphHeight - volumeBarsHeight)
       volumeBarNumbersBounds = Box
           (numbersLeft, boxTop volumeBarsBounds)
           (right, boxBottom volumeBarsBounds)
@@ -277,11 +203,8 @@ getBounds resources bounds headerHeight stockData = do
   return Bounds
     { graphBounds = graphBounds
     , graphNumbersBounds = graphNumbersBounds
-    , volumeBarsBounds = volumeBarsBounds
     , volumeBarNumbersBounds = volumeBarNumbersBounds
-    , stochasticsBounds = stochasticsBounds
     , stochasticNumbersBounds = stochasticNumbersBounds
-    , weeklyStochasticsBounds = weeklyStochasticsBounds
     , weeklyStochasticNumbersBounds = weeklyStochasticNumbersBounds
     }
 
@@ -315,42 +238,6 @@ drawGraph resources alpha stockData graphState bounds = do
         } = graphOutput
   return (outputGraphState, isGraphDirty)
 
-drawVolumeBars :: Resources -> GLfloat -> StockData -> V.VolumeBarsState -> Box
-    -> IO (V.VolumeBarsState, Dirty)
-drawVolumeBars resources alpha stockData volumeBarsState bounds = do
-  let volumeBarsInput = V.VolumeBarsInput
-        { V.bounds = boxShrink 1 bounds
-        , V.alpha = alpha
-        , V.stockData = stockData
-        , V.inputState = volumeBarsState
-        }
-
-  volumeBarsOutput <- V.drawVolumeBars resources volumeBarsInput
-
-  let V.VolumeBarsOutput
-        { V.outputState = outputVolumeBarsState
-        , V.isDirty = isVolumeDirty
-        } = volumeBarsOutput
-  return (outputVolumeBarsState, isVolumeDirty)
-
-drawStochasticLines :: Resources -> GLfloat -> StockData
-    -> S.StochasticLinesState -> Box -> IO (S.StochasticLinesState, Dirty)
-drawStochasticLines resources alpha stockData stochasticsState bounds = do
-  let stochasticsInput = S.StochasticLinesInput
-        { S.bounds = boxShrink 1 bounds
-        , S.alpha = alpha
-        , S.stockData = stockData
-        , S.inputState = stochasticsState
-        }
-
-  stochasticsOutput <- S.drawStochasticLines resources stochasticsInput
-
-  let S.StochasticLinesOutput
-        { S.outputState = outputStochasticsState
-        , S.isDirty = isStochasticsDirty
-        } = stochasticsOutput
-  return (outputStochasticsState, isStochasticsDirty)
-
 drawGraphNumbers :: Resources -> GLfloat -> GN.GraphNumbersType -> StockData
     -> Box -> IO ()
 drawGraphNumbers resources alpha numbersType stockData bounds = do
@@ -374,56 +261,43 @@ drawDividerLines :: Resources -> GLfloat -> Box -> Bounds -> GLfloat -> IO ()
 drawDividerLines resources alpha bounds
     Bounds
       { graphBounds = graphBounds
-      , volumeBarsBounds = volumeBarsBounds
-      , stochasticsBounds = stochasticsBounds
-      , weeklyStochasticsBounds = weeklyStochasticsBounds
+      , volumeBarNumbersBounds = volumeBarNumbersBounds
+      , stochasticNumbersBounds = stochasticNumbersBounds
+      , weeklyStochasticNumbersBounds = weeklyStochasticNumbersBounds
       }
     headerHeight = do
   lineWidth $= 1
   color $ outlineColor resources bounds alpha
 
   preservingMatrix $ do
-    translate $ vector3 0 headerOffset 0
-    drawHorizontalRule $ boxWidth bounds - 1
+    translate $ vector3 0 translateTop 0
+    translateDrawHorizontalRule $ -headerHeight
 
-    translate $ vector3 horizontalGraphOffset 0 0
-    mapM_ translateDrawGraphRule
-        [ bottomGraphOffset
-        , bottomVolumeBarsOffset
-        , bottomStochasticsOffset
-        , bottomWeeklyStochasticsOffset
-        ]
+  preservingMatrix $ do
+    translate $ vector3 0 translateBottom 0
+    translateDrawHorizontalRule 0
+    translateDrawHorizontalRule $ boxHeight weeklyStochasticNumbersBounds
+    translateDrawHorizontalRule $ boxHeight stochasticNumbersBounds
+    translateDrawHorizontalRule $ boxHeight volumeBarNumbersBounds
 
   preservingMatrix $ do
     translateToCenter bounds verticalBounds
     drawVerticalRule verticalHeight
 
   where
-    headerOffset = boxHeight bounds / 2 - headerHeight
-    bottomGraphOffset = -boxHeight graphBounds
-    bottomVolumeBarsOffset = -boxHeight volumeBarsBounds
-    bottomStochasticsOffset = -boxHeight stochasticsBounds
-    bottomWeeklyStochasticsOffset = -boxHeight weeklyStochasticsBounds
+    translateTop = boxHeight bounds / 2
+    translateBottom = -(boxHeight bounds / 2) + bottomPadding
 
-    horizontalGraphRuleWidth = boxWidth graphBounds
-    horizontalGraphOffset = -(boxWidth bounds / 2)
-        + horizontalGraphRuleWidth / 2
+    translateDrawHorizontalRule :: GLfloat -> IO ()
+    translateDrawHorizontalRule yTranslate = do
+      translate $ vector3 0 yTranslate 0
+      drawHorizontalRule $ boxWidth bounds - 1
 
     verticalCenter = boxLeft graphBounds + boxWidth graphBounds
     verticalBounds = Box (verticalCenter, boxTop graphBounds)
-        (verticalCenter, boxBottom weeklyStochasticsBounds)
+        (verticalCenter, boxBottom graphBounds)
 
-    verticalHeight = sum $ map boxHeight
-        [ graphBounds
-        , volumeBarsBounds
-        , stochasticsBounds
-        , weeklyStochasticsBounds
-        ]
+    verticalHeight = sum $ map boxHeight [graphBounds]
     verticalXOffset = -(boxWidth bounds / 2) + boxWidth graphBounds
     verticalYOffset = boxHeight bounds / 2 - headerHeight - verticalHeight / 2
-
-    translateDrawGraphRule :: GLfloat -> IO ()
-    translateDrawGraphRule offset = do
-      translate $ vector3 0 offset 0
-      drawHorizontalRule horizontalGraphRuleWidth
 
