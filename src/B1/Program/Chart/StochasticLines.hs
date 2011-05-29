@@ -20,6 +20,7 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
+import B1.Program.Chart.Streak
 import B1.Program.Chart.Vbo
 
 data StochasticLineSpec = StochasticLineSpec
@@ -46,47 +47,20 @@ getBackgroundVboSpec priceData lineSpecs bounds = VboSpec Quads size elements
     elements = getBackgroundElements priceData lineSpecs bounds
 
 getBackgroundSize :: Int
-getBackgroundSize = size
-  where
-    numQuads = 1
-    verticesPerQuad = 4
-    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
-    size = numQuads * (verticesPerQuad * floatsPerVertex)
+getBackgroundSize = getStreakSize
 
 getBackgroundElements :: StockPriceData -> [StochasticLineSpec] -> Box
     -> [GLfloat]
 getBackgroundElements priceData lineSpecs bounds
-  | length lineSpecs == 0 = []
-  | length stochasticColors == 0 = []
+  | null lineSpecs = []
+  | null stochasticColors = []
   | otherwise = elements
   where
     dataFunction = case timeSpec (head lineSpecs) of
         Daily -> stochastics
         _ -> weeklyStochastics
     stochasticColors = getStochasticColors $ dataFunction priceData
-    color = color3ToList $ head stochasticColors
-
-    Box (left, top) (right, bottom) = bounds
-    elements =
-      -- Top Quad
-      [ left
-      , bottom
-      , 0, 0, 0
-
-      , left
-      , top
-      , 0, 0, 0
-
-      , right
-      , top
-      , 0, 0, 0
-
-      , right
-      , bottom
-      ] ++ color ++
-
-      []
-
+    elements = getStreakElements bounds $ head stochasticColors
 
 getLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box -> VboSpec
 getLinesVboSpec priceData lineSpecs bounds = VboSpec Lines size elements
