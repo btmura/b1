@@ -1,5 +1,5 @@
 module B1.Program.Chart.VolumeBars
-  ( getVolumeBarsVboSpec
+  ( getVboSpecs
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -17,8 +17,8 @@ import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Vbo
 
-getVolumeBarsVboSpec :: StockPriceData -> Box -> VboSpec
-getVolumeBarsVboSpec priceData bounds = VboSpec Quads size quads
+getVboSpecs :: StockPriceData -> Box -> [VboSpec]
+getVboSpecs priceData bounds = [VboSpec Quads size quads]
   where
     size = getSize priceData
     quads = getQuads priceData bounds

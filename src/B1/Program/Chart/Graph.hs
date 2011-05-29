@@ -135,19 +135,19 @@ createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
 createGraphVbo boundSet priceData = 
   createVbo $ concat
     [ getVboSpecList graphBounds $
-        getGraphVboSpec priceData
+        getVboSpecs priceData
     , getVboSpecList volumeBounds $
-        V.getVolumeBarsVboSpec priceData
+        V.getVboSpecs priceData
     , getVboSpecList stochasticsBounds $
-        S.getStochasticLinesVboSpec priceData dailySpecs 
+        S.getVboSpecs priceData dailySpecs 
     , getVboSpecList weeklyStochasticsBounds $
-        S.getStochasticLinesVboSpec priceData weeklySpecs
+        S.getVboSpecs priceData weeklySpecs
     ]
   where
-    getVboSpecList :: (GraphBoundSet -> Maybe Box) -> (Box -> VboSpec)
+    getVboSpecList :: (GraphBoundSet -> Maybe Box) -> (Box -> [VboSpec])
         -> [VboSpec]
     getVboSpecList boundFunc vboFunc = case boundFunc boundSet of 
-      Just bounds -> [vboFunc bounds]
+      Just bounds -> vboFunc bounds
       _ -> []
 
     dailySpecs =
@@ -176,9 +176,10 @@ createGraphVbo boundSet priceData =
         }
       ]
 
-getGraphVboSpec :: StockPriceData -> Box -> VboSpec
-getGraphVboSpec priceData graphBounds =
-  VboSpec Lines graphSize graphElements
+-- TODO: Move the code into a different module
+getVboSpecs :: StockPriceData -> Box -> [VboSpec]
+getVboSpecs priceData graphBounds =
+  [VboSpec Lines graphSize graphElements]
   where
     graphSize = getTotalSize priceData
     graphElements = getGraphLineVertices priceData graphBounds

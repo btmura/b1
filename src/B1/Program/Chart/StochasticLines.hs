@@ -1,7 +1,7 @@
 module B1.Program.Chart.StochasticLines
   ( StochasticTimeSpec(..)
   , StochasticLineSpec(..)
-  , getStochasticLinesVboSpec 
+  , getVboSpecs
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -19,6 +19,7 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
+import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
 
 data StochasticLineSpec = StochasticLineSpec
@@ -31,31 +32,78 @@ data StochasticTimeSpec = Daily | Weekly
 
 data DataStatus = Loading | Received
 
-getStochasticLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
+getVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box -> [VboSpec]
+getVboSpecs priceData lineSpecs bounds =
+  [ getBackgroundVboSpec priceData lineSpecs bounds
+  , getLinesVboSpec priceData lineSpecs bounds
+  ]
+
+getBackgroundVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
     -> VboSpec
-getStochasticLinesVboSpec priceData lineSpecs bounds =
-  VboSpec Lines size elements
+getBackgroundVboSpec priceData lineSpecs bounds = VboSpec Quads size elements
   where
-    size = getStochasticLinesSize lineSpecs priceData
-    elements = getStochasticLines lineSpecs priceData bounds
+    size = getBackgroundSize
+    elements = getBackgroundElements priceData lineSpecs bounds
 
-getStochasticLinesSize :: [StochasticLineSpec] -> StockPriceData -> Int
-getStochasticLinesSize lineSpecs priceData = 
-  sum $ map (getSize priceData) lineSpecs
+getBackgroundSize :: Int
+getBackgroundSize = size
+  where
+    numQuads = 1
+    verticesPerQuad = 4
+    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
+    size = numQuads * (verticesPerQuad * floatsPerVertex)
 
-getSize :: StockPriceData -> StochasticLineSpec -> Int
-getSize priceData lineSpec = size
+getBackgroundElements :: StockPriceData -> [StochasticLineSpec] -> Box
+    -> [GLfloat]
+getBackgroundElements priceData lineSpecs bounds
+  | length lineSpecs == 0 = []
+  | length stochasticColors == 0 = []
+  | otherwise = elements
+  where
+    dataFunction = case timeSpec (head lineSpecs) of
+        Daily -> stochastics
+        _ -> weeklyStochastics
+    stochasticColors = getStochasticColors $ dataFunction priceData
+    color = color3ToList $ head stochasticColors
+
+    Box (left, top) (right, bottom) = bounds
+    elements =
+      -- Top Quad
+      [ left
+      , bottom
+      , 0, 0, 0
+
+      , left
+      , top
+      , 0, 0, 0
+
+      , right
+      , top
+      , 0, 0, 0
+
+      , right
+      , bottom
+      ] ++ color ++
+
+      []
+
+
+getLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box -> VboSpec
+getLinesVboSpec priceData lineSpecs bounds = VboSpec Lines size elements
+  where
+    size = sum $ map (getLineSize priceData) lineSpecs
+    elements = concat $ map (createLine priceData bounds) lineSpecs
+
+getLineSize :: StockPriceData -> StochasticLineSpec -> Int
+getLineSize priceData lineSpec = size
   where
     numElementsFunction = case timeSpec lineSpec of
         Daily -> numDailyElements
         _ -> numWeeklyElements
     numElements = numElementsFunction priceData
     numLines = if numElements <= 1 then 0 else numElements - 1
-    size = numLines * (2 * (2 + 3))
-
-getStochasticLines :: [StochasticLineSpec] -> StockPriceData -> Box -> [GLfloat]
-getStochasticLines lineSpecs priceData bounds =
-  concat $ map (createLine priceData bounds) lineSpecs
+    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
+    size = numLines * (2 * floatsPerVertex)
 
 createLine :: StockPriceData -> Box -> StochasticLineSpec -> [GLfloat]
 createLine priceData bounds lineSpec =
