@@ -30,9 +30,7 @@ import B1.Program.Chart.Resources
 import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.GraphNumbers as GN
 import qualified B1.Program.Chart.Header as H
-import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.StochasticNumbers as SN
-import qualified B1.Program.Chart.VolumeBars as V
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -53,11 +51,6 @@ data ChartState = ChartState
   , graphState :: G.GraphState
   }
 
-cleanChartState :: ChartState -> IO ChartState
-cleanChartState state@ChartState { graphState = graphState } = do
-  newGraphState <- G.cleanGraphState graphState
-  return state { graphState = newGraphState }
-
 newChartState :: Symbol -> IO ChartState
 newChartState symbol = do
   stockData <- newStockData symbol
@@ -66,6 +59,11 @@ newChartState symbol = do
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , graphState = G.newGraphState
     }
+
+cleanChartState :: ChartState -> IO ChartState
+cleanChartState state@ChartState { graphState = graphState } = do
+  newGraphState <- G.cleanGraphState graphState
+  return state { graphState = newGraphState }
 
 bottomPadding = 20
 
@@ -122,8 +120,8 @@ drawChart resources
     , addedSymbol = addedSymbol
     }
 
-drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState -> Box
-    -> IO (H.HeaderState, Dirty, Maybe Symbol, GLfloat)
+drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
+    -> Box -> IO (H.HeaderState, Dirty, Maybe Symbol, GLfloat)
 drawHeader resources alpha symbol stockData headerState bounds = do
   let headerInput = H.HeaderInput
         { H.bounds = bounds
