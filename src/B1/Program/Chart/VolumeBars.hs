@@ -15,55 +15,30 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
-import B1.Program.Chart.Streak
 import B1.Program.Chart.Vbo
 
 getVboSpecs :: StockPriceData -> Box -> [VboSpec]
-getVboSpecs priceData bounds =
-  [ getBackgroundVboSpec priceData bounds
-  , getBarsVboSpec priceData bounds
-  ]
-
-getBackgroundVboSpec :: StockPriceData -> Box -> VboSpec
-getBackgroundVboSpec priceData bounds = VboSpec Quads size elements
+getVboSpecs priceData bounds = [VboSpec Quads size quads]
   where
-    size = getBackgroundSize
-    elements = getBackgroundElements priceData bounds
+    size = getSize priceData
+    quads = getQuads priceData bounds
 
-getBackgroundSize :: Int
-getBackgroundSize = getStreakSize
-
-getBackgroundElements :: StockPriceData -> Box -> [GLfloat]
-getBackgroundElements priceData bounds
-  | null stockPrices = [] 
-  | otherwise = elements
-  where
-    stockPrices = prices priceData
-    color = if getPriceChange stockPrices 0 >= 0 then darkGreen3 else darkRed3
-    elements = getStreakElements bounds color
-
-getBarsVboSpec :: StockPriceData -> Box -> VboSpec
-getBarsVboSpec priceData bounds = VboSpec Quads size elements
-  where
-    size = getBarsSize priceData
-    elements = getBarElements priceData bounds
-
-getBarsSize :: StockPriceData -> Int
-getBarsSize priceData = size
+getSize :: StockPriceData -> Int
+getSize priceData = size
   where
     numElements = numDailyElements priceData
     size = numElements * (4 * (2 + 3))
 
-getBarElements :: StockPriceData -> Box -> [GLfloat]
-getBarElements priceData bounds =
-  concat $ map (createBar bounds stockPrices numElements) indices
+getQuads :: StockPriceData -> Box -> [GLfloat]
+getQuads priceData bounds =
+  concat $ map (createQuad bounds stockPrices numElements) indices
   where
     stockPrices = prices priceData
     numElements = numDailyElements priceData
     indices = [0 .. numElements - 1]
 
-createBar :: Box -> [Price] -> Int -> Int -> [GLfloat]
-createBar bounds prices numElements index =
+createQuad :: Box -> [Price] -> Int -> Int -> [GLfloat]
+createQuad bounds prices numElements index =
   [leftX, bottomY] ++ colorList
       ++ [leftX, topY] ++ colorList
       ++ [rightX, topY] ++ colorList

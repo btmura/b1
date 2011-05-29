@@ -6,10 +6,8 @@ module B1.Program.Chart.Colors
   , gray
   , green
   , green3
-  , darkGreen3
   , red
   , red3
-  , darkRed3
   , purple
   , purple3
   , white
@@ -49,17 +47,11 @@ green = color4 0.25 1 0
 green3 :: Color3 GLfloat
 green3 = color3 0.25 1 0
 
-darkGreen3 :: Color3 GLfloat
-darkGreen3 = color3 0.1 0.2 0
-
 red :: GLfloat -> Color4 GLfloat
 red = color4 1 0.3 0
 
 red3 :: Color3 GLfloat
 red3 = color3 1 0.3 0
-
-darkRed3 :: Color3 GLfloat
-darkRed3 = color3 0.2 0.1 0
 
 purple :: GLfloat -> Color4 GLfloat
 purple = color4 0.5 0 1
