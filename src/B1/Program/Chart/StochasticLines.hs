@@ -1,12 +1,6 @@
 module B1.Program.Chart.StochasticLines
-  ( StochasticLinesInput(..)
-  , StochasticLinesOutput(..)
-  , StochasticLinesState
-  , StochasticTimeSpec(..)
+  ( StochasticTimeSpec(..)
   , StochasticLineSpec(..)
-  , drawStochasticLines
-  , newStochasticLinesState
-  , cleanStochasticLinesState
   , getStochasticLinesVboSpec 
   ) where
 
@@ -27,113 +21,15 @@ import B1.Program.Chart.FragmentShader
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Vbo
 
-data StochasticLinesInput = StochasticLinesInput
-  { bounds :: Box
-  , alpha :: GLfloat
-  , stockData :: StockData
-  , inputState :: StochasticLinesState
-  }
-
-data StochasticLinesOutput = StochasticLinesOutput
-  { outputState :: StochasticLinesState
-  , isDirty :: Dirty
-  }
-
-data StochasticLinesState = StochasticLinesState
-  { lineSpecs :: [StochasticLineSpec]
-  , maybeVbo :: Maybe Vbo
-  , alphaAnimation :: Animation (GLfloat, Dirty)
-  , dataStatus :: DataStatus
-  }
-
-data StochasticTimeSpec = Daily | Weekly
-
 data StochasticLineSpec = StochasticLineSpec
   { timeSpec :: StochasticTimeSpec
   , lineColor :: Color3 GLfloat
   , stochasticFunction :: Stochastic -> Float
   }
 
+data StochasticTimeSpec = Daily | Weekly
+
 data DataStatus = Loading | Received
-
-newStochasticLinesState :: [StochasticLineSpec] -> StochasticLinesState
-newStochasticLinesState lineSpecs =
-  StochasticLinesState
-    { lineSpecs = lineSpecs
-    , maybeVbo = Nothing
-    , alphaAnimation = animateOnce $ linearRange 0 0 1
-    , dataStatus = Loading
-    }
-
-cleanStochasticLinesState :: StochasticLinesState -> IO StochasticLinesState
-cleanStochasticLinesState state@StochasticLinesState { maybeVbo = maybeVbo } =
-  case maybeVbo of
-    Just vbo -> do
-      deleteVbo vbo
-      return state { maybeVbo = Nothing }
-    _ -> return state
-
-drawStochasticLines :: Resources -> StochasticLinesInput
-    -> IO StochasticLinesOutput
-drawStochasticLines resources
-    input@StochasticLinesInput
-      { stockData = stockData
-      , inputState = state
-      } = do
-  maybePriceData <- getStockPriceData stockData
-  case maybePriceData of 
-    Just priceDataOrError ->
-      either (renderPriceData resources input)
-          (renderError state)
-          priceDataOrError
-    _ -> renderNothing state
-
-renderPriceData :: Resources -> StochasticLinesInput -> StockPriceData
-    -> IO StochasticLinesOutput
-renderPriceData
-    Resources { program = program }
-    input@StochasticLinesInput
-      { bounds = bounds
-      , alpha = alpha
-      , inputState = state@StochasticLinesState
-        { lineSpecs = lineSpecs
-        , maybeVbo = maybeVbo
-        , alphaAnimation = alphaAnimation
-        , dataStatus = dataStatus
-        }
-      }
-    priceData  = do
-
-  vbo <- maybe (createStochasticLinesVbo lineSpecs priceData) return maybeVbo
-
-  preservingMatrix $ do
-    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
-    currentProgram $= Just program
-    setAlpha program finalAlpha
-    renderVbo vbo
-    currentProgram $= Nothing
-
-  return StochasticLinesOutput
-    { outputState = state
-      { maybeVbo = Just vbo
-      , alphaAnimation = nextAlphaAnimation
-      , dataStatus = Received
-      }
-    , isDirty = nextIsDirty
-    }
-  where
-    currentAlphaAnimation = case dataStatus of
-        Loading -> animateOnce $ linearRange 0 1 30
-        Received -> alphaAnimation
-    finalAlpha = (min alpha . fst . current) currentAlphaAnimation
-    nextAlphaAnimation = next currentAlphaAnimation
-    nextIsDirty = (snd . current) nextAlphaAnimation
-
-createStochasticLinesVbo :: [StochasticLineSpec] -> StockPriceData -> IO Vbo
-createStochasticLinesVbo lineSpecs priceData =
-  createVbo [getStochasticLinesVboSpec priceData lineSpecs bounds]
-  where
-    bounds = (Box (-1, 1) (1, -1))
 
 getStochasticLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
     -> VboSpec
@@ -193,18 +89,4 @@ createLineSegment bounds color valueGroups numElements index
     (rightValue:leftValue:_) = valueGroups !! index
     rightY = boxBottom bounds + realToFrac rightValue * totalHeight
     leftY = boxBottom bounds + realToFrac leftValue * totalHeight
-
-renderError :: StochasticLinesState -> String -> IO StochasticLinesOutput
-renderError state errorMessage =
-  return StochasticLinesOutput
-    { outputState = state
-    , isDirty = False
-    }
-
-renderNothing :: StochasticLinesState -> IO StochasticLinesOutput
-renderNothing state =
-  return StochasticLinesOutput
-    { outputState = state
-    , isDirty = False
-    }
 
