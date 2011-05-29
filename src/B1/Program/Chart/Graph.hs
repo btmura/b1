@@ -2,6 +2,7 @@ module B1.Program.Chart.Graph
   ( GraphInput(..)
   , GraphOutput(..)
   , GraphState
+  , GraphBoundSet(..)
   , drawGraph
   , newGraphState
   , cleanGraphState
@@ -46,16 +47,25 @@ data GraphState = GraphState
   { maybeVbo :: Maybe Vbo
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , dataStatus :: DataStatus
+  , boundSet :: GraphBoundSet
   }
 
 data DataStatus = Loading | Received
 
-newGraphState :: GraphState
-newGraphState =
+data GraphBoundSet = GraphBoundSet
+  { graphBounds :: Maybe Box
+  , volumeBounds :: Maybe Box
+  , stochasticsBounds :: Maybe Box
+  , weeklyStochasticsBounds :: Maybe Box
+  }
+
+newGraphState :: GraphBoundSet -> GraphState
+newGraphState boundSet =
   GraphState
     { maybeVbo = Nothing
     , alphaAnimation = animateOnce $ linearRange 0 0 1
     , dataStatus = Loading
+    , boundSet = boundSet
     }
 
 cleanGraphState :: GraphState -> IO GraphState
@@ -91,11 +101,12 @@ renderPriceData
         { maybeVbo = maybeVbo
         , alphaAnimation = alphaAnimation
         , dataStatus = dataStatus
+        , boundSet = boundSet
         }
       }
     priceData = do
 
-  vbo <- maybe (createGraphVbo priceData) return maybeVbo
+  vbo <- maybe (createGraphVbo boundSet priceData) return maybeVbo
 
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
@@ -120,19 +131,24 @@ renderPriceData
     nextAlphaAnimation = next currentAlphaAnimation
     nextIsDirty = (snd . current) nextAlphaAnimation
 
-createGraphVbo :: StockPriceData -> IO Vbo
-createGraphVbo priceData = 
-  createVbo
-    [ getGraphVboSpec priceData graphBounds
-    , V.getVolumeBarsVboSpec priceData volumeBounds
-    , S.getStochasticLinesVboSpec priceData dailySpecs stochasticBounds
-    , S.getStochasticLinesVboSpec priceData weeklySpecs weeklyStochasticBounds
+createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
+createGraphVbo boundSet priceData = 
+  createVbo $ concat
+    [ getVboSpecList graphBounds $
+        getGraphVboSpec priceData
+    , getVboSpecList volumeBounds $
+        V.getVolumeBarsVboSpec priceData
+    , getVboSpecList stochasticsBounds $
+        S.getStochasticLinesVboSpec priceData dailySpecs 
+    , getVboSpecList weeklyStochasticsBounds $
+        S.getStochasticLinesVboSpec priceData weeklySpecs
     ]
   where
-    graphBounds = Box (-1, 1) (1, -0.1)
-    volumeBounds = Box (-1, -0.1) (1, -0.4)
-    stochasticBounds = Box (-1, -0.4) (1, -0.7)
-    weeklyStochasticBounds = Box (-1, -0.7) (1, -1)
+    getVboSpecList :: (GraphBoundSet -> Maybe Box) -> (Box -> VboSpec)
+        -> [VboSpec]
+    getVboSpecList boundFunc vboFunc = case boundFunc boundSet of 
+      Just bounds -> [vboFunc bounds]
+      _ -> []
 
     dailySpecs =
       [ S.StochasticLineSpec 

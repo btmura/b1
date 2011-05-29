@@ -58,21 +58,15 @@ newMiniChartState symbol maybeStockData = do
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
-    , graphState = G.newGraphState
+    , graphState = G.newGraphState boundSet
     }
   where
-    lineSpecs =
-      [ S.StochasticLineSpec
-        { S.timeSpec = S.Daily
-        , S.lineColor = yellow3
-        , S.stochasticFunction = d
-        }
-      , S.StochasticLineSpec
-        { S.timeSpec = S.Weekly
-        , S.lineColor = purple3
-        , S.stochasticFunction = d
-        }
-      ]
+    boundSet = G.GraphBoundSet
+      { G.graphBounds = Nothing
+      , G.volumeBounds = Nothing
+      , G.stochasticsBounds = Just $ Box (-1, 1) (1, 0)
+      , G.weeklyStochasticsBounds = Just $ Box (-1, 0) (1, -1)
+      }
 
 cleanMiniChartState :: MiniChartState -> IO MiniChartState
 cleanMiniChartState state@MiniChartState { graphState = graphState } = do
@@ -92,26 +86,17 @@ drawMiniChart resources
         , graphState = graphState
         }
       } = do
-  color finalColor
-  lineWidth $= 1
-  drawRoundedRectangle (boxWidth paddedBox) (boxHeight paddedBox)
-      cornerRadius cornerVertices
-    
   (newHeaderState, headerDirty, removedSymbol, headerHeight)
-      <- drawHeader resources alpha symbol stockData headerState paddedBox
+      <- drawHeader resources alpha symbol stockData headerState paddedBounds
 
-  preservingMatrix $ do
-    translate $ vector3 0 (boxHeight paddedBox / 2 - headerHeight) 0
-    color finalColor
-    lineWidth $= 1
-    drawHorizontalRule (boxWidth paddedBox - 1)
+  drawOutline paddedBounds headerHeight finalColor
 
   (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = Box
-            (boxLeft paddedBox, boxTop paddedBox - headerHeight)
-            (boxRight paddedBox, boxBottom paddedBox)
-    translate $ vector3 (-(boxWidth paddedBox / 2))
-        (-(boxHeight paddedBox / 2)) 0
+            (boxLeft paddedBounds, boxTop paddedBounds - headerHeight)
+            (boxRight paddedBounds, boxBottom paddedBounds)
+    translate $ vector3 (-(boxWidth paddedBounds / 2))
+        (-(boxHeight paddedBounds / 2)) 0
     translate $ vector3 (boxWidth subBounds / 2)
         (boxHeight subBounds / 2) 0
     drawGraph resources alpha stockData graphState subBounds
@@ -119,7 +104,7 @@ drawMiniChart resources
   let nextRemoveChart = isJust removedSymbol
       nextSymbolRequest
         | isNothing removedSymbol
-            && boxContains paddedBox (mousePosition resources)
+            && boxContains paddedBounds (mousePosition resources)
             && isMouseButtonClicked resources ButtonLeft = Just symbol
         | otherwise = Nothing
   return MiniChartOutput
@@ -133,13 +118,11 @@ drawMiniChart resources
       }
     }
   where
-    cornerRadius = 5
-    cornerVertices = 5
     padding = 5
-    paddedBox = boxShrink padding bounds 
+    paddedBounds = boxShrink padding bounds 
     finalColor
       | isBeingDragged = gray alpha
-      | otherwise = outlineColor resources paddedBox alpha
+      | otherwise = outlineColor resources paddedBounds alpha
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
     -> Box -> IO (H.HeaderState, Dirty, Maybe Symbol, GLfloat)
@@ -163,6 +146,24 @@ drawHeader resources alpha symbol stockData headerState bounds = do
         , H.isDirty = isHeaderDirty
         } = headerOutput
   return (outputHeaderState, isHeaderDirty, maybeRemovedSymbol, headerHeight)
+
+drawOutline :: Box -> GLfloat -> Color4 GLfloat -> IO ()
+drawOutline paddedBounds headerHeight finalColor = do
+  color finalColor
+  lineWidth $= 1
+  drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
+      cornerRadius cornerVertices
+  preservingMatrix $ do
+    translate $ vector3 0 upToHeader 0
+    drawRule
+    translate $ vector3 0 downToCenter 0
+    drawRule
+  where
+    cornerRadius = 5
+    cornerVertices = 5
+    upToHeader = boxHeight paddedBounds / 2 - headerHeight
+    downToCenter = -(boxHeight paddedBounds - headerHeight) / 2
+    drawRule = drawHorizontalRule $ boxWidth paddedBounds - 1
 
 drawGraph :: Resources -> GLfloat -> StockData -> G.GraphState -> Box
     -> IO (G.GraphState, Dirty)

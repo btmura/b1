@@ -57,8 +57,15 @@ newChartState symbol = do
   return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-    , graphState = G.newGraphState
+    , graphState = G.newGraphState boundSet
     }
+  where
+    boundSet = G.GraphBoundSet
+      { G.graphBounds = Just $ Box (-1, 1) (1, -0.1)
+      , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
+      , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
+      , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
+      }
 
 cleanChartState :: ChartState -> IO ChartState
 cleanChartState state@ChartState { graphState = graphState } = do
