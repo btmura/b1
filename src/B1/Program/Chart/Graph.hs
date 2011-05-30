@@ -178,21 +178,16 @@ createGraphVbo boundSet priceData =
 
 -- TODO: Move the code into a different module
 getVboSpecs :: StockPriceData -> Box -> [VboSpec]
-getVboSpecs priceData graphBounds =
-  [VboSpec Lines graphSize graphElements]
-  where
-    graphSize = getTotalSize priceData
-    graphElements = getGraphLineVertices priceData graphBounds
+getVboSpecs priceData bounds =
+  getCandlestickVboSpecs priceData bounds
+      ++ getMovingAverageVboSpecs priceData bounds
 
-getTotalSize :: StockPriceData -> Int
-getTotalSize priceData = sum
-    [ getCandlesticksSize priceData
-    , getLineSize $ trim $ movingAverage25 priceData
-    , getLineSize $ trim $ movingAverage50 priceData
-    , getLineSize $ trim $ movingAverage200 priceData
-    ]
+getCandlestickVboSpecs :: StockPriceData -> Box -> [VboSpec]
+getCandlestickVboSpecs priceData bounds =
+  [VboSpec Lines size elements]
   where
-    trim = take $ numDailyElements priceData
+    size = getCandlesticksSize priceData
+    elements = getCandlestickElements priceData bounds
 
 getCandlesticksSize :: StockPriceData -> Int
 getCandlesticksSize priceData = size
@@ -201,19 +196,8 @@ getCandlesticksSize priceData = size
     numLines = 3 * numElements
     size = numLines * (2 * (2 + 3))
 
-getLineSize :: [a] -> Int
-getLineSize list = size
-  where
-    numElements = length list
-    numLines = if numElements <= 1 then 0 else numElements - 1
-    size = numLines * (2 * (2 + 3))
-
-getGraphLineVertices :: StockPriceData -> Box -> [GLfloat]
-getGraphLineVertices priceData bounds =
-  concat $ priceLines
-      ++ movingAverage25Lines
-      ++ movingAverage50Lines
-      ++ movingAverage200Lines
+getCandlestickElements :: StockPriceData -> Box -> [GLfloat]
+getCandlestickElements priceData bounds = concat priceLines
   where
     priceRange = getPriceRange priceData
     colors = getStochasticColors $ stochastics priceData
@@ -223,12 +207,6 @@ getGraphLineVertices priceData bounds =
 
     priceLines = map (createCandlestick bounds priceRange
         (prices priceData) colors numElements) indices
-    movingAverage25Lines = map (createMovingAverageLine bounds priceRange
-        (trim (movingAverage25 priceData)) purple3 numElements) indices
-    movingAverage50Lines = map (createMovingAverageLine bounds priceRange
-        (trim (movingAverage50 priceData)) yellow3 numElements) indices
-    movingAverage200Lines = map (createMovingAverageLine bounds priceRange
-        (trim (movingAverage200 priceData)) white3 numElements) indices
 
 getPriceRange :: StockPriceData -> (Float, Float)
 getPriceRange priceData = (minimum allPrices, maximum allPrices)
@@ -268,19 +246,63 @@ createCandlestick bounds priceRange prices colors numElements index =
     openY = getY bounds priceRange $ open price
     closeY = getY bounds priceRange $ close price
 
+getMovingAverageVboSpecs :: StockPriceData -> Box -> [VboSpec]
+getMovingAverageVboSpecs priceData bounds =
+  map (uncurry (createMovingAverageVboSpec priceData bounds)) 
+      movingAverageFunctions
+  where
+    movingAverageFunctions =
+      [ (movingAverage25, purple3)
+      , (movingAverage50, yellow3)
+      , (movingAverage200, white3)
+      ]
+
+createMovingAverageVboSpec :: StockPriceData -> Box
+    -> (StockPriceData -> [MovingAverage]) -> Color3 GLfloat -> VboSpec
+createMovingAverageVboSpec priceData bounds movingAverageFunction color =
+  VboSpec LineStrip size elements
+  where
+    size = getMovingAverageSize priceData movingAverageFunction
+    elements = getMovingAverageLines priceData bounds
+        movingAverageFunction color
+
+getMovingAverageSize :: StockPriceData
+    -> (StockPriceData -> [MovingAverage]) -> Int
+getMovingAverageSize priceData movingAverageFunction =
+  getLineSize $ trim $ movingAverageFunction priceData
+  where
+    trim = take $ numDailyElements priceData
+
+getLineSize :: [a] -> Int
+getLineSize list = size
+  where
+    numElements = length list
+    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
+    size = numElements * floatsPerVertex
+
+getMovingAverageLines :: StockPriceData -> Box
+    -> (StockPriceData -> [MovingAverage]) -> Color3 GLfloat -> [GLfloat]
+getMovingAverageLines priceData bounds movingAverageFunction color =
+  concat lines
+  where
+    priceRange = getPriceRange priceData
+    numElements = numDailyElements priceData
+    trim = take numElements
+    indices = [0 .. numElements - 1]
+    values = trim $ movingAverageFunction priceData
+    lines = map (createMovingAverageLine bounds priceRange
+        values color numElements) indices
+
 createMovingAverageLine :: Box -> (Float, Float) -> [MovingAverage]
     -> Color3 GLfloat -> Int -> Int -> [GLfloat]
 createMovingAverageLine bounds priceRange movingAverages color numElements index
-  | index >= length valueGroups = []
-  | otherwise = [leftX, leftY] ++ colorList
-      ++ [rightX, rightY] ++ colorList
+  | index >= length movingAverages = []
+  | otherwise = [rightX, rightY] ++ colorList
   where
     colorList = color3ToList color
     (leftX, _, rightX) = getXValues bounds numElements index
-    valueGroups = groupElements 2 movingAverages
-    (rightValue:leftValue:_) = valueGroups !! index
-    leftY = getY bounds priceRange leftValue
-    rightY = getY bounds priceRange rightValue
+    movingAverageValue = movingAverages !! index
+    rightY = getY bounds priceRange movingAverageValue
 
 getXValues :: Box -> Int -> Int -> (GLfloat, GLfloat, GLfloat)
 getXValues bounds numElements index = (leftX, centerX, rightX)
