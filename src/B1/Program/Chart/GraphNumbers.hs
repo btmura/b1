@@ -104,7 +104,8 @@ renderGraphNumbers resources bounds alpha numbersType priceData =
 
         spacingHeight = textHeight * 3
 
-        numLabels = floor $ totalHeight / spacingHeight
+        maxLabels = floor $ totalHeight / spacingHeight
+        numLabels = if maxLabels > 1 then maxLabels - 1 else maxLabels 
         labelPrices = map getLabelPrice [0 .. numLabels - 1]
 
         getLabelPrice :: Int -> Float
