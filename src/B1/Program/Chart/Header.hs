@@ -165,11 +165,11 @@ renderLongStatus symbol prices =
   case prices of
     (todaysPrice:yesterdaysPrice:_) ->
       let todaysClose = close todaysPrice
-          todaysChange = todaysClose - close yesterdaysPrice
-          date = formatTime defaultTimeLocale "%-m/%-d/%y"
-              (endTime todaysPrice)
-          statusText = printf "%s  %0.2f  %+0.2f  %s" symbol todaysClose
-              todaysChange date
+          yesterdaysClose = close yesterdaysPrice
+          todaysChange = todaysClose - yesterdaysClose
+          percentChange = todaysChange / yesterdaysClose * 100
+          statusText = printf "%s  %0.2f  %+0.2f  %+0.2f%%" symbol todaysClose
+              todaysChange percentChange
           color = if todaysChange >= 0 then green4 else red4
       in HeaderStatus statusText color
     _ -> renderEmptyStatus symbol
@@ -180,14 +180,12 @@ renderShortStatus symbol prices =
     (todaysPrice:yesterdaysPrice:_) ->
       let todaysClose = close todaysPrice
           todaysChange = todaysClose - close yesterdaysPrice
-          statusText = printf "%s %0.2f  %+0.2f" symbol todaysClose
+          statusText = printf "%s  %0.2f  %+0.2f" symbol todaysClose
               todaysChange
           color = if todaysChange >= 0 then green4 else red4
       in HeaderStatus statusText color
     _ -> renderEmptyStatus symbol
 
 renderEmptyStatus :: Symbol -> HeaderStatus
-renderEmptyStatus symbol = 
-  let statusText = printf "%s  -  -  -" symbol
-  in HeaderStatus statusText gray4
+renderEmptyStatus symbol = HeaderStatus symbol yellow4
 
