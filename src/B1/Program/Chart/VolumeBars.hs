@@ -33,8 +33,8 @@ getQuads :: StockPriceData -> Box -> [GLfloat]
 getQuads priceData bounds =
   concat $ map (createQuad bounds stockPrices numElements) indices
   where
-    stockPrices = prices priceData
     numElements = numDailyElements priceData
+    stockPrices = take numElements $ prices priceData
     indices = [0 .. numElements - 1]
 
 createQuad :: Box -> [Price] -> Int -> Int -> [GLfloat]
