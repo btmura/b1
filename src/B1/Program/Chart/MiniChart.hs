@@ -89,8 +89,6 @@ drawMiniChart resources
   (newHeaderState, headerDirty, removedSymbol, headerHeight)
       <- drawHeader resources alpha symbol stockData headerState paddedBounds
 
-  drawOutline paddedBounds headerHeight finalColor
-
   (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = Box
             (boxLeft paddedBounds, boxTop paddedBounds - headerHeight)
@@ -100,6 +98,8 @@ drawMiniChart resources
     translate $ vector3 (boxWidth subBounds / 2)
         (boxHeight subBounds / 2) 0
     drawGraph resources alpha stockData graphState subBounds
+
+  drawOutline paddedBounds headerHeight finalColor
 
   let nextRemoveChart = isJust removedSymbol
       nextSymbolRequest
@@ -121,7 +121,7 @@ drawMiniChart resources
     padding = 5
     paddedBounds = boxShrink padding bounds 
     finalColor
-      | isBeingDragged = gray4 alpha
+      | isBeingDragged = purple4 alpha
       | otherwise = outlineColor resources paddedBounds alpha
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
@@ -148,22 +148,30 @@ drawHeader resources alpha symbol stockData headerState bounds = do
   return (outputHeaderState, isHeaderDirty, maybeRemovedSymbol, headerHeight)
 
 drawOutline :: Box -> GLfloat -> Color4 GLfloat -> IO ()
-drawOutline paddedBounds headerHeight finalColor = do
+drawOutline bounds headerHeight finalColor = do
   color finalColor
   lineWidth $= 1
-  drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
-      cornerRadius cornerVertices
-  preservingMatrix $ do
-    translate $ vector3 0 upToHeader 0
-    drawRule
-    translate $ vector3 0 downToCenter 0
-    drawRule
+  renderPrimitive LineLoop $ do
+    vertex $ vertex2 left top
+    vertex $ vertex2 (right - headerHeight * slantFactor) top
+    vertex $ vertex2 right (top - headerHeight)
+    vertex $ vertex2 right bottom
+    vertex $ vertex2 left bottom
+  renderPrimitive Lines $ do
+    vertex $ vertex2 left (top - headerHeight)
+    vertex $ vertex2 (right - 1) (top - headerHeight)
+    vertex $ vertex2 left stochasticTop
+    vertex $ vertex2 (right - 1) stochasticTop
   where
-    cornerRadius = 5
-    cornerVertices = 5
-    upToHeader = boxHeight paddedBounds / 2 - headerHeight
-    downToCenter = -(boxHeight paddedBounds - headerHeight) / 2
-    drawRule = drawHorizontalRule $ boxWidth paddedBounds - 1
+    slantFactor = 0.5
+    halfWidth = boxWidth bounds / 2
+    halfHeight = boxHeight bounds / 2
+    left = -halfWidth
+    right = halfWidth
+    top = halfHeight
+    bottom = -halfHeight
+    stochasticTop = top - headerHeight
+        - ((boxHeight bounds - headerHeight) / 2)
 
 drawGraph :: Resources -> GLfloat -> StockData -> G.GraphState -> Box
     -> IO (G.GraphState, Dirty)

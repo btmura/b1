@@ -180,14 +180,13 @@ getBounds resources bounds headerHeight stockData = do
       numbersLeft = right - minNumbersWidth
 
       Box (left, top) (right, bottom) = bounds
-      remainingHeight = boxHeight bounds - headerHeight * 2
+      remainingHeight = boxHeight bounds - headerHeight
       graphHeight = remainingHeight * 0.55
       volumeBarsHeight = remainingHeight * 0.15
       stochasticsHeight = remainingHeight * 0.15
       weeklyStochasticsHeight = remainingHeight * 0.15
 
-      chartBounds = Box (left, top - headerHeight)
-          (numbersLeft, bottom + headerHeight - 1)
+      chartBounds = Box (left, top - headerHeight) (numbersLeft, bottom)
 
       priceBounds = Box (left, top - headerHeight)
           (right, top - headerHeight - graphHeight)
@@ -230,7 +229,6 @@ drawRefreshButton :: Resources -> Box -> GLfloat -> IO ()
 drawRefreshButton resources bounds alpha = do
   drawButton resources bounds 2 alpha
   return ()
-
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> Box -> IO ()
@@ -299,18 +297,12 @@ drawFrame resources bounds
     vertex $ vertex2 (right - headerHeight) (top - headerHeight)
     vertex $ vertex2 right (top - headerHeight)
     vertex $ vertex2 right bottom
-    vertex $ vertex2 (left + headerHeight * slantFactor) bottom
-    vertex $ vertex2 (left + headerHeight) (bottom + headerHeight)
-    vertex $ vertex2 left (bottom + headerHeight)
+    vertex $ vertex2 left bottom
 
   renderPrimitive Lines $ do
     -- Line below the header
     vertex $ vertex2 left (top - headerHeight)
     vertex $ vertex2 (right - headerHeight - 1) (top - headerHeight)
-
-    -- Line at the bottom for aesthetic reasons...
-    vertex $ vertex2 (left + headerHeight + 1) (bottom + headerHeight)
-    vertex $ vertex2 right (bottom + headerHeight)
 
     -- Line underneath the main graph
     vertex $ vertex2 left belowPrices
@@ -323,9 +315,8 @@ drawFrame resources bounds
     -- Line underneath the stochastics
     vertex $ vertex2 left belowStochastics
     vertex $ vertex2 right belowStochastics
-
   where
-    slantFactor = 1.25
+    slantFactor = 1.5
     frameColor = outlineColor resources bounds alpha
     halfWidth = boxWidth bounds / 2
     halfHeight = boxHeight bounds / 2
