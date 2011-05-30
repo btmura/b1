@@ -404,12 +404,10 @@ drawNextSymbol resources
     blend $= Disabled
 
     color $ black4 1
-    fillRoundedRectangle textBubbleWidth textBubbleHeight
-        cornerRadius cornerVertices
+    fillRectangle textBubbleWidth textBubbleHeight textBubblePadding
 
     color $ blue4 1
-    drawRoundedRectangle textBubbleWidth textBubbleHeight
-        cornerRadius cornerVertices
+    drawRectangle textBubbleWidth textBubbleHeight textBubblePadding
 
     -- Renable the blending now...
     blend $= Enabled
