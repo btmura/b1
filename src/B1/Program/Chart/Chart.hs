@@ -29,9 +29,7 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Graph as G
-import qualified B1.Program.Chart.GraphNumbers as GN
 import qualified B1.Program.Chart.Header as H
-import qualified B1.Program.Chart.StochasticNumbers as SN
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -100,26 +98,6 @@ drawChart resources
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
 
-  preservingMatrix $ do
-    let subBounds = priceNumbersBounds boundsSet
-    translateToCenter bounds subBounds
-    drawGraphNumbers resources alpha GN.Prices stockData subBounds
-
-  preservingMatrix $ do
-    let subBounds = volumeNumbersBounds boundsSet
-    translateToCenter bounds subBounds
-    drawGraphNumbers resources alpha GN.Volume stockData subBounds
-
-  preservingMatrix $ do
-    let subBounds = stochasticNumbersBounds boundsSet
-    translateToCenter bounds subBounds
-    drawStochasticNumbers resources alpha subBounds
-
-  preservingMatrix $ do
-    let subBounds = weeklyStochasticNumbersBounds boundsSet
-    translateToCenter bounds subBounds
-    drawStochasticNumbers resources alpha subBounds
-
   drawFrame resources bounds boundsSet headerHeight alpha
 
   return ChartOutput
@@ -160,55 +138,28 @@ data Bounds = Bounds
   , priceBounds :: Box
   , volumeBounds :: Box
   , stochasticBounds :: Box
-  , priceNumbersBounds :: Box
-  , volumeNumbersBounds :: Box
-  , stochasticNumbersBounds :: Box
-  , weeklyStochasticNumbersBounds :: Box
   }
 
--- TODO: Move code to Graph
 getBounds :: Resources -> Box -> GLfloat -> StockData -> IO Bounds
 getBounds resources bounds headerHeight stockData = do
-  graphNumbersWidth <- GN.getPreferredWidth resources GN.Prices stockData
-  volumeBarNumbersWidth <- GN.getPreferredWidth resources GN.Volume stockData
-  stochasticNumbersWidth <- SN.getPreferredWidth resources
-  let minNumbersWidth = maximum
-        [ graphNumbersWidth
-        , volumeBarNumbersWidth
-        , stochasticNumbersWidth
-        ]
-      numbersLeft = right - minNumbersWidth
+  let Box (left, top) (right, bottom) = bounds
+      headerBottom = top - headerHeight
+      chartBounds = Box (left, headerBottom) (right, bottom)
 
-      Box (left, top) (right, bottom) = bounds
       remainingHeight = boxHeight bounds - headerHeight
       graphHeight = remainingHeight * 0.55
-      volumeBarsHeight = remainingHeight * 0.15
+      volumeHeight = remainingHeight * 0.15
       stochasticsHeight = remainingHeight * 0.15
       weeklyStochasticsHeight = remainingHeight * 0.15
 
-      chartBounds = Box (left, top - headerHeight) (numbersLeft, bottom)
-
-      priceBounds = Box (left, top - headerHeight)
-          (right, top - headerHeight - graphHeight)
-      priceNumbersBounds = Box (numbersLeft, top - headerHeight)
-          (right, top - headerHeight - graphHeight)
-
-      volumeBounds = Box (left, top - headerHeight - graphHeight)
-          (numbersLeft, top - headerHeight - graphHeight - volumeBarsHeight)
-      volumeNumbersBounds = Box (numbersLeft, boxTop volumeBounds)
-          (right, boxBottom volumeBounds)
-
+      priceBounds = Box (left, headerBottom)
+          (right, headerBottom - graphHeight)
+      volumeBounds = Box (left, boxBottom priceBounds)
+          (right, boxBottom priceBounds - volumeHeight)
       stochasticsBounds = Box (left, boxBottom volumeBounds)
-          (numbersLeft, boxBottom volumeBounds - stochasticsHeight)
-      stochasticNumbersBounds = Box (numbersLeft, boxTop stochasticsBounds)
-          (right, boxBottom stochasticsBounds)
-
-      weeklyStochasticsBounds = Box
-          (left, boxBottom stochasticsBounds)
-          (numbersLeft, boxBottom stochasticsBounds - weeklyStochasticsHeight)
-      weeklyStochasticNumbersBounds = Box
-          (numbersLeft, boxTop weeklyStochasticsBounds)
-          (right, boxBottom weeklyStochasticsBounds)
+          (right, boxBottom volumeBounds - stochasticsHeight)
+      weeklyStochasticsBounds = Box (left, boxBottom stochasticsBounds)
+          (right, boxBottom stochasticsBounds - weeklyStochasticsHeight)
 
       refreshButtonBounds = Box (right - headerHeight, top)
           (right, top - headerHeight)
@@ -219,10 +170,6 @@ getBounds resources bounds headerHeight stockData = do
     , priceBounds = priceBounds
     , volumeBounds = volumeBounds
     , stochasticBounds = stochasticsBounds
-    , priceNumbersBounds = priceNumbersBounds
-    , volumeNumbersBounds = volumeNumbersBounds
-    , stochasticNumbersBounds = stochasticNumbersBounds
-    , weeklyStochasticNumbersBounds = weeklyStochasticNumbersBounds
     }
 
 drawRefreshButton :: Resources -> Box -> GLfloat -> IO ()
@@ -260,25 +207,6 @@ drawGraph resources alpha stockData graphState bounds = do
         } = graphOutput
   return (outputGraphState, isGraphDirty)
 
-drawGraphNumbers :: Resources -> GLfloat -> GN.GraphNumbersType -> StockData
-    -> Box -> IO ()
-drawGraphNumbers resources alpha numbersType stockData bounds = do
-  let numbersInput = GN.GraphNumbersInput
-        { GN.bounds = bounds
-        , GN.alpha = alpha
-        , GN.stockData = stockData
-        , GN.numbersType = numbersType
-        }
-  GN.drawGraphNumbers resources numbersInput
-
-drawStochasticNumbers :: Resources -> GLfloat -> Box -> IO ()
-drawStochasticNumbers resources alpha bounds = do
-  let numbersInput = SN.StochasticNumbersInput
-        { SN.bounds = bounds
-        , SN.alpha = alpha
-        }
-  SN.drawStochasticNumbers resources numbersInput
-
 drawFrame :: Resources -> Box -> Bounds -> GLfloat -> GLfloat -> IO ()
 drawFrame resources bounds
     Bounds
@@ -309,6 +237,7 @@ drawFrame resources bounds
     vertex $ vertex2 right belowPrices
 
     -- Line underneath the volume bars
+    color frameColor
     vertex $ vertex2 left belowVolume
     vertex $ vertex2 right belowVolume
 
@@ -318,6 +247,7 @@ drawFrame resources bounds
   where
     slantFactor = 1.5
     frameColor = outlineColor resources bounds alpha
+    blackColor = black4 alpha
     halfWidth = boxWidth bounds / 2
     halfHeight = boxHeight bounds / 2
     left = -halfWidth
