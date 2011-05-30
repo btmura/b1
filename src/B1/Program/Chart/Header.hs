@@ -27,6 +27,7 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
+import B1.Program.Chart.Button
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
@@ -59,7 +60,7 @@ data HeaderStatus = HeaderStatus String (GLfloat -> Color4 GLfloat)
 
 data HeaderStatusStyle = ShortStatus | LongStatus
 
-data HeaderButton = AddButton | RemoveButton
+data HeaderButton = AddButton | RemoveButton deriving (Eq)
 
 newHeaderState :: HeaderStatusStyle -> HeaderButton -> HeaderState
 newHeaderState statusStyle button = HeaderState
@@ -112,24 +113,13 @@ drawHeader resources@Resources
       renderText statusTextSpec
 
     -- TODO: Improve texture choosing to not hardcode numbers
-    let buttonHitBox = Box (boxLeft bounds, boxTop bounds)
+    let buttonBounds = Box (boxLeft bounds, boxTop bounds)
             (boxLeft bounds + headerHeight, boxTop bounds - headerHeight)
-        buttonHover = alpha >= 1
-            && boxContains buttonHitBox mousePosition
-        buttonClicked = buttonHover
-            && isMouseButtonClicked resources ButtonLeft
-        (click, hover, normal) =
-          case button of
-            AddButton -> (1, 1, 0)
-            RemoveButton -> (3, 3, 2)
-        buttonTextureNumber
-          | buttonClicked = click
-          | buttonHover = hover
-          | otherwise = normal
+        buttonTextureNumber = if button == AddButton then 0 else 1
 
-    preservingMatrix $ do
+    buttonState <- preservingMatrix $ do
       translate $ vector3 (headerHeight / 2) (-headerHeight / 2) 0
-      drawHeaderButton headerHeight headerHeight buttonTextureNumber alpha
+      drawButton resources buttonBounds buttonTextureNumber alpha
 
     maybePriceData <- getStockPriceData stockData
     let nextIsStatusShowing = isJust maybePriceData
@@ -139,8 +129,10 @@ drawHeader resources@Resources
           { isStatusShowing = nextIsStatusShowing
           , statusAlphaAnimation = nextStatusAlphaAnimation
           }
-        nextIsDirty = buttonClicked || (snd . current) nextStatusAlphaAnimation
-        nextClickedSymbol = if buttonClicked then Just symbol else Nothing
+        nextIsDirty = (snd . current) nextStatusAlphaAnimation
+        nextClickedSymbol = if buttonState == Clicked
+            then Just symbol
+            else Nothing
 
     return HeaderOutput
       { outputState = outputState
@@ -163,7 +155,7 @@ renderStatus :: (Symbol -> [Price] -> HeaderStatus) -> Symbol -> StockData
     -> IO HeaderStatus
 renderStatus renderFunction symbol stockData = do
   maybePriceData <- getStockPriceData stockData
-  return $ maybe (HeaderStatus symbol green)
+  return $ maybe (HeaderStatus symbol green4)
       (either (renderFunction symbol . prices)
           (\_ -> renderEmptyStatus symbol))
       maybePriceData
@@ -178,7 +170,7 @@ renderLongStatus symbol prices =
               (endTime todaysPrice)
           statusText = printf "%s  %0.2f  %+0.2f  %s" symbol todaysClose
               todaysChange date
-          color = if todaysChange >= 0 then green else red
+          color = if todaysChange >= 0 then green4 else red4
       in HeaderStatus statusText color
     _ -> renderEmptyStatus symbol
 
@@ -190,32 +182,12 @@ renderShortStatus symbol prices =
           todaysChange = todaysClose - close yesterdaysPrice
           statusText = printf "%s %0.2f  %+0.2f" symbol todaysClose
               todaysChange
-          color = if todaysChange >= 0 then green else red
+          color = if todaysChange >= 0 then green4 else red4
       in HeaderStatus statusText color
     _ -> renderEmptyStatus symbol
 
 renderEmptyStatus :: Symbol -> HeaderStatus
 renderEmptyStatus symbol = 
   let statusText = printf "%s  -  -  -" symbol
-  in HeaderStatus statusText gray
-
-drawHeaderButton :: GLfloat -> GLfloat -> Int -> GLfloat -> IO ()
-drawHeaderButton width height textureNumber alpha = 
-  preservingMatrix $ do
-    texture Texture2D $= Enabled
-    textureBinding Texture2D $= Just (TextureObject 
-        (fromIntegral textureNumber))
-    scale3 (width / 2) (height / 2) 1
-    color $ white alpha
-    renderPrimitive Quads $ do
-      normal $ normal3 0 0 1
-      texCoord $ texCoord2 0 0
-      vertex $ vertex2 (-1) (-1)
-      texCoord $ texCoord2 0 1
-      vertex $ vertex2 (-1) 1
-      texCoord $ texCoord2 1 1
-      vertex $ vertex2 1 1
-      texCoord $ texCoord2 1 0
-      vertex $ vertex2 1 (-1)
-    texture Texture2D $= Disabled
+  in HeaderStatus statusText gray4
 

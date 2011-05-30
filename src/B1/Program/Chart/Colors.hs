@@ -1,19 +1,19 @@
 module B1.Program.Chart.Colors
-  ( black
-  , blue
-  , lightBlue
-  , lighterBlue
-  , gray
-  , green
+  ( black4
+  , blue4
+  , lightBlue4
+  , lighterBlue4
+  , gray4
   , green3
-  , red
+  , green4
   , red3
-  , purple
+  , red4
   , purple3
-  , white
+  , purple4
   , white3
-  , yellow
+  , white4
   , yellow3
+  , yellow4
 
   , color3ToList
   , outlineColor
@@ -26,59 +26,59 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Resources
 
-black :: GLfloat -> Color4 GLfloat
-black = color4 0 0 0
+black4 :: GLfloat -> Color4 GLfloat
+black4 = color4 0 0 0
 
-blue :: GLfloat -> Color4 GLfloat
-blue = color4 0 0.25 0.5 
+blue4 :: GLfloat -> Color4 GLfloat
+blue4 = color4 0 0.25 0.5 
 
-lightBlue :: GLfloat -> Color4 GLfloat
-lightBlue = color4 0 0.25 0.75
+lightBlue4 :: GLfloat -> Color4 GLfloat
+lightBlue4 = color4 0 0.25 0.75
 
-lighterBlue :: GLfloat -> Color4 GLfloat
-lighterBlue = color4 0 0.25 1
+lighterBlue4 :: GLfloat -> Color4 GLfloat
+lighterBlue4 = color4 0 0.25 1
 
-gray :: GLfloat -> Color4 GLfloat
-gray = color4 0.5 0.5 0.5
-
-green :: GLfloat -> Color4 GLfloat
-green = color4 0.25 1 0
+gray4 :: GLfloat -> Color4 GLfloat
+gray4 = color4 0.5 0.5 0.5
 
 green3 :: Color3 GLfloat
 green3 = color3 0.25 1 0
 
-red :: GLfloat -> Color4 GLfloat
-red = color4 1 0.3 0
+green4 :: GLfloat -> Color4 GLfloat
+green4 = color4 0.25 1 0
 
 red3 :: Color3 GLfloat
 red3 = color3 1 0.3 0
 
-purple :: GLfloat -> Color4 GLfloat
-purple = color4 0.5 0 1
+red4 :: GLfloat -> Color4 GLfloat
+red4 = color4 1 0.3 0
 
 purple3 :: Color3 GLfloat
 purple3 = color3 0.5 0 1
 
-white :: GLfloat -> Color4 GLfloat
-white = color4 1 1 1
+purple4 :: GLfloat -> Color4 GLfloat
+purple4 = color4 0.5 0 1
 
 white3 :: Color3 GLfloat
 white3 = color3 1 1 1
 
-yellow :: GLfloat -> Color4 GLfloat
-yellow = color4 1 1 0
+white4 :: GLfloat -> Color4 GLfloat
+white4 = color4 1 1 1
 
 yellow3 :: Color3 GLfloat
 yellow3 = color3 1 1 0
+
+yellow4 :: GLfloat -> Color4 GLfloat
+yellow4 = color4 1 1 0
 
 color3ToList :: Color3 GLfloat -> [GLfloat]
 color3ToList (Color3 r g b) = r:g:b:[]
 
 outlineColor :: Resources -> Box -> GLfloat -> Color4 GLfloat
 outlineColor resources@Resources { mousePosition = mousePosition } bounds
-  | clicked = lighterBlue
-  | hover = lightBlue
-  | otherwise = blue
+  | clicked = lighterBlue4
+  | hover = lightBlue4
+  | otherwise = blue4
   where 
     -- TODO: Make helper method for hover and click states.
     hover = boxContains bounds mousePosition

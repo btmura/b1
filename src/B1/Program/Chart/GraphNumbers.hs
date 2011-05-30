@@ -95,7 +95,7 @@ renderGraphNumbers :: Resources -> Box -> GLfloat -> GraphNumbersType
     -> StockPriceData -> IO ()
 renderGraphNumbers resources bounds alpha numbersType priceData =
   preservingMatrix $ do
-    color $ yellow alpha
+    color $ yellow4 alpha
     translate $ vector3 translateLeft translateTop 0
 
     textBox <- measureText $ textSpecFunc highest

@@ -35,7 +35,7 @@ drawStochasticNumbers resources
       { bounds = bounds
       , alpha = alpha
       } = do
-  color $ yellow alpha
+  color $ yellow4 alpha
   preservingMatrix $ do
     textBox <- measureText $ textSpec "30%"
     translate $ vector3 translateLeft

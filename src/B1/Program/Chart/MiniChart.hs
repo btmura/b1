@@ -121,7 +121,7 @@ drawMiniChart resources
     padding = 5
     paddedBounds = boxShrink padding bounds 
     finalColor
-      | isBeingDragged = gray alpha
+      | isBeingDragged = gray4 alpha
       | otherwise = outlineColor resources paddedBounds alpha
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState

@@ -48,11 +48,9 @@ loadTextures = do
   texture Texture2D $= Disabled
   where
     fileNames =
-      [ "res/add-normal.tga"
-      , "res/add-hover.tga"
-      , "res/remove-normal.tga"
-      , "res/remove-hover.tga"
-      , "res/refresh-normal.tga"
+      [ "res/tga/add-button.tga"
+      , "res/tga/remove-button.tga"
+      , "res/tga/refresh-button.tga"
       ]
 
 bindTexture :: Int -> String -> IO ()

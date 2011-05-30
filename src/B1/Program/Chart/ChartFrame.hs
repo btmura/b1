@@ -407,18 +407,18 @@ drawNextSymbol resources
     -- Disable blending or else the background won't work.
     blend $= Disabled
 
-    color $ black 1
+    color $ black4 1
     fillRoundedRectangle textBubbleWidth textBubbleHeight
         cornerRadius cornerVertices
 
-    color $ blue 1
+    color $ blue4 1
     drawRoundedRectangle textBubbleWidth textBubbleHeight
         cornerRadius cornerVertices
 
     -- Renable the blending now...
     blend $= Enabled
 
-    color $ green 1
+    color $ green4 1
     translate $ vector3 (-centerX) (-centerY) 0
     renderText textSpec
 

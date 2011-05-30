@@ -23,6 +23,7 @@ import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
+import B1.Program.Chart.Button
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
@@ -91,6 +92,11 @@ drawChart resources
       <- drawHeader resources alpha symbol stockData headerState bounds
   boundsSet <- getBounds resources bounds headerHeight stockData
 
+  preservingMatrix $ do
+    let subBounds = refreshButtonBounds boundsSet
+    translateToCenter bounds subBounds
+    drawRefreshButton resources subBounds alpha
+
   (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = graphBounds boundsSet
     translateToCenter bounds subBounds
@@ -151,8 +157,14 @@ drawHeader resources alpha symbol stockData headerState bounds = do
         } = headerOutput
   return (outputHeaderState, isHeaderDirty, addedSymbol, headerHeight)
 
+drawRefreshButton :: Resources -> Box -> GLfloat -> IO ()
+drawRefreshButton resources bounds alpha = do
+  drawButton resources bounds 2 alpha
+  return ()
+
 data Bounds = Bounds
-  { graphBounds :: Box
+  { refreshButtonBounds :: Box
+  , graphBounds :: Box
   , graphNumbersBounds :: Box
   , volumeBarNumbersBounds :: Box
   , stochasticNumbersBounds :: Box
@@ -206,8 +218,12 @@ getBounds resources bounds headerHeight stockData = do
           (numbersLeft, boxTop weeklyStochasticsBounds)
           (right, boxBottom weeklyStochasticsBounds)
 
+      refreshButtonBounds = Box (right - headerHeight, top)
+          (right, top - headerHeight)
+
   return Bounds
-    { graphBounds = graphBounds
+    { refreshButtonBounds = refreshButtonBounds
+    , graphBounds = graphBounds
     , graphNumbersBounds = graphNumbersBounds
     , volumeBarNumbersBounds = volumeBarNumbersBounds
     , stochasticNumbersBounds = stochasticNumbersBounds

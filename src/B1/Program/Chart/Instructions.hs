@@ -27,7 +27,7 @@ drawInstructions :: Resources -> InstructionsInput -> IO InstructionsOutput
 drawInstructions Resources { font = font }
     InstructionsInput { alpha = alpha } = do
 
-  color $ green alpha
+  color $ green4 alpha
 
   textBounds <- measureText textSpec
   let (centerX, centerY) = boxCenter textBounds
