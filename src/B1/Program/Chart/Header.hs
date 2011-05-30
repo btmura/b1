@@ -50,7 +50,7 @@ data HeaderOutput = HeaderOutput
 
 data HeaderState = HeaderState
   { button :: HeaderButton
-  , getStatus :: StockData -> IO HeaderStatus
+  , getStatus :: Symbol -> StockData -> IO HeaderStatus
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
   }
@@ -97,52 +97,38 @@ drawHeader resources@Resources
   preservingMatrix $ do
     translate $ vector3 (-(boxWidth bounds / 2)) (boxHeight bounds / 2) 0
 
-    symbolBox <- measureText symbolTextSpec
-
-    HeaderStatus statusText statusColor <- getStatus stockData
+    HeaderStatus statusText statusColor <- getStatus symbol stockData
     let statusTextSpec = headerTextSpec statusText
     statusBox <- measureText statusTextSpec
 
-    let symbolWidth = boxWidth symbolBox
-        symbolHeight = boxHeight symbolBox
-
-        statusHeight = boxHeight symbolBox
+    let statusHeight = boxHeight statusBox
         statusAlpha = fst $ current statusAlphaAnimation
-
-        textHeight = max symbolHeight statusHeight
-        headerHeight = padding + textHeight + padding
-        symbolY = (-headerHeight - symbolHeight) / 2
+        headerHeight = padding + statusHeight + padding
         statusY = (-headerHeight - statusHeight) / 2
 
     preservingMatrix $ do
-      translate $ vector3 padding symbolY 0
-      color $ statusColor alpha
-      renderText symbolTextSpec
-
-    preservingMatrix $ do
-      translate $ vector3 (padding + symbolWidth) statusY 0
+      translate $ vector3 headerHeight statusY 0
       color $ statusColor $ min alpha statusAlpha
       renderText statusTextSpec
 
     -- TODO: Improve texture choosing to not hardcode numbers
-    let buttonHitBox = Box (boxRight bounds - headerHeight, boxTop bounds)
-            (boxRight bounds, boxTop bounds - headerHeight)
+    let buttonHitBox = Box (boxLeft bounds, boxTop bounds)
+            (boxLeft bounds + headerHeight, boxTop bounds - headerHeight)
         buttonHover = alpha >= 1
             && boxContains buttonHitBox mousePosition
         buttonClicked = buttonHover
             && isMouseButtonClicked resources ButtonLeft
         (click, hover, normal) =
           case button of
-            AddButton -> (2, 1, 0)
-            RemoveButton -> (5, 4, 3)
+            AddButton -> (1, 1, 0)
+            RemoveButton -> (3, 3, 2)
         buttonTextureNumber
           | buttonClicked = click
           | buttonHover = hover
           | otherwise = normal
 
     preservingMatrix $ do
-      translate $ vector3 (boxWidth bounds - headerHeight / 2)
-          (-headerHeight / 2) 0
+      translate $ vector3 (headerHeight / 2) (-headerHeight / 2) 0
       drawHeaderButton headerHeight headerHeight buttonTextureNumber alpha
 
     maybePriceData <- getStockPriceData stockData
@@ -167,46 +153,51 @@ drawHeader resources@Resources
     headerTextSpec = TextSpec font fontSize
     symbolTextSpec = headerTextSpec symbol
 
-getLongStatus :: StockData -> IO HeaderStatus
+getLongStatus :: Symbol -> StockData -> IO HeaderStatus
 getLongStatus = renderStatus renderLongStatus 
  
-getShortStatus :: StockData -> IO HeaderStatus
+getShortStatus :: Symbol -> StockData -> IO HeaderStatus
 getShortStatus = renderStatus renderShortStatus
 
-renderStatus :: ([Price] -> HeaderStatus) -> StockData -> IO HeaderStatus
-renderStatus renderFunction stockData = do
+renderStatus :: (Symbol -> [Price] -> HeaderStatus) -> Symbol -> StockData
+    -> IO HeaderStatus
+renderStatus renderFunction symbol stockData = do
   maybePriceData <- getStockPriceData stockData
-  return $ maybe (HeaderStatus "" green)
-      (either (renderFunction . prices) (\_ -> renderEmptyStatus))
+  return $ maybe (HeaderStatus symbol green)
+      (either (renderFunction symbol . prices)
+          (\_ -> renderEmptyStatus symbol))
       maybePriceData
 
-renderLongStatus :: [Price] -> HeaderStatus
-renderLongStatus prices =
+renderLongStatus :: Symbol -> [Price] -> HeaderStatus
+renderLongStatus symbol prices =
   case prices of
     (todaysPrice:yesterdaysPrice:_) ->
       let todaysClose = close todaysPrice
           todaysChange = todaysClose - close yesterdaysPrice
           date = formatTime defaultTimeLocale "%-m/%-d/%y"
               (endTime todaysPrice)
-          statusText = printf "  %0.2f  %+0.2f  %s" todaysClose
+          statusText = printf "%s  %0.2f  %+0.2f  %s" symbol todaysClose
               todaysChange date
           color = if todaysChange >= 0 then green else red
       in HeaderStatus statusText color
-    _ -> renderEmptyStatus
+    _ -> renderEmptyStatus symbol
 
-renderShortStatus :: [Price] -> HeaderStatus
-renderShortStatus prices =
+renderShortStatus :: Symbol -> [Price] -> HeaderStatus
+renderShortStatus symbol prices =
   case prices of
     (todaysPrice:yesterdaysPrice:_) ->
       let todaysClose = close todaysPrice
           todaysChange = todaysClose - close yesterdaysPrice
-          statusText = printf "  %0.2f  %+0.2f" todaysClose todaysChange
+          statusText = printf "%s %0.2f  %+0.2f" symbol todaysClose
+              todaysChange
           color = if todaysChange >= 0 then green else red
       in HeaderStatus statusText color
-    _ -> renderEmptyStatus
+    _ -> renderEmptyStatus symbol
 
-renderEmptyStatus :: HeaderStatus
-renderEmptyStatus = HeaderStatus " - - -" gray
+renderEmptyStatus :: Symbol -> HeaderStatus
+renderEmptyStatus symbol = 
+  let statusText = printf "%s  -  -  -" symbol
+  in HeaderStatus statusText gray
 
 drawHeaderButton :: GLfloat -> GLfloat -> Int -> GLfloat -> IO ()
 drawHeaderButton width height textureNumber alpha = 

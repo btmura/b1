@@ -86,6 +86,7 @@ drawChart resources
         , graphState = graphState
         }
       } = do
+
   (newHeaderState, headerDirty, addedSymbol, headerHeight)
       <- drawHeader resources alpha symbol stockData headerState bounds
   boundsSet <- getBounds resources bounds headerHeight stockData

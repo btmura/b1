@@ -50,10 +50,9 @@ loadTextures = do
     fileNames =
       [ "res/add-normal.tga"
       , "res/add-hover.tga"
-      , "res/add-press.tga"
       , "res/remove-normal.tga"
       , "res/remove-hover.tga"
-      , "res/remove-press.tga"
+      , "res/refresh-normal.tga"
       ]
 
 bindTexture :: Int -> String -> IO ()
