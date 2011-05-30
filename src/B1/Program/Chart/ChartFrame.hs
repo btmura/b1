@@ -318,11 +318,7 @@ drawFrame resources bounds
       , alphaAnimation = alphaAnimation
       }) = 
   preservingMatrix $ do
-    lineWidth $= 1
     scale3 scaleAmount scaleAmount 1
-    color $ outlineColor resources paddedBounds alphaAmount
-    drawRoundedRectangle (boxWidth paddedBounds) (boxHeight paddedBounds)
-        cornerRadius cornerVertices
     (nextContent, isDirty, addedSymbol) <- drawFrameContent resources
         bounds content alphaAmount
     return (Just frame { content = nextContent }, isDirty, addedSymbol)

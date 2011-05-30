@@ -3,7 +3,6 @@ module B1.Graphics.Rendering.OpenGL.Shapes
   , drawVerticalRule
   , drawRoundedRectangle
   , fillRoundedRectangle
-  , drawSquarePlaceholder
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -68,20 +67,6 @@ getRoundedRectangleVertices width height cornerRadius cornerVertices =
 
   in lowerLeftVertices ++ upperLeftVertices ++ upperRightVertices
       ++ lowerRightVertices
-
-drawSquarePlaceholder :: IO ()
-drawSquarePlaceholder = do
-  renderPrimitive LineLoop $ do
-    vertex $ vertex2 (-1) (-1)
-    vertex $ vertex2 (-1) 1
-    vertex $ vertex2 1 1
-    vertex $ vertex2 1 (-1)
-
-  renderPrimitive Lines $ do
-    vertex $ vertex2 (-1) 1
-    vertex $ vertex2 1 (-1)
-    vertex $ vertex2 (-1) (-1)
-    vertex $ vertex2 1 1
 
 -- | Draws a horizontal rule of width around (0, 0).
 drawHorizontalRule :: GLfloat -> IO ()
