@@ -45,7 +45,7 @@ getPreferredWidth resources numbersType stockData = do
 getValueWidth :: Resources -> GraphNumbersType -> StockPriceData -> IO GLfloat
 getValueWidth resources numbersType priceData = do
   textBox <- measureText textSpec
-  return $ padding * 2 + boxWidth textBox
+  return $ padding * 3 + boxWidth textBox
   where
     (_, highest) = getValueRange numbersType priceData
     textSpec = getTextSpec resources $ printf (getFormat numbersType) highest
