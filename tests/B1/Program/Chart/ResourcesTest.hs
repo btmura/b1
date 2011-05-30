@@ -61,5 +61,5 @@ createResources :: IO Resources
 createResources = do
   font <- createTextureFont "noSuchFont"
   [program] <- genObjectNames 1
-  return $ newResources font font program
+  return $ newResources font program
 

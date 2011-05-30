@@ -65,11 +65,10 @@ bindTexture textureNumber fileName = do
 createInitialResources :: IO (IORef Resources)
 createInitialResources = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  monospaceFont <- createTextureFont "res/fonts/CPMono/CPMono_v07_Plain.otf"
   program <- loadProgram
       ["res/shaders/vertex-shader.txt"]
       ["res/shaders/fragment-shader.txt"]
-  newIORef $ newResources font monospaceFont program
+  newIORef $ newResources font program
 
 loadProgram :: [FilePath] -> [FilePath] -> IO Program
 loadProgram vertexShaderPaths fragmentShaderPaths= do

@@ -2,7 +2,6 @@ module B1.Program.Chart.Resources
   ( Resources
     ( Resources
     , font
-    , monoFont
     , program
     , windowWidth
     , windowHeight
@@ -37,7 +36,6 @@ dragThreshold = 10::Int
 
 data Resources = Resources
   { font :: Font
-  , monoFont :: Font
   , program :: Program
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
@@ -56,10 +54,9 @@ data Resources = Resources
   , previousMouseWheelPosition :: Int
   } deriving (Show, Eq)
 
-newResources :: Font -> Font -> Program -> Resources
-newResources font monoFont program = Resources
+newResources :: Font -> Program -> Resources
+newResources font program = Resources
   { font = font
-  , monoFont = monoFont
   , program = program
   , windowWidth = 0
   , windowHeight = 0
