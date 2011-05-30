@@ -34,9 +34,8 @@ data DataStatus = Loading | Received
 
 getVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box -> [VboSpec]
 getVboSpecs priceData lineSpecs bounds =
-  [ getBackgroundVboSpec priceData lineSpecs bounds
-  , getLinesVboSpec priceData lineSpecs bounds
-  ]
+  [getBackgroundVboSpec priceData lineSpecs bounds]
+      ++ getLineVboSpecs priceData lineSpecs bounds
 
 getBackgroundVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
     -> VboSpec
@@ -56,8 +55,8 @@ getBackgroundSize = size
 getBackgroundElements :: StockPriceData -> [StochasticLineSpec] -> Box
     -> [GLfloat]
 getBackgroundElements priceData lineSpecs bounds
-  | length lineSpecs == 0 = []
-  | length stochasticColors == 0 = []
+  | null lineSpecs = []
+  | null stochasticColors = []
   | otherwise = elements
   where
     dataFunction = case timeSpec (head lineSpecs) of
@@ -87,12 +86,16 @@ getBackgroundElements priceData lineSpecs bounds
 
       []
 
+getLineVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box -> [VboSpec]
+getLineVboSpecs priceData lineSpecs bounds =
+  map (createLineVboSpec priceData bounds) lineSpecs
 
-getLinesVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box -> VboSpec
-getLinesVboSpec priceData lineSpecs bounds = VboSpec Lines size elements
+createLineVboSpec :: StockPriceData -> Box -> StochasticLineSpec -> VboSpec
+createLineVboSpec priceData bounds lineSpec =
+  VboSpec LineStrip size elements
   where
-    size = sum $ map (getLineSize priceData) lineSpecs
-    elements = concat $ map (createLine priceData bounds) lineSpecs
+    size = getLineSize priceData lineSpec
+    elements = createLine priceData bounds lineSpec
 
 getLineSize :: StockPriceData -> StochasticLineSpec -> Int
 getLineSize priceData lineSpec = size
@@ -101,40 +104,31 @@ getLineSize priceData lineSpec = size
         Daily -> numDailyElements
         _ -> numWeeklyElements
     numElements = numElementsFunction priceData
-    numLines = if numElements <= 1 then 0 else numElements - 1
     floatsPerVertex = 2 + 3 -- x, y, and 3 for color
-    size = numLines * (2 * floatsPerVertex)
+    size = numElements * floatsPerVertex
 
 createLine :: StockPriceData -> Box -> StochasticLineSpec -> [GLfloat]
 createLine priceData bounds lineSpec =
-  concat $ map (createLineSegment bounds color valueGroups numGroups) indices
+  concat $ map (createLineSegment bounds color values) indices
   where
     color = lineColor lineSpec
     (dataFunction, numElements) = case timeSpec lineSpec of
         Daily -> (stochastics, numDailyElements)
         _ -> (weeklyStochastics, numWeeklyElements)
-    valueGroups = (groupElements 2
-        . map (stochasticFunction lineSpec)
-        . take (numElements priceData)
-        . dataFunction
-        ) priceData
-    numGroups = length valueGroups
-    indices = [0 .. length valueGroups - 1]
+    values = map (stochasticFunction lineSpec) $
+        take (numElements priceData) $
+        dataFunction priceData
+    indices = [0 .. length values - 1]
 
-createLineSegment :: Box -> Color3 GLfloat -> [[Float]] -> Int -> Int
-    -> [GLfloat]
-createLineSegment bounds color valueGroups numElements index
-  | index >= length valueGroups = []
-  | otherwise = [leftX, leftY] ++ colorList ++ [rightX, rightY] ++ colorList
+createLineSegment :: Box -> Color3 GLfloat -> [Float] -> Int -> [GLfloat]
+createLineSegment bounds color values index = [x, y] ++ colorList
   where
     colorList = color3ToList color
     totalWidth = boxWidth bounds
-    segmentWidth = realToFrac totalWidth / realToFrac numElements
-    rightX = boxRight bounds - realToFrac index * segmentWidth
-    leftX = rightX - segmentWidth
+    segmentWidth = realToFrac totalWidth / realToFrac (length values)
+    x = boxRight bounds - realToFrac index * segmentWidth
 
+    value = values !! index
     totalHeight = boxHeight bounds
-    (rightValue:leftValue:_) = valueGroups !! index
-    rightY = boxBottom bounds + realToFrac rightValue * totalHeight
-    leftY = boxBottom bounds + realToFrac leftValue * totalHeight
+    y = boxBottom bounds + realToFrac value * totalHeight
 
