@@ -14,7 +14,7 @@ drawRectangle :: GLfloat -> GLfloat -> GLfloat -> IO ()
 drawRectangle = renderRectangle LineLoop
 
 fillRectangle :: GLfloat -> GLfloat -> GLfloat -> IO ()
-fillRectangle = renderRectangle Quads
+fillRectangle = renderRectangle Polygon
 
 renderRectangle :: PrimitiveMode -> GLfloat -> GLfloat -> GLfloat -> IO ()
 renderRectangle primitiveMode width height padding =
