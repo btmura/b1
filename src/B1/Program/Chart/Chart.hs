@@ -20,6 +20,7 @@ import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -64,6 +65,11 @@ newChartState symbol = do
       , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
       , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
       , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
+      , G.dividerLines =
+        [ LineSegment (-1, -0.1) (1, -0.1)
+        , LineSegment (-1, -0.4) (1, -0.4)
+        , LineSegment (-1, -0.7) (1, -0.7)
+        ]
       }
 
 cleanChartState :: ChartState -> IO ChartState
@@ -98,7 +104,7 @@ drawChart resources
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
 
-  drawFrame resources bounds boundsSet headerHeight alpha
+  drawFrame resources bounds headerHeight alpha
 
   return ChartOutput
     { outputState = inputState
@@ -193,7 +199,7 @@ drawGraph :: Resources -> GLfloat -> StockData -> G.GraphState -> Box
     -> IO (G.GraphState, Dirty)
 drawGraph resources alpha stockData graphState bounds = do
   let graphInput = G.GraphInput
-        { G.bounds = boxShrink 1 bounds
+        { G.bounds = bounds
         , G.alpha = alpha
         , G.stockData = stockData
         , G.inputState = graphState
@@ -207,14 +213,8 @@ drawGraph resources alpha stockData graphState bounds = do
         } = graphOutput
   return (outputGraphState, isGraphDirty)
 
-drawFrame :: Resources -> Box -> Bounds -> GLfloat -> GLfloat -> IO ()
-drawFrame resources bounds
-    Bounds
-      { priceBounds = priceBounds
-      , volumeBounds = volumeBounds
-      , stochasticBounds = stochasticBounds
-      }
-    headerHeight alpha = do
+drawFrame :: Resources -> Box -> GLfloat -> GLfloat -> IO ()
+drawFrame resources bounds headerHeight alpha = do
   lineWidth $= 1
   color frameColor
 
@@ -231,19 +231,6 @@ drawFrame resources bounds
     -- Line below the header
     vertex $ vertex2 left (top - headerHeight)
     vertex $ vertex2 (right - headerHeight - 1) (top - headerHeight)
-
-    -- Line underneath the main graph
-    vertex $ vertex2 left belowPrices
-    vertex $ vertex2 right belowPrices
-
-    -- Line underneath the volume bars
-    color frameColor
-    vertex $ vertex2 left belowVolume
-    vertex $ vertex2 right belowVolume
-
-    -- Line underneath the stochastics
-    vertex $ vertex2 left belowStochastics
-    vertex $ vertex2 right belowStochastics
   where
     slantFactor = 1.5
     frameColor = outlineColor resources bounds alpha
@@ -254,9 +241,4 @@ drawFrame resources bounds
     top = halfHeight
     bottom = -halfHeight
     right = halfWidth
-
-    belowPrices = top - headerHeight - boxHeight priceBounds
-    belowVolume = belowPrices - boxHeight volumeBounds
-    belowStochastics = belowVolume - boxHeight stochasticBounds
-
 

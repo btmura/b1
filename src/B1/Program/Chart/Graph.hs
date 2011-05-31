@@ -18,8 +18,10 @@ import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
@@ -57,6 +59,7 @@ data GraphBoundSet = GraphBoundSet
   , volumeBounds :: Maybe Box
   , stochasticsBounds :: Maybe Box
   , weeklyStochasticsBounds :: Maybe Box
+  , dividerLines :: [LineSegment]
   }
 
 newGraphState :: GraphBoundSet -> GraphState
@@ -86,14 +89,14 @@ drawGraph resources
   case maybePriceData of
     Just priceDataOrError ->
       either (renderPriceData resources input)
-          (renderError state)
+          (renderError resources input)
           priceDataOrError
-    _ -> renderNothing state
+    _ -> renderLoading resources input
 
 renderPriceData :: Resources -> GraphInput -> StockPriceData
     -> IO GraphOutput
 renderPriceData
-    Resources { program = program }
+    resources@Resources { program = program }
     input@GraphInput
       { bounds = bounds
       , alpha = alpha
@@ -114,6 +117,14 @@ renderPriceData
     setAlpha program finalAlpha
     renderVbo vbo
     currentProgram $= Nothing
+
+    let frameColor = outlineColor resources bounds finalAlpha
+    mapM_ (\(LineSegment (x1, y1) (x2, y2)) -> do
+        renderPrimitive Lines $ do
+          color frameColor
+          vertex $ vertex2 x1 y1
+          vertex $ vertex2 x2 y2
+        ) (dividerLines boundSet)
 
   return GraphOutput
     { outputState = state
@@ -326,18 +337,39 @@ getY bounds (minPrice, maxPrice) value = y
 
     y = boxBottom bounds + height
 
-renderError :: GraphState -> String -> IO GraphOutput
-renderError state errorMessage = 
+renderLoading :: Resources -> GraphInput -> IO GraphOutput
+renderLoading resources
+    input@GraphInput
+      { alpha = alpha
+      , inputState = state
+      } = do
+  color $ green4 alpha
+  renderCenteredText resources "Loading..."
   return GraphOutput
     { outputState = state
     , isDirty = False
     }
 
-renderNothing :: GraphState -> IO GraphOutput
-renderNothing state =
+renderError :: Resources -> GraphInput -> String -> IO GraphOutput
+renderError resources
+    input@GraphInput
+      { alpha = alpha
+      , inputState = state
+      }
+    errorMessage =  do
+  color $ red4 alpha
+  renderCenteredText resources "ERROR"
   return GraphOutput
     { outputState = state
     , isDirty = False
     }
 
-
+renderCenteredText :: Resources -> String -> IO ()
+renderCenteredText resources text = do
+  let textSpec = TextSpec (font resources) 18 text
+  textBounds <- measureText textSpec
+  preservingMatrix $ do
+    let centerX = -(boxWidth textBounds / 2)
+        centerY = -(boxHeight textBounds / 2)
+    translate $ vector3 centerX centerY 0
+    renderText textSpec

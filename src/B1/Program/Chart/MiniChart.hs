@@ -17,6 +17,7 @@ import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -66,6 +67,9 @@ newMiniChartState symbol maybeStockData = do
       , G.volumeBounds = Nothing
       , G.stochasticsBounds = Just $ Box (-1, 1) (1, 0)
       , G.weeklyStochasticsBounds = Just $ Box (-1, 0) (1, -1)
+      , G.dividerLines =
+        [ LineSegment (-1, 0) (1, 0)
+        ]
       }
 
 cleanMiniChartState :: MiniChartState -> IO MiniChartState
@@ -160,8 +164,6 @@ drawOutline bounds headerHeight finalColor = do
   renderPrimitive Lines $ do
     vertex $ vertex2 left (top - headerHeight)
     vertex $ vertex2 (right - 1) (top - headerHeight)
-    vertex $ vertex2 left stochasticTop
-    vertex $ vertex2 (right - 1) stochasticTop
   where
     slantFactor = 0.5
     halfWidth = boxWidth bounds / 2
@@ -170,14 +172,12 @@ drawOutline bounds headerHeight finalColor = do
     right = halfWidth
     top = halfHeight
     bottom = -halfHeight
-    stochasticTop = top - headerHeight
-        - ((boxHeight bounds - headerHeight) / 2)
 
 drawGraph :: Resources -> GLfloat -> StockData -> G.GraphState -> Box
     -> IO (G.GraphState, Dirty)
 drawGraph resources alpha stockData graphState bounds = do
   let graphInput = G.GraphInput
-        { G.bounds = boxShrink 1 bounds
+        { G.bounds = bounds
         , G.alpha = alpha
         , G.stockData = stockData
         , G.inputState = graphState

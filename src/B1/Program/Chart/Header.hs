@@ -187,5 +187,5 @@ renderShortStatus symbol prices =
     _ -> renderEmptyStatus symbol
 
 renderEmptyStatus :: Symbol -> HeaderStatus
-renderEmptyStatus symbol = HeaderStatus symbol yellow4
+renderEmptyStatus symbol = HeaderStatus symbol gray4
 
