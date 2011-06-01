@@ -343,7 +343,7 @@ renderLoading resources
       { alpha = alpha
       , inputState = state
       } = do
-  color $ green4 alpha
+  color $ gray4 alpha
   renderCenteredText resources "Loading..."
   return GraphOutput
     { outputState = state
@@ -357,7 +357,7 @@ renderError resources
       , inputState = state
       }
     errorMessage =  do
-  color $ red4 alpha
+  color $ gray4 alpha
   renderCenteredText resources "ERROR"
   return GraphOutput
     { outputState = state
