@@ -33,6 +33,7 @@ data MiniChartInput = MiniChartInput
   { bounds :: Box
   , alpha :: GLfloat
   , isBeingDragged :: Bool
+  , refreshRequested :: Bool
   , inputState :: MiniChartState
   }
 
@@ -83,6 +84,7 @@ drawMiniChart resources
       { bounds = bounds
       , alpha = alpha
       , isBeingDragged = isBeingDragged
+      , refreshRequested = refreshRequested
       , inputState = inputState@MiniChartState
         { symbol = symbol
         , stockData = stockData
@@ -105,6 +107,11 @@ drawMiniChart resources
 
   drawOutline paddedBounds headerHeight finalColor
 
+  nextStockData <- if refreshRequested
+      then refreshStockData stockData
+      else return stockData
+  stockDataDirty <- isStockDataLoading nextStockData
+
   let nextRemoveChart = isJust removedSymbol
       nextSymbolRequest
         | isNothing removedSymbol
@@ -112,12 +119,13 @@ drawMiniChart resources
             && isMouseButtonClicked resources ButtonLeft = Just symbol
         | otherwise = Nothing
   return MiniChartOutput
-    { isDirty = headerDirty || graphDirty || isJust nextSymbolRequest
-        || nextRemoveChart
+    { isDirty = stockDataDirty || headerDirty || graphDirty
+        || isJust nextSymbolRequest || nextRemoveChart
     , symbolRequest = nextSymbolRequest
     , removeChart = nextRemoveChart
     , outputState = inputState
-      { headerState = newHeaderState
+      { stockData = nextStockData
+      , headerState = newHeaderState
       , graphState = newGraphState
       }
     }
@@ -190,3 +198,4 @@ drawGraph resources alpha stockData graphState bounds = do
         , G.isDirty = isGraphDirty
         } = graphOutput
   return (outputGraphState, isGraphDirty)
+

@@ -43,7 +43,7 @@ data ChartOutput = ChartOutput
   { outputState :: ChartState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
-  , refreshButtonClicked :: Bool
+  , refreshRequested :: Bool
   }
 
 data ChartState = ChartState
@@ -120,7 +120,7 @@ drawChart resources
       }
     , isDirty = refreshClicked || stockDataDirty || headerDirty || graphDirty
     , addedSymbol = addedSymbol
-    , refreshButtonClicked = refreshClicked
+    , refreshRequested = refreshClicked
     }
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState

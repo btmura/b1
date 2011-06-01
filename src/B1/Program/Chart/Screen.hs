@@ -34,6 +34,7 @@ drawScreen resources = do
         , S.newSymbols = symbols config
         , S.newMiniChartDraggedIn = Nothing
         , S.justSelectedSymbol = selectedSymbol config
+        , S.refreshRequested = False
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
@@ -100,6 +101,7 @@ drawScreenLoop
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
         , S.newMiniChartDraggedIn = F.draggedOutMiniChart frameOutput
         , S.justSelectedSymbol = F.justSelectedSymbol frameOutput
+        , S.refreshRequested = F.refreshRequested frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
       nextFrameInput = frameInput

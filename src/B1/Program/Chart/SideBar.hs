@@ -52,6 +52,7 @@ data SideBarInput = SideBarInput
   , newSymbols :: [Symbol]
   , newMiniChartDraggedIn :: Maybe M.MiniChartState
   , justSelectedSymbol :: Maybe Symbol
+  , refreshRequested :: Bool
   , inputState :: SideBarState
   }
 
@@ -94,12 +95,13 @@ drawSideBar resources
       , newSymbols = newSymbols
       , newMiniChartDraggedIn = draggedInChart
       , justSelectedSymbol = justSelectedSymbol
+      , refreshRequested = refreshRequested
       , inputState = inputState
       } = do
 
   newSlots <- createSlots newSymbols
 
-  (drawSlots resources bounds  
+  (drawSlots resources bounds refreshRequested 
       . addDraggingScrollAmount resources bounds
       . calculateNextScrollAmount resources bounds justSelectedSymbol
       . reorderSlotsBeingDragged resources bounds
@@ -383,20 +385,21 @@ getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount
     dragBottom = dragTop - slotHeight
     dragBounds = Box (dragLeft, dragTop) (dragRight, dragBottom)
 
-drawSlots :: Resources -> Box -> SideBarState -> IO SideBarOutput
-drawSlots resources bounds
+drawSlots :: Resources -> Box -> Bool -> SideBarState -> IO SideBarOutput
+drawSlots resources bounds refreshRequested
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
       } = do
-  output <- mapM (drawOneSlot resources bounds scrollAmount slots)
-      [0 .. length slots - 1]
+  output <- mapM (drawOneSlot resources bounds scrollAmount
+      refreshRequested slots) [0 .. length slots - 1]
   convertDrawingOutputs state output
 
-drawOneSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
+drawOneSlot :: Resources -> Box -> GLfloat -> Bool -> [Slot] -> Int
     -> IO (M.MiniChartOutput, Dirty)
-drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
-    slots index = 
+drawOneSlot resources
+    bounds@(Box (left, top) (right, bottom))
+    scrollAmount refreshRequested slots index = 
   preservingMatrix $ do
     -- Translate to the bottom left from the center
     translate $ vector3 (-(boxWidth bounds / 2)) (-(boxHeight bounds / 2)) 0
@@ -423,6 +426,7 @@ drawOneSlot resources bounds@(Box (left, top) (right, bottom)) scrollAmount
       { M.bounds = slotBounds
       , M.alpha = alpha
       , M.isBeingDragged = slotDragged
+      , M.refreshRequested = refreshRequested
       , M.inputState = miniChartState slot
       }
 
