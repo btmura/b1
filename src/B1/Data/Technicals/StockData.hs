@@ -2,6 +2,8 @@ module B1.Data.Technicals.StockData
   ( StockData
   , StockPriceData(..)
   , newStockData
+  , refreshStockData
+  , isStockDataLoading
   , createStockPriceData
   , getStockPriceData
   ) where
@@ -9,6 +11,7 @@ module B1.Data.Technicals.StockData
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Data.Either
+import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock
 import Data.Time.LocalTime
@@ -20,7 +23,9 @@ import B1.Data.Symbol
 import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 
-data StockData = StockData (MVar (Either StockPriceData String))
+data StockData
+  -- | Symbol is used when refreshing the stock data.
+  = StockData Symbol (MVar (Either StockPriceData String))
 
 data StockPriceData = StockPriceData
   { prices :: [Price]
@@ -43,7 +48,19 @@ newStockData symbol = do
     pricesOrError <- getGooglePrices startDate endDate symbol
     putMVar priceDataMVar $
         either (Left . createStockPriceData) Right pricesOrError
-  return $ StockData priceDataMVar
+  return $ StockData symbol priceDataMVar
+
+refreshStockData :: StockData -> IO StockData
+refreshStockData (StockData symbol _) = newStockData symbol
+
+isStockDataLoading :: StockData -> IO Bool
+isStockDataLoading (StockData _ priceDataMVar) = do
+  maybePrices <- tryTakeMVar priceDataMVar
+  case maybePrices of
+    Just prices -> do
+      tryPutMVar priceDataMVar prices
+      return False
+    _ -> return True
 
 getStartDate :: IO LocalTime
 getStartDate = do
@@ -118,7 +135,7 @@ createStockPriceData prices =
         ) weeklyPrices
 
 getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
-getStockPriceData (StockData pricesMVar) = do
+getStockPriceData (StockData _ pricesMVar) = do
   maybePrices <- tryTakeMVar pricesMVar
   case maybePrices of
     Just prices -> do

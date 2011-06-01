@@ -43,6 +43,7 @@ data ChartOutput = ChartOutput
   { outputState :: ChartState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
+  , refreshButtonClicked :: Bool
   }
 
 data ChartState = ChartState
@@ -94,7 +95,7 @@ drawChart resources
       <- drawHeader resources alpha symbol stockData headerState bounds
   boundsSet <- getBounds resources bounds headerHeight stockData
 
-  preservingMatrix $ do
+  refreshClicked <- preservingMatrix $ do
     let subBounds = refreshButtonBounds boundsSet
     translateToCenter bounds subBounds
     drawRefreshButton resources subBounds alpha
@@ -106,13 +107,20 @@ drawChart resources
 
   drawFrame resources bounds headerHeight alpha
 
+  newStockData <- if refreshClicked
+      then refreshStockData stockData
+      else return stockData
+  stockDataDirty <- isStockDataLoading newStockData
+
   return ChartOutput
     { outputState = inputState
-      { headerState = newHeaderState
+      { stockData = newStockData
+      , headerState = newHeaderState
       , graphState = newGraphState
       }
-    , isDirty = headerDirty || graphDirty
+    , isDirty = refreshClicked || stockDataDirty || headerDirty || graphDirty
     , addedSymbol = addedSymbol
+    , refreshButtonClicked = refreshClicked
     }
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
@@ -178,10 +186,10 @@ getBounds resources bounds headerHeight stockData = do
     , stochasticBounds = stochasticsBounds
     }
 
-drawRefreshButton :: Resources -> Box -> GLfloat -> IO ()
+drawRefreshButton :: Resources -> Box -> GLfloat -> IO Bool
 drawRefreshButton resources bounds alpha = do
-  drawButton resources bounds 2 alpha
-  return ()
+  buttonState <- drawButton resources bounds 2 alpha
+  return $ buttonState == Clicked
 
 -- Starts translating from the center of outerBounds
 translateToCenter :: Box -> Box -> IO ()

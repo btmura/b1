@@ -11,7 +11,7 @@ import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Resources
 
-data ButtonState = Normal | Hovering | Clicked deriving (Eq)
+data ButtonState = Normal | Hovering | Clicked deriving (Eq, Show)
 
 drawButton :: Resources -> Box -> Int -> GLfloat -> IO ButtonState
 drawButton resources bounds textureNumber alpha = 
