@@ -26,12 +26,12 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
-import B1.Program.Chart.GraphUtils
 import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
 
 import qualified B1.Program.Chart.Candlesticks as C
+import qualified B1.Program.Chart.MovingAverageLines as M
 import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.VolumeBars as V
 
@@ -148,7 +148,7 @@ createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
 createGraphVbo boundSet priceData = 
   createVbo $ concat
     [ getVboSpecList graphBounds $
-        getVboSpecs priceData
+        getGraphVboSpecs priceData
     , getVboSpecList volumeBounds $
         V.getVboSpecs priceData
     , getVboSpecList stochasticsBounds $
@@ -162,6 +162,10 @@ createGraphVbo boundSet priceData =
     getVboSpecList boundFunc vboFunc = case boundFunc boundSet of 
       Just bounds -> vboFunc bounds
       _ -> []
+
+    getGraphVboSpecs :: StockPriceData -> Box -> [VboSpec]
+    getGraphVboSpecs priceData bounds = C.getVboSpecs priceData bounds
+        ++ M.getVboSpecs priceData bounds
 
     dailySpecs =
       [ S.StochasticLineSpec 
@@ -189,70 +193,6 @@ createGraphVbo boundSet priceData =
         }
       ]
 
--- TODO: Move the code into a different module
-getVboSpecs :: StockPriceData -> Box -> [VboSpec]
-getVboSpecs priceData bounds =
-  C.getVboSpecs priceData bounds
-      ++ getMovingAverageVboSpecs priceData bounds
-
-getMovingAverageVboSpecs :: StockPriceData -> Box -> [VboSpec]
-getMovingAverageVboSpecs priceData bounds =
-  map (uncurry (createMovingAverageVboSpec priceData bounds)) 
-      movingAverageFunctions
-  where
-    movingAverageFunctions =
-      [ (movingAverage25, purple3)
-      , (movingAverage50, yellow3)
-      , (movingAverage200, white3)
-      ]
-
-createMovingAverageVboSpec :: StockPriceData -> Box
-    -> (StockPriceData -> [MovingAverage]) -> Color3 GLfloat -> VboSpec
-createMovingAverageVboSpec priceData bounds movingAverageFunction color =
-  VboSpec LineStrip size elements
-  where
-    size = getMovingAverageSize priceData movingAverageFunction
-    elements = getMovingAverageLines priceData bounds
-        movingAverageFunction color
-
-getMovingAverageSize :: StockPriceData
-    -> (StockPriceData -> [MovingAverage]) -> Int
-getMovingAverageSize priceData movingAverageFunction =
-  getLineSize $ trim $ movingAverageFunction priceData
-  where
-    trim = take $ numDailyElements priceData
-
-getLineSize :: [a] -> Int
-getLineSize list = size
-  where
-    numElements = length list
-    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
-    size = numElements * floatsPerVertex
-
-getMovingAverageLines :: StockPriceData -> Box
-    -> (StockPriceData -> [MovingAverage]) -> Color3 GLfloat -> [GLfloat]
-getMovingAverageLines priceData bounds movingAverageFunction color =
-  concat lines
-  where
-    priceRange = getPriceRange priceData
-    numElements = numDailyElements priceData
-    trim = take numElements
-    indices = [0 .. numElements - 1]
-    values = trim $ movingAverageFunction priceData
-    lines = map (createMovingAverageLine bounds priceRange
-        values color numElements) indices
-
-createMovingAverageLine :: Box -> (Float, Float) -> [MovingAverage]
-    -> Color3 GLfloat -> Int -> Int -> [GLfloat]
-createMovingAverageLine bounds priceRange movingAverages color numElements index
-  | index >= length movingAverages = []
-  | otherwise = [rightX, rightY] ++ colorList
-  where
-    colorList = color3ToList color
-    (leftX, _, rightX) = getXValues bounds numElements index
-    movingAverageValue = movingAverages !! index
-    rightY = getY bounds priceRange movingAverageValue
-
 renderLoading :: Resources -> GraphInput -> IO GraphOutput
 renderLoading resources
     input@GraphInput
@@ -260,7 +200,7 @@ renderLoading resources
       , inputState = state
       } = do
   color $ gray4 alpha
-  renderCenteredText resources "Loading..."
+  renderCenteredText resources "Loading DATA..."
   return GraphOutput
     { outputState = state
     , isDirty = False
