@@ -49,9 +49,7 @@ data FrameOutput = FrameOutput
   }
 
 data FrameState = FrameState
-  { currentSymbol :: String
-  , nextSymbol :: String
-  , currentFrame :: Maybe Frame
+  { currentFrame :: Maybe Frame
   , previousFrame :: Maybe Frame
   , draggedMiniChartState :: Maybe M.MiniChartState
   }
@@ -67,9 +65,7 @@ data Content = Instructions | Chart Symbol C.ChartState
 
 newFrameState :: FrameState
 newFrameState = FrameState
-  { currentSymbol = ""
-  , nextSymbol = ""
-  , currentFrame = Just Frame
+  { currentFrame = Just Frame
     { content = Instructions
     , removing = False
     , scaleAnimation = incomingScaleAnimation
@@ -97,15 +93,12 @@ drawChartFrame resources input =
       >>= refreshSymbolState resources
       >>= refreshSelectedSymbol
       >>= drawFrames resources
-      >>= drawNextSymbol resources
       >>= drawDraggedChart resources
       >>= convertStuffToOutput
 
 data FrameStuff = FrameStuff
   { frameBounds :: Box
   , frameSymbolRequests :: [Symbol]
-  , frameCurrentSymbol :: String
-  , frameNextSymbol :: String
   , frameCurrentFrame :: Maybe Frame
   , framePreviousFrame :: Maybe Frame
   , frameAddedSymbol :: Maybe Symbol
@@ -123,9 +116,7 @@ convertInputToStuff
       { bounds = bounds
       , symbolRequests = symbolRequests
       , inputState = FrameState
-        { currentSymbol = currentSymbol
-        , nextSymbol = nextSymbol
-        , currentFrame = currentFrame
+        { currentFrame = currentFrame
         , previousFrame = previousFrame
         , draggedMiniChartState = draggedMiniChartState
         }
@@ -133,8 +124,6 @@ convertInputToStuff
   return FrameStuff
     { frameBounds = bounds
     , frameSymbolRequests = symbolRequests
-    , frameCurrentSymbol = currentSymbol
-    , frameNextSymbol = nextSymbol
     , frameCurrentFrame = currentFrame
     , framePreviousFrame = previousFrame
     , frameAddedSymbol = Nothing
@@ -148,57 +137,21 @@ convertInputToStuff
 
 refreshSymbolState :: Resources -> FrameStuff -> IO FrameStuff
 
-refreshSymbolState _ stuff@FrameStuff { frameSymbolRequests = (symbol:_) } =
-  loadSymbol symbol stuff
-
-refreshSymbolState resources stuff
-  | checkKeyPress (SpecialKey BACKSPACE) = handleBackspaceKey stuff
-  | checkKeyPress (SpecialKey ENTER) = handleEnterKey stuff
-  | checkKeyPress (SpecialKey ESC) = handleEscapeKey stuff
-  | isJust maybeLetterKey = handleCharKey (fromJust maybeLetterKey) stuff
-  | otherwise = return stuff
-  where
-    checkKeyPress = isKeyPressed resources
-    maybeLetterKey = getKeyPressed resources $ map CharKey ['A'..'Z']
-
--- BACKSPACE deletes one character in a symbol...
-handleBackspaceKey :: FrameStuff -> IO FrameStuff
-handleBackspaceKey
-    stuff@FrameStuff
-      { frameNextSymbol = nextSymbol
-      , frameIsDirty = isDirty
-      } =
-  return stuff
-    { frameNextSymbol = nextNextSymbol
-    , frameIsDirty = isDirty || not isCurrentNextSymbolEmpty
-    }
-  where
-    isCurrentNextSymbolEmpty = length nextSymbol < 1
-    nextNextSymbol =
-        if isCurrentNextSymbolEmpty
-          then nextSymbol
-          else take (length nextSymbol - 1) nextSymbol
-
--- ENTER makes the next symbol the current symbol.
-handleEnterKey :: FrameStuff -> IO FrameStuff
-handleEnterKey stuff@FrameStuff { frameNextSymbol = nextSymbol } =
-  if nextSymbol == ""
-    then return stuff
-    else loadSymbol nextSymbol stuff
- 
-loadSymbol :: Symbol -> FrameStuff -> IO FrameStuff
-loadSymbol symbol
-    stuff@FrameStuff { frameCurrentFrame = currentFrame } = do
+refreshSymbolState _
+  stuff@FrameStuff
+    { frameSymbolRequests = (symbol:_)
+    , frameCurrentFrame = currentFrame
+    } = do
   chartContent <- newChartContent symbol
   return stuff
-    { frameCurrentSymbol = symbol
-    , frameNextSymbol = ""
-    , frameCurrentFrame = newCurrentFrame chartContent
+    { frameCurrentFrame = newCurrentFrame chartContent
     , framePreviousFrame = newPreviousFrame currentFrame
     , frameJustSelectedSymbol = Just symbol
     , frameIsDirty = True
     , frameDraggedChart = Nothing
     }
+
+refreshSymbolState _ stuff = return stuff
 
 newChartContent :: Symbol -> IO Content
 newChartContent symbol = do
@@ -220,34 +173,6 @@ newPreviousFrame (Just frame) = Just $ frame
   , scaleAnimation = outgoingScaleAnimation
   , alphaAnimation = outgoingAlphaAnimation
   }
-
--- Append to the next symbol if the key is just a character...
-handleCharKey :: Key -> FrameStuff -> IO FrameStuff
-handleCharKey key
-    stuff@FrameStuff
-      { frameNextSymbol = nextSymbol
-      , frameIsDirty = isDirty
-      } =
-  return stuff
-    { frameNextSymbol = nextNextSymbol
-    , frameIsDirty = nextIsDirty
-    }
-  where
-    (nextNextSymbol, nextIsDirty) =
-        case key of
-          (CharKey char) ->
-              if isAlpha char
-                then (nextSymbol ++ [char], True)
-                else (nextSymbol, isDirty)
-          _ -> (nextSymbol, isDirty)
-
--- ESC cancels the next symbol.
-handleEscapeKey :: FrameStuff -> IO FrameStuff
-handleEscapeKey stuff = 
-  return stuff
-    { frameNextSymbol = ""
-    , frameIsDirty = True
-    }
 
 refreshSelectedSymbol :: FrameStuff -> IO FrameStuff
 refreshSelectedSymbol stuff@FrameStuff { frameCurrentFrame = currentFrame } =
@@ -390,45 +315,6 @@ cleanFrameContent (Chart symbol state) = do
 
 cleanFrameContent _ = return ()
 
-drawNextSymbol :: Resources -> FrameStuff -> IO FrameStuff
-
-drawNextSymbol _ stuff@FrameStuff { frameNextSymbol = "" } =
-  return stuff
-
-drawNextSymbol resources 
-    stuff@FrameStuff
-      { frameBounds = bounds
-      , frameNextSymbol = nextSymbol
-      } = do
-
-  boundingBox <- measureText textSpec
-  let textBubbleWidth = boxWidth boundingBox + textBubblePadding * 2
-      textBubbleHeight = boxHeight boundingBox + textBubblePadding * 2
-      (centerX, centerY) = boxCenter boundingBox
-
-  preservingMatrix $ do 
-    -- Disable blending or else the background won't work.
-    blend $= Disabled
-
-    color $ black4 1
-    fillRectangle textBubbleWidth textBubbleHeight textBubblePadding
-
-    color $ blue4 1
-    drawRectangle textBubbleWidth textBubbleHeight textBubblePadding
-
-    -- Renable the blending now...
-    blend $= Enabled
-
-    color $ green4 1
-    translate $ vector3 (-centerX) (-centerY) 0
-    renderText textSpec
-
-  return stuff
-
-  where
-    textSpec = TextSpec (font resources) 48  nextSymbol
-    textBubblePadding = 15
-
 drawDraggedChart :: Resources -> FrameStuff -> IO FrameStuff
 drawDraggedChart resources
     stuff@FrameStuff
@@ -508,9 +394,7 @@ drawDraggedChart resources
 convertStuffToOutput :: FrameStuff -> IO FrameOutput
 convertStuffToOutput
     FrameStuff
-      { frameCurrentSymbol = currentSymbol
-      , frameNextSymbol = nextSymbol
-      , frameCurrentFrame = currentFrame
+      { frameCurrentFrame = currentFrame
       , framePreviousFrame = previousFrame
       , frameAddedSymbol = addedSymbol
       , frameRefreshedSymbol = refreshedSymbol
@@ -522,9 +406,7 @@ convertStuffToOutput
       } =
   return FrameOutput
     { outputState = FrameState
-      { currentSymbol = currentSymbol
-      , nextSymbol = nextSymbol
-      , currentFrame = currentFrame
+      { currentFrame = currentFrame
       , previousFrame = previousFrame
       , draggedMiniChartState = draggedChart
       }

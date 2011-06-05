@@ -21,6 +21,7 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.SideBar as S
+import qualified B1.Program.Chart.SymbolEntry as E
 
 configFileName = ".b1config"
 
@@ -42,6 +43,10 @@ drawScreen resources = do
         , F.bounds = zeroBox
         , F.inputState = F.newFrameState
         } 
+      E.SymbolEntryInput
+        { E.bounds = zeroBox
+        , E.inputState = E.newSymbolEntryState
+        }
       ScreenState
         { sideBarOpen = False
         , sideBarWidthAnimation = animateOnce $ linearRange 0 0 30
@@ -61,13 +66,14 @@ sideBarOpenWidth = 150
 openSideBarAnimation = animateOnce $ linearRange 0 sideBarOpenWidth 10
 closeSideBarAnimation = animateOnce $ linearRange sideBarOpenWidth 0 10
 
-drawScreenLoop :: S.SideBarInput -> F.FrameInput -> ScreenState
-    -> Resources -> IO (Action Resources Dirty, Dirty)
+drawScreenLoop :: S.SideBarInput -> F.FrameInput -> E.SymbolEntryInput
+    -> ScreenState -> Resources -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop
     sideBarInput@S.SideBarInput
       { S.inputState = S.SideBarState { S.slots = slots }
       }
     frameInput
+    symbolEntryInput
     screenState@ScreenState
       { sideBarOpen = sideBarOpen
       , sideBarWidthAnimation = sideBarWidthAnimation
@@ -83,6 +89,10 @@ drawScreenLoop
   frameOutput <- preservingMatrix $ do
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
+
+  symbolEntryOutput <- preservingMatrix $ do
+    translateToCenter frameBounds
+    E.drawSymbolEntry resources symbolEntryInput { E.bounds = frameBounds }
 
   let nextConfig = config
         { symbols = S.symbols sideBarOutput
@@ -107,10 +117,14 @@ drawScreenLoop
       nextFrameSymbolRequests = catMaybes
           [ S.symbolRequest sideBarOutput
           , F.refreshedSymbol frameOutput
+          , E.maybeEnteredSymbol symbolEntryOutput
           ]
       nextFrameInput = frameInput
         { F.symbolRequests = nextFrameSymbolRequests
         , F.inputState = F.outputState frameOutput
+        }
+      nextSymbolEntryInput = symbolEntryInput
+        { E.inputState = E.outputState symbolEntryOutput
         }
       nextScreenState = screenState
         { sideBarOpen = nextSideBarOpen
@@ -119,9 +133,10 @@ drawScreenLoop
       nextDirty = sideBarWidthDirty
           || nextSideBarWidthDirty
           || S.isDirty sideBarOutput
+          || E.isDirty symbolEntryOutput
           || F.isDirty frameOutput
   return (Action (drawScreenLoop nextSideBarInput nextFrameInput
-      nextScreenState), nextDirty)
+      nextSymbolEntryInput nextScreenState), nextDirty)
 
   where
     (sideBarWidth, sideBarWidthDirty) = current sideBarWidthAnimation
