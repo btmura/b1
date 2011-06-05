@@ -38,7 +38,7 @@ drawScreen resources = do
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
-        { F.symbolRequest = selectedSymbol config
+        { F.symbolRequests = maybeToList $ selectedSymbol config
         , F.bounds = zeroBox
         , F.inputState = F.newFrameState
         } 
@@ -101,11 +101,15 @@ drawScreenLoop
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
         , S.newMiniChartDraggedIn = F.draggedOutMiniChart frameOutput
         , S.justSelectedSymbol = F.justSelectedSymbol frameOutput
-        , S.refreshRequested = F.refreshRequested frameOutput
+        , S.refreshRequested = isJust (F.refreshedSymbol frameOutput)
         , S.inputState = S.outputState sideBarOutput
         }
+      nextFrameSymbolRequests = catMaybes
+          [ S.symbolRequest sideBarOutput
+          , F.refreshedSymbol frameOutput
+          ]
       nextFrameInput = frameInput
-        { F.symbolRequest = S.symbolRequest sideBarOutput
+        { F.symbolRequests = nextFrameSymbolRequests
         , F.inputState = F.outputState frameOutput
         }
       nextScreenState = screenState

@@ -43,7 +43,7 @@ data ChartOutput = ChartOutput
   { outputState :: ChartState
   , isDirty :: Dirty
   , addedSymbol :: Maybe Symbol
-  , refreshRequested :: Bool
+  , refreshedSymbol :: Maybe Symbol
   }
 
 data ChartState = ChartState
@@ -107,20 +107,17 @@ drawChart resources
 
   drawFrame resources bounds headerHeight alpha
 
-  newStockData <- if refreshClicked
-      then refreshStockData stockData
-      else return stockData
-  stockDataDirty <- isStockDataLoading newStockData
+  stockDataDirty <- isStockDataLoading stockData
 
+  let nextRefreshedSymbol = if refreshClicked then Just symbol else Nothing
   return ChartOutput
     { outputState = inputState
-      { stockData = newStockData
-      , headerState = newHeaderState
+      { headerState = newHeaderState
       , graphState = newGraphState
       }
     , isDirty = refreshClicked || stockDataDirty || headerDirty || graphDirty
     , addedSymbol = addedSymbol
-    , refreshRequested = refreshClicked
+    , refreshedSymbol = nextRefreshedSymbol
     }
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState

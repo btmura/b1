@@ -32,15 +32,17 @@ import qualified B1.Program.Chart.MiniChart as M
 
 data FrameInput = FrameInput
   { bounds :: Box
-  , symbolRequest :: Maybe Symbol
+  , symbolRequests :: [Symbol]
   , inputState :: FrameState
   }
 
 data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
+  -- | Symbol when the add button is clicked
   , addedSymbol :: Maybe Symbol
-  , refreshRequested :: Bool
+  -- | Symbol when the refresh button is clicked
+  , refreshedSymbol :: Maybe Symbol
   , selectedSymbol :: Maybe Symbol
   , justSelectedSymbol :: Maybe Symbol
   , draggedOutMiniChart :: Maybe M.MiniChartState
@@ -101,13 +103,13 @@ drawChartFrame resources input =
 
 data FrameStuff = FrameStuff
   { frameBounds :: Box
-  , frameRequestedSymbol :: Maybe Symbol
+  , frameSymbolRequests :: [Symbol]
   , frameCurrentSymbol :: String
   , frameNextSymbol :: String
   , frameCurrentFrame :: Maybe Frame
   , framePreviousFrame :: Maybe Frame
   , frameAddedSymbol :: Maybe Symbol
-  , frameRefreshRequested :: Bool
+  , frameRefreshedSymbol :: Maybe Symbol
   , frameSelectedSymbol :: Maybe Symbol
   , frameJustSelectedSymbol :: Maybe Symbol
   , frameDraggedChart :: Maybe M.MiniChartState
@@ -119,7 +121,7 @@ convertInputToStuff :: FrameInput -> IO FrameStuff
 convertInputToStuff 
     FrameInput
       { bounds = bounds
-      , symbolRequest = symbolRequest
+      , symbolRequests = symbolRequests
       , inputState = FrameState
         { currentSymbol = currentSymbol
         , nextSymbol = nextSymbol
@@ -130,13 +132,13 @@ convertInputToStuff
       } =
   return FrameStuff
     { frameBounds = bounds
-    , frameRequestedSymbol = symbolRequest
+    , frameSymbolRequests = symbolRequests
     , frameCurrentSymbol = currentSymbol
     , frameNextSymbol = nextSymbol
     , frameCurrentFrame = currentFrame
     , framePreviousFrame = previousFrame
     , frameAddedSymbol = Nothing
-    , frameRefreshRequested = False
+    , frameRefreshedSymbol = Nothing
     , frameSelectedSymbol = Nothing
     , frameJustSelectedSymbol = Nothing
     , frameDraggedChart = draggedMiniChartState
@@ -146,7 +148,7 @@ convertInputToStuff
 
 refreshSymbolState :: Resources -> FrameStuff -> IO FrameStuff
 
-refreshSymbolState _ stuff@FrameStuff { frameRequestedSymbol = Just symbol } =
+refreshSymbolState _ stuff@FrameStuff { frameSymbolRequests = (symbol:_) } =
   loadSymbol symbol stuff
 
 refreshSymbolState resources stuff
@@ -273,7 +275,7 @@ drawFrames resources
   maybeNextPreviousFrameState <- drawFrameShort previousFrame
 
   let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol,
-          nextRefreshRequested) = maybeNextCurrentFrameState
+          nextRefreshedSymbol) = maybeNextCurrentFrameState
       (nextPreviousFrame, isPreviousContentDirty, _, _) =
           maybeNextPreviousFrameState
 
@@ -295,7 +297,7 @@ drawFrames resources
     { frameCurrentFrame = nextNextCurrentFrame
     , framePreviousFrame = nextNextPreviousFrame
     , frameAddedSymbol = nextAddedSymbol
-    , frameRefreshRequested = nextRefreshRequested
+    , frameRefreshedSymbol = nextRefreshedSymbol
     , frameJustSelectedSymbol = nextJustSelectedSymbol
     , frameIsDirty = nextDirty
     } 
@@ -311,9 +313,9 @@ isDirtyFrame (Just (Frame
 isDirtyFrame _ = False
 
 drawFrame :: Resources -> Box -> Maybe Frame
-    -> IO (Maybe Frame, Dirty, Maybe Symbol, Bool)
+    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol)
 
-drawFrame resources _ Nothing = return (Nothing, False, Nothing, False)
+drawFrame resources _ Nothing = return (Nothing, False, Nothing, Nothing)
 
 drawFrame resources bounds
     (Just frame@Frame
@@ -323,10 +325,10 @@ drawFrame resources bounds
       }) = 
   preservingMatrix $ do
     scale3 scaleAmount scaleAmount 1
-    (nextContent, isDirty, addedSymbol, refreshRequested)
+    (nextContent, isDirty, addedSymbol, refreshedSymbol)
         <- drawFrameContent resources bounds content alphaAmount
     return (Just frame { content = nextContent }, isDirty, addedSymbol,
-        refreshRequested)
+        refreshedSymbol)
   where
     paddedBounds = boxShrink contentPadding bounds
     scaleAmount = fst . current $ scaleAnimation
@@ -337,13 +339,13 @@ cornerRadius = 10::GLfloat
 cornerVertices = 5::Int
 
 drawFrameContent :: Resources -> Box -> Content -> GLfloat
-    -> IO (Content, Dirty, Maybe Symbol, Bool)
+    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol)
 
-drawFrameContent _ _ content 0 = return (content, False, Nothing, False)
+drawFrameContent _ _ content 0 = return (content, False, Nothing, Nothing)
 
 drawFrameContent resources bounds Instructions alpha = do
   output <- I.drawInstructions resources input
-  return (Instructions, I.isDirty output, Nothing, False)
+  return (Instructions, I.isDirty output, Nothing, Nothing)
   where
     input = I.InstructionsInput
       { I.bounds = bounds
@@ -353,7 +355,7 @@ drawFrameContent resources bounds Instructions alpha = do
 drawFrameContent resources bounds (Chart symbol state) alpha = do
   output <- C.drawChart resources input
   return (Chart symbol (C.outputState output), C.isDirty output,
-      C.addedSymbol output, C.refreshRequested output)
+      C.addedSymbol output, C.refreshedSymbol output)
   where
     input = C.ChartInput
       { C.bounds = boxShrink contentPadding bounds
@@ -511,7 +513,7 @@ convertStuffToOutput
       , frameCurrentFrame = currentFrame
       , framePreviousFrame = previousFrame
       , frameAddedSymbol = addedSymbol
-      , frameRefreshRequested = refreshRequested
+      , frameRefreshedSymbol = refreshedSymbol
       , frameSelectedSymbol = selectedSymbol
       , frameJustSelectedSymbol = justSelectedSymbol
       , frameIsDirty = isDirty
@@ -528,7 +530,7 @@ convertStuffToOutput
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol
-    , refreshRequested = refreshRequested
+    , refreshedSymbol = refreshedSymbol
     , selectedSymbol = selectedSymbol
     , justSelectedSymbol = justSelectedSymbol
     , draggedOutMiniChart = draggedOutChart
