@@ -8,6 +8,7 @@ module B1.Program.Chart.Graph
   , cleanGraphState
   ) where
 
+import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
@@ -38,7 +39,6 @@ import qualified B1.Program.Chart.VolumeBars as V
 data GraphInput = GraphInput
   { bounds :: Box
   , alpha :: GLfloat
-  , stockData :: StockData
   , inputState :: GraphState
   }
 
@@ -48,13 +48,14 @@ data GraphOutput = GraphOutput
   }
 
 data GraphState = GraphState
-  { maybeVbo :: Maybe Vbo
-  , alphaAnimation :: Animation (GLfloat, Dirty)
-  , dataStatus :: DataStatus
-  , boundSet :: GraphBoundSet
+  { boundSet :: GraphBoundSet
+  , stockData :: StockData
+  , maybePriceData :: Maybe (Either StockPriceData String)
+  , maybeVbo :: Maybe Vbo
+  , hasRendered :: Bool
+  , loadingAlphaAnimation :: Animation (GLfloat, Dirty)
+  , graphAlphaAnimation :: Animation (GLfloat, Dirty)
   }
-
-data DataStatus = Loading | Received
 
 data GraphBoundSet = GraphBoundSet
   { graphBounds :: Maybe Box
@@ -64,14 +65,20 @@ data GraphBoundSet = GraphBoundSet
   , dividerLines :: [LineSegment]
   }
 
-newGraphState :: GraphBoundSet -> GraphState
-newGraphState boundSet =
+newGraphState :: GraphBoundSet -> StockData -> GraphState
+newGraphState boundSet stockData =
   GraphState
-    { maybeVbo = Nothing
-    , alphaAnimation = animateOnce $ linearRange 0 0 1
-    , dataStatus = Loading
-    , boundSet = boundSet
+    { boundSet = boundSet
+    , stockData = stockData
+    , maybePriceData = Nothing
+    , maybeVbo = Nothing
+    , hasRendered = False
+    , loadingAlphaAnimation = incomingAlphaAnimation
+    , graphAlphaAnimation = animateOnce $ linearRange 0 0 1
     }
+
+incomingAlphaAnimation :: Animation (GLfloat, Dirty)
+incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
 
 cleanGraphState :: GraphState -> IO GraphState
 cleanGraphState state@GraphState { maybeVbo = maybeVbo } =
@@ -82,67 +89,124 @@ cleanGraphState state@GraphState { maybeVbo = maybeVbo } =
     _ -> return state
 
 drawGraph :: Resources -> GraphInput -> IO GraphOutput
-drawGraph resources
+drawGraph resources input = do
+  (maybeVbo, hasRendered) <- renderGraph resources input
+  maybePriceData <- getStockPriceData (stockData (inputState input))
+  return $ getOutput input maybeVbo hasRendered maybePriceData
+
+getOutput :: GraphInput -> Maybe Vbo -> Bool
+    -> Maybe (Either StockPriceData String) -> GraphOutput
+getOutput
     input@GraphInput
-      { stockData = stockData
-      , inputState = state
-      } = do
-  maybePriceData <- getStockPriceData stockData
+      { inputState = inputState@GraphState
+        { stockData = stockData
+        , maybePriceData = maybePriceData
+        , maybeVbo = maybeVbo
+        , hasRendered = hasRendered
+        , loadingAlphaAnimation = loadingAlphaAnimation
+        , graphAlphaAnimation = graphAlphaAnimation
+        }
+      }
+    nextMaybeVbo
+    nextHasRendered
+    maybeNewPriceData = output
+  where
+    nextMaybePriceData =
+        if isJust maybeNewPriceData
+          then maybeNewPriceData
+          else maybePriceData
+
+    nextLoadingAlphaAnimation =
+        if not nextHasRendered
+          then next loadingAlphaAnimation
+          else if not hasRendered && nextHasRendered
+            then smoothOutgoingAlphaAnimation loadingAlphaAnimation
+            else next loadingAlphaAnimation
+
+    -- TODO: Make a function in Animation to make smooth transitions
+    smoothOutgoingAlphaAnimation :: Animation (GLfloat, Dirty)
+        -> Animation (GLfloat, Dirty) 
+    smoothOutgoingAlphaAnimation alphaAnimation =
+      let currentValue = fst $ current alphaAnimation
+      in animateOnce $ linearRange currentValue 0 20
+
+    nextGraphAlphaAnimation =
+        if not nextHasRendered
+          then next graphAlphaAnimation
+          else if not hasRendered && nextHasRendered
+            then incomingAlphaAnimation
+            else next graphAlphaAnimation
+
+    nextIsDirty = not hasRendered
+        || (snd . current) loadingAlphaAnimation
+        || (snd . current) graphAlphaAnimation
+
+    output = GraphOutput
+      { outputState = inputState
+        { maybePriceData = nextMaybePriceData
+        , maybeVbo = nextMaybeVbo
+        , hasRendered = nextHasRendered
+        , loadingAlphaAnimation = nextLoadingAlphaAnimation
+        , graphAlphaAnimation = nextGraphAlphaAnimation
+        }
+      , isDirty = nextIsDirty
+      }
+
+renderGraph :: Resources -> GraphInput -> IO (Maybe Vbo, Bool)
+renderGraph resources
+    input@GraphInput
+      { alpha = alpha
+      , inputState = GraphState
+        { maybePriceData = maybePriceData
+        }
+      } =
   case maybePriceData of
-    Just priceDataOrError ->
-      either (renderPriceData resources input)
-          (renderError resources input)
-          priceDataOrError
-    _ -> renderLoading resources input
+    Just priceData -> do
+      (maybeVbo, hasRendered) <- either (renderPriceData resources input)
+          (renderError resources input) priceData
+      -- May still need to render loading if the deferred VBO was not rendered
+      unless hasRendered $ renderLoading resources input
+      return (maybeVbo, hasRendered)
+
+    _ -> do
+      renderLoading resources input
+      return (Nothing, False)
 
 renderPriceData :: Resources -> GraphInput -> StockPriceData
-    -> IO GraphOutput
+    -> IO (Maybe Vbo, Bool)
 renderPriceData
     resources@Resources { program = program }
     input@GraphInput
       { bounds = bounds
       , alpha = alpha
       , inputState = state@GraphState
-        { maybeVbo = maybeVbo
-        , alphaAnimation = alphaAnimation
-        , dataStatus = dataStatus
-        , boundSet = boundSet
+        { boundSet = boundSet
+        , maybeVbo = maybeVbo
+        , graphAlphaAnimation = graphAlphaAnimation
         }
       }
     priceData = do
 
   vbo <- maybe (createGraphVbo boundSet priceData) return maybeVbo
 
+  let finalAlpha = (min alpha . fst . current) graphAlphaAnimation
   preservingMatrix $ do
     scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1 
     currentProgram $= Just program
     setAlpha program finalAlpha
-    renderVbo vbo
+    hasRendered <- renderVbo vbo
     currentProgram $= Nothing
 
-    let frameColor = outlineColor resources bounds finalAlpha
-    mapM_ (\(LineSegment (x1, y1) (x2, y2)) -> do
-        renderPrimitive Lines $ do
-          color frameColor
-          vertex $ vertex2 x1 y1
-          vertex $ vertex2 x2 y2
-        ) (dividerLines boundSet)
+    when hasRendered $ do
+      let frameColor = outlineColor resources bounds finalAlpha
+      mapM_ (\(LineSegment (x1, y1) (x2, y2)) -> do
+          renderPrimitive Lines $ do
+            color frameColor
+            vertex $ vertex2 x1 y1
+            vertex $ vertex2 x2 y2
+          ) (dividerLines boundSet)
 
-  return GraphOutput
-    { outputState = state
-      { maybeVbo = Just vbo
-      , alphaAnimation = nextAlphaAnimation
-      , dataStatus = Received
-      }
-    , isDirty = nextIsDirty
-    }
-  where
-    currentAlphaAnimation = case dataStatus of
-        Loading -> animateOnce $ linearRange 0 1 30
-        Received -> alphaAnimation
-    finalAlpha = (min alpha . fst . current) currentAlphaAnimation
-    nextAlphaAnimation = next currentAlphaAnimation
-    nextIsDirty = (snd . current) nextAlphaAnimation
+    return (Just vbo, hasRendered)
 
 createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
 createGraphVbo boundSet priceData = 
@@ -193,32 +257,34 @@ createGraphVbo boundSet priceData =
         }
       ]
 
-renderLoading :: Resources -> GraphInput -> IO GraphOutput
-renderLoading resources
-    input@GraphInput
-      { alpha = alpha
-      , inputState = state
-      } = do
-  color $ gray4 alpha
-  renderCenteredText resources "Loading DATA..."
-  return GraphOutput
-    { outputState = state
-    , isDirty = False
-    }
-
-renderError :: Resources -> GraphInput -> String -> IO GraphOutput
+renderError :: Resources -> GraphInput -> String -> IO (Maybe Vbo, Bool)
 renderError resources
-    input@GraphInput
+    GraphInput
       { alpha = alpha
-      , inputState = state
+      , inputState = GraphState
+        { graphAlphaAnimation = graphAlphaAnimation
+        }
       }
-    errorMessage =  do
-  color $ gray4 alpha
-  renderCenteredText resources "ERROR"
-  return GraphOutput
-    { outputState = state
-    , isDirty = False
-    }
+    _ =  do
+  -- TODO: Make a function in Animation to get the final alpha value.
+  let finalAlpha = (min alpha . fst . current) graphAlphaAnimation
+  when (finalAlpha >= 0) $ do
+    color $ red4 alpha
+    renderCenteredText resources "ERROR"
+  return (Nothing, True)
+
+renderLoading :: Resources -> GraphInput -> IO ()
+renderLoading resources 
+    GraphInput
+      { alpha = alpha
+      , inputState = GraphState
+        { loadingAlphaAnimation = loadingAlphaAnimation
+        }
+      } = do
+  let finalAlpha = (min alpha . fst . current) loadingAlphaAnimation
+  when (finalAlpha >= 0) $ do
+    color $ gray4 alpha
+    renderCenteredText resources "Loading DATA..."
 
 renderCenteredText :: Resources -> String -> IO ()
 renderCenteredText resources text = do
@@ -229,3 +295,5 @@ renderCenteredText resources text = do
         centerY = -(boxHeight textBounds / 2)
     translate $ vector3 centerX centerY 0
     renderText textSpec
+
+

@@ -58,7 +58,7 @@ newChartState symbol = do
   return ChartState
     { stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-    , graphState = G.newGraphState boundSet
+    , graphState = G.newGraphState boundSet stockData
     }
   where
     boundSet = G.GraphBoundSet
@@ -107,15 +107,13 @@ drawChart resources
 
   drawFrame resources bounds headerHeight alpha
 
-  stockDataDirty <- isStockDataLoading stockData
-
   let nextRefreshedSymbol = if refreshClicked then Just symbol else Nothing
   return ChartOutput
     { outputState = inputState
       { headerState = newHeaderState
       , graphState = newGraphState
       }
-    , isDirty = refreshClicked || stockDataDirty || headerDirty || graphDirty
+    , isDirty = refreshClicked || headerDirty || graphDirty
     , addedSymbol = addedSymbol
     , refreshedSymbol = nextRefreshedSymbol
     }
@@ -206,7 +204,6 @@ drawGraph resources alpha stockData graphState bounds = do
   let graphInput = G.GraphInput
         { G.bounds = bounds
         , G.alpha = alpha
-        , G.stockData = stockData
         , G.inputState = graphState
         }
 

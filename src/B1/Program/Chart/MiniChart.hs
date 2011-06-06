@@ -60,7 +60,7 @@ newMiniChartState symbol maybeStockData = do
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.ShortStatus H.RemoveButton
-    , graphState = G.newGraphState boundSet
+    , graphState = G.newGraphState boundSet stockData
     }
   where
     boundSet = G.GraphBoundSet
@@ -187,7 +187,6 @@ drawGraph resources alpha stockData graphState bounds = do
   let graphInput = G.GraphInput
         { G.bounds = bounds
         , G.alpha = alpha
-        , G.stockData = stockData
         , G.inputState = graphState
         }
 
