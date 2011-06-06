@@ -33,7 +33,7 @@ getY bounds (minPrice, maxPrice) value = y
     y = boxBottom bounds + height
 
 getPriceRange :: StockPriceData -> (Float, Float)
-getPriceRange priceData = (minimum allPrices, maximum allPrices)
+getPriceRange priceData = (adjustedMinPrice, adjustedMaxPrice)
   where
     takeElements = take $ numDailyElements priceData
     allPrices = concat $ map takeElements
@@ -43,4 +43,9 @@ getPriceRange priceData = (minimum allPrices, maximum allPrices)
         , movingAverage50 priceData
         , movingAverage200 priceData
         ] 
+    minPrice = minimum allPrices
+    maxPrice = maximum allPrices
+    extra = (maxPrice - minPrice) * 0.05
+    adjustedMinPrice = minPrice - extra
+    adjustedMaxPrice = maxPrice + extra
 
