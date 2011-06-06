@@ -94,12 +94,18 @@ drawScreenLoop
     translateToCenter frameBounds
     E.drawSymbolEntry resources symbolEntryInput { E.bounds = frameBounds }
 
-  let nextConfig = config
-        { symbols = S.symbols sideBarOutput
-        , selectedSymbol = F.selectedSymbol frameOutput
+  let nextSymbols = S.symbols sideBarOutput
+      nextSelectedSymbol =
+          case F.selectedSymbol frameOutput of
+            Just symbol -> Just symbol
+            _ -> selectedSymbol config
+      nextConfig = config
+        { symbols = nextSymbols
+        , selectedSymbol = nextSelectedSymbol
         }
   unless (config == nextConfig) $ do
     -- TODO: Extract this code into a separate ConfigManager module
+    putStrLn $ "Saving configuration..."
     forkIO $ do
       putMVar configLock nextConfig
       writeConfig configFileName nextConfig
@@ -109,8 +115,8 @@ drawScreenLoop
 
   let nextSideBarInput = sideBarInput
         { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
-        , S.newMiniChartDraggedIn = F.draggedOutMiniChart frameOutput
-        , S.justSelectedSymbol = F.justSelectedSymbol frameOutput
+        , S.newMiniChartDraggedIn = Nothing
+        , S.justSelectedSymbol = F.selectedSymbol frameOutput
         , S.refreshRequested = isJust (F.refreshedSymbol frameOutput)
         , S.inputState = S.outputState sideBarOutput
         }

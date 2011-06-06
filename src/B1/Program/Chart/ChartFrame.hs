@@ -39,19 +39,14 @@ data FrameInput = FrameInput
 data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
-  -- | Symbol when the add button is clicked
-  , addedSymbol :: Maybe Symbol
-  -- | Symbol when the refresh button is clicked
-  , refreshedSymbol :: Maybe Symbol
+  , addedSymbol :: Maybe Symbol -- ^ Symbol when add button clicked
+  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
   , selectedSymbol :: Maybe Symbol
-  , justSelectedSymbol :: Maybe Symbol
-  , draggedOutMiniChart :: Maybe M.MiniChartState
   }
 
 data FrameState = FrameState
   { currentFrame :: Maybe Frame
   , previousFrame :: Maybe Frame
-  , draggedMiniChartState :: Maybe M.MiniChartState
   }
 
 data Frame = Frame
@@ -72,7 +67,6 @@ newFrameState = FrameState
     , alphaAnimation = incomingAlphaAnimation
     }
   , previousFrame = Nothing
-  , draggedMiniChartState = Nothing
   }
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
@@ -91,9 +85,7 @@ drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources input =
   convertInputToStuff input
       >>= refreshSymbolState resources
-      >>= refreshSelectedSymbol
       >>= drawFrames resources
-      >>= drawDraggedChart resources
       >>= convertStuffToOutput
 
 data FrameStuff = FrameStuff
@@ -103,10 +95,7 @@ data FrameStuff = FrameStuff
   , framePreviousFrame :: Maybe Frame
   , frameAddedSymbol :: Maybe Symbol
   , frameRefreshedSymbol :: Maybe Symbol
-  , frameSelectedSymbol :: Maybe Symbol
   , frameJustSelectedSymbol :: Maybe Symbol
-  , frameDraggedChart :: Maybe M.MiniChartState
-  , frameDraggedOutChart :: Maybe M.MiniChartState
   , frameIsDirty :: Dirty
   }
 
@@ -118,7 +107,6 @@ convertInputToStuff
       , inputState = FrameState
         { currentFrame = currentFrame
         , previousFrame = previousFrame
-        , draggedMiniChartState = draggedMiniChartState
         }
       } =
   return FrameStuff
@@ -128,10 +116,7 @@ convertInputToStuff
     , framePreviousFrame = previousFrame
     , frameAddedSymbol = Nothing
     , frameRefreshedSymbol = Nothing
-    , frameSelectedSymbol = Nothing
     , frameJustSelectedSymbol = Nothing
-    , frameDraggedChart = draggedMiniChartState
-    , frameDraggedOutChart = Nothing
     , frameIsDirty = False
     }
 
@@ -148,7 +133,6 @@ refreshSymbolState _
     , framePreviousFrame = newPreviousFrame currentFrame
     , frameJustSelectedSymbol = Just symbol
     , frameIsDirty = True
-    , frameDraggedChart = Nothing
     }
 
 refreshSymbolState _ stuff = return stuff
@@ -174,25 +158,13 @@ newPreviousFrame (Just frame) = Just $ frame
   , alphaAnimation = outgoingAlphaAnimation
   }
 
-refreshSelectedSymbol :: FrameStuff -> IO FrameStuff
-refreshSelectedSymbol stuff@FrameStuff { frameCurrentFrame = currentFrame } =
-  return stuff { frameSelectedSymbol = nextSelectedSymbol }
-  where
-    nextSelectedSymbol =
-        case currentFrame of
-          Just frame ->
-              case content frame of
-                Chart symbol _ -> Just symbol
-                _ -> Nothing
-          _ -> Nothing
-
 drawFrames :: Resources -> FrameStuff -> IO FrameStuff
 drawFrames resources 
     stuff@FrameStuff
       { frameBounds = bounds
       , frameCurrentFrame = currentFrame
       , framePreviousFrame = previousFrame
-      , frameJustSelectedSymbol = justSelectedSymbol
+      , frameJustSelectedSymbol = selectedSymbol
       , frameIsDirty = isDirty
       } = do
 
@@ -210,7 +182,7 @@ drawFrames resources
   let nextJustSelectedSymbol =
           if isJust nextAddedSymbol
             then nextAddedSymbol
-            else justSelectedSymbol
+            else selectedSymbol
       nextDirty = any id
         [ isDirty
         , isDirtyFrame nextNextCurrentFrame
@@ -315,82 +287,6 @@ cleanFrameContent (Chart symbol state) = do
 
 cleanFrameContent _ = return ()
 
-drawDraggedChart :: Resources -> FrameStuff -> IO FrameStuff
-drawDraggedChart resources
-    stuff@FrameStuff
-      { frameBounds = bounds
-      , frameCurrentFrame = currentFrame
-      , frameDraggedChart = draggedMiniChartState
-      , frameIsDirty = isDirty
-      }
-  | draggingChartInBounds = do
-      let Just (Frame { content = Chart symbol chartState }) = currentFrame
-      miniChartState <- case draggedMiniChartState of
-        Just state -> return $ state
-        _ -> M.newMiniChartState symbol $ Just (C.stockData chartState)
-     
-      let (mouseX, mouseY) = mousePosition resources
-          miniChartBounds = createBox 150 100 (mouseX, mouseY)
-          miniChartInput = M.MiniChartInput
-            { M.bounds = miniChartBounds
-            , M.alpha = 1.0
-            , M.isBeingDragged = True
-            , M.refreshRequested = False
-            , M.inputState = miniChartState
-            } 
-      miniChartOutput <- preservingMatrix $ do
-        translate $ vector3 (-(boxLeft bounds + boxWidth bounds / 2))
-            (-(boxBottom bounds + boxHeight bounds / 2))  0
-        translate $ vector3 mouseX mouseY 0
-        M.drawMiniChart resources miniChartInput
-      return stuff
-        { frameDraggedChart = Just $ M.outputState miniChartOutput
-        , frameIsDirty = isDirty || M.isDirty miniChartOutput
-        }
-  | draggingChartOutOfBounds = do
-      cleanedMiniChart <- maybeCleanMiniChart nextDraggedOutMiniChart
-      return stuff
-        { frameDraggedChart = cleanedMiniChart
-        , frameDraggedOutChart = cleanedMiniChart
-        }
-  | otherwise = do
-      maybeCleanMiniChart draggedMiniChartState
-      return stuff { frameDraggedChart = Nothing }
-  where
-    isCurrentFrameChart =
-        case currentFrame of
-          Just (Frame { content = Chart _ _ }) -> True
-          otherwise -> False
-
-    draggingChartInBounds = isMouseDrag resources
-        && boxContains bounds (mouseDragStartPosition resources)
-        && boxContains bounds (mousePosition resources)
-        && isCurrentFrameChart
-
-    previouslyDraggingChartInBounds = isMouseDrag resources
-        && boxContains bounds (mouseDragStartPosition resources)
-        && boxContains bounds (previousMousePosition resources)
-        && isCurrentFrameChart
-
-    draggingChartOutOfBounds = isMouseDrag resources
-        && boxContains bounds (mouseDragStartPosition resources)
-        && not (boxContains bounds (mousePosition resources))
-        && isCurrentFrameChart
-
-    nextDraggedOutMiniChart =
-        if previouslyDraggingChartInBounds && draggingChartOutOfBounds
-          then draggedMiniChartState
-          else Nothing
-       
-    maybeCleanMiniChart :: Maybe M.MiniChartState -> IO (Maybe M.MiniChartState) 
-    maybeCleanMiniChart maybeChart =
-      case maybeChart of
-        Just chartState -> do
-          cleanState <- M.cleanMiniChartState chartState
-          return $ Just cleanState
-        _ ->
-          return Nothing
-
 convertStuffToOutput :: FrameStuff -> IO FrameOutput
 convertStuffToOutput
     FrameStuff
@@ -398,23 +294,17 @@ convertStuffToOutput
       , framePreviousFrame = previousFrame
       , frameAddedSymbol = addedSymbol
       , frameRefreshedSymbol = refreshedSymbol
-      , frameSelectedSymbol = selectedSymbol
-      , frameJustSelectedSymbol = justSelectedSymbol
+      , frameJustSelectedSymbol = selectedSymbol
       , frameIsDirty = isDirty
-      , frameDraggedChart = draggedChart
-      , frameDraggedOutChart = draggedOutChart
       } =
   return FrameOutput
     { outputState = FrameState
       { currentFrame = currentFrame
       , previousFrame = previousFrame
-      , draggedMiniChartState = draggedChart
       }
     , isDirty = isDirty
     , addedSymbol = addedSymbol
     , refreshedSymbol = refreshedSymbol
     , selectedSymbol = selectedSymbol
-    , justSelectedSymbol = justSelectedSymbol
-    , draggedOutMiniChart = draggedOutChart
     }
 
