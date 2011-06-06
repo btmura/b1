@@ -39,8 +39,8 @@ drawScreen resources = do
         , S.inputState = S.newSideBarState
         }
       F.FrameInput
-        { F.symbolRequests = maybeToList $ selectedSymbol config
-        , F.bounds = zeroBox
+        { F.bounds = zeroBox
+        , F.maybeSymbolRequest = selectedSymbol config
         , F.inputState = F.newFrameState
         } 
       E.SymbolEntryInput
@@ -96,7 +96,7 @@ drawScreenLoop
 
   let nextSymbols = S.symbols sideBarOutput
       nextSelectedSymbol =
-          case F.selectedSymbol frameOutput of
+          case F.maybeSelectedSymbol frameOutput of
             Just symbol -> Just symbol
             _ -> selectedSymbol config
       nextConfig = config
@@ -114,19 +114,19 @@ drawScreenLoop
     return ()
 
   let nextSideBarInput = sideBarInput
-        { S.newSymbols = catMaybes [F.addedSymbol frameOutput]
+        { S.newSymbols = maybeToList $ F.maybeAddedSymbol frameOutput
         , S.newMiniChartDraggedIn = Nothing
-        , S.justSelectedSymbol = F.selectedSymbol frameOutput
-        , S.refreshRequested = isJust (F.refreshedSymbol frameOutput)
+        , S.justSelectedSymbol = F.maybeSelectedSymbol frameOutput
+        , S.refreshRequested = isJust $ F.maybeRefreshedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
-      nextFrameSymbolRequests = catMaybes
+      nextMaybeSymbolRequest = listToMaybe $ catMaybes
           [ S.symbolRequest sideBarOutput
-          , F.refreshedSymbol frameOutput
+          , F.maybeRefreshedSymbol frameOutput
           , E.maybeEnteredSymbol symbolEntryOutput
           ]
       nextFrameInput = frameInput
-        { F.symbolRequests = nextFrameSymbolRequests
+        { F.maybeSymbolRequest = nextMaybeSymbolRequest
         , F.inputState = F.outputState frameOutput
         }
       nextSymbolEntryInput = symbolEntryInput

@@ -7,51 +7,41 @@ module B1.Program.Chart.ChartFrame
   ) where
 
 import Control.Monad
-import Data.Char
 import Data.Maybe
-import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
-import Graphics.UI.GLFW
 
-import B1.Data.Action
-import B1.Data.Price.Google
 import B1.Data.Range
 import B1.Data.Symbol
-import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
-import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
-import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.Instructions as I
-import qualified B1.Program.Chart.MiniChart as M
 
 data FrameInput = FrameInput
   { bounds :: Box
-  , symbolRequests :: [Symbol]
+  , maybeSymbolRequest :: Maybe Symbol
   , inputState :: FrameState
   }
 
 data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
-  , addedSymbol :: Maybe Symbol -- ^ Symbol when add button clicked
-  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
-  , selectedSymbol :: Maybe Symbol
+  , maybeAddedSymbol :: Maybe Symbol -- ^ Symbol when add button clicked
+  , maybeRefreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
+  , maybeSelectedSymbol :: Maybe Symbol -- ^ Symbol when a request is fulfilled
   }
 
 data FrameState = FrameState
-  { currentFrame :: Maybe Frame
-  , previousFrame :: Maybe Frame
+  { maybeCurrentFrame :: Maybe Frame
+  , maybePreviousFrame :: Maybe Frame
   }
 
 data Frame = Frame
   { content :: Content
-  , removing :: Bool
   , scaleAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   }
@@ -60,14 +50,138 @@ data Content = Instructions | Chart Symbol C.ChartState
 
 newFrameState :: FrameState
 newFrameState = FrameState
-  { currentFrame = Just Frame
+  { maybeCurrentFrame = Just Frame
     { content = Instructions
-    , removing = False
     , scaleAnimation = incomingScaleAnimation
     , alphaAnimation = incomingAlphaAnimation
     }
-  , previousFrame = Nothing
+  , maybePreviousFrame = Nothing
   }
+
+drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
+drawChartFrame resources
+    FrameInput
+      { bounds = bounds
+      , maybeSymbolRequest = maybeSymbolRequest
+      , inputState = inputState
+      } = do
+
+  (revisedState, maybeSelectedSymbol) <- handleSymbolRequest
+      maybeSymbolRequest inputState
+
+  let FrameState
+        { maybeCurrentFrame = maybeCurrentFrame
+        , maybePreviousFrame = maybePreviousFrame
+        } = revisedState
+      render = renderFrame resources bounds
+  (nextMaybeCurrentFrame, isCurrentDirty,
+      maybeAddedSymbol, maybeRefreshedSymbol) <- render maybeCurrentFrame True
+  (nextMaybePreviousFrame, isPreviousDirty,
+      _, _) <- render maybePreviousFrame False
+
+  let outputState = FrameState
+        { maybeCurrentFrame = nextMaybeCurrentFrame
+        , maybePreviousFrame = nextMaybePreviousFrame
+        }
+      isDirty = isCurrentDirty || isPreviousDirty
+  return FrameOutput
+    { outputState = outputState
+    , isDirty = isDirty
+    , maybeAddedSymbol = maybeAddedSymbol
+    , maybeRefreshedSymbol = maybeRefreshedSymbol
+    , maybeSelectedSymbol = maybeSelectedSymbol
+    }
+
+handleSymbolRequest :: Maybe Symbol -> FrameState
+    -> IO (FrameState, Maybe Symbol)
+handleSymbolRequest Nothing state = return (state, Nothing)
+handleSymbolRequest (Just symbol)
+    FrameState { maybeCurrentFrame = maybeCurrentFrame } = do
+  chartContent <- newChartContent symbol
+  let state = FrameState
+        { maybeCurrentFrame = newCurrentFrame chartContent
+        , maybePreviousFrame = newPreviousFrame maybeCurrentFrame
+        } 
+  return (state, Just symbol)
+
+newChartContent :: Symbol -> IO Content
+newChartContent symbol = do
+  state <- C.newChartState symbol
+  return $ Chart symbol state
+
+newCurrentFrame :: Content -> Maybe Frame
+newCurrentFrame content = Just Frame
+  { content = content
+  , scaleAnimation = incomingScaleAnimation
+  , alphaAnimation = incomingAlphaAnimation
+  }
+
+newPreviousFrame :: Maybe Frame -> Maybe Frame
+newPreviousFrame Nothing = Nothing
+newPreviousFrame (Just frame) = Just $ frame 
+  { scaleAnimation = outgoingScaleAnimation
+  , alphaAnimation = outgoingAlphaAnimation
+  }
+
+renderFrame :: Resources -> Box -> Maybe Frame -> Bool
+    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol)
+renderFrame _ _ Nothing _ = return (Nothing, False, Nothing, Nothing)
+renderFrame resources bounds (Just frame) isCurrentFrame = do
+  let currentContent = content frame
+      currentScaleAnimation = scaleAnimation frame
+      currentAlphaAnimation = alphaAnimation frame
+      scaleAmount = (fst . current) currentScaleAnimation
+      alphaAmount = (fst . current) currentAlphaAnimation
+      removeInvisiblePreviousFrame = not isCurrentFrame
+          && not (scaleAmount >= 0.0)
+  if removeInvisiblePreviousFrame
+    then do
+      cleanFrameContent currentContent
+      return (Nothing, False, Nothing, Nothing)
+    else
+      preservingMatrix $ do
+        scale3 scaleAmount scaleAmount 1
+        (nextContent, isContentDirty, addedSymbol, refreshedSymbol)
+            <- renderContent resources bounds currentContent alphaAmount
+        let nextScaleAnimation = next currentScaleAnimation
+            nextAlphaAnimation = next currentAlphaAnimation
+            nextFrame = frame
+              { content = nextContent
+              , scaleAnimation = nextScaleAnimation
+              , alphaAnimation = nextAlphaAnimation
+              }
+            isDirty = isContentDirty
+                ||  (snd . current) currentScaleAnimation
+                || (snd . current) currentAlphaAnimation
+        return (Just nextFrame, isDirty, addedSymbol, refreshedSymbol)
+
+cleanFrameContent :: Content -> IO () 
+cleanFrameContent (Chart symbol state) = do
+  C.cleanChartState state
+  return ()
+cleanFrameContent _ = return ()
+
+renderContent :: Resources -> Box -> Content -> GLfloat
+    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol)
+
+renderContent resources bounds Instructions alpha = do
+  let input = I.InstructionsInput
+        { I.bounds = bounds
+        , I.alpha = alpha
+        }
+  output <- I.drawInstructions resources input
+  return (Instructions, I.isDirty output, Nothing, Nothing)
+
+renderContent resources bounds (Chart symbol state) alpha = do
+  let input = C.ChartInput
+        { C.bounds = boxShrink 5 bounds
+        , C.alpha = alpha
+        , C.symbol = symbol
+        , C.inputState = state
+        }
+  output <- C.drawChart resources input
+  return (Chart symbol (C.outputState output), C.isDirty output,
+      C.addedSymbol output, C.refreshedSymbol output)
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
 incomingScaleAnimation = animateOnce $ linearRange 1.25 1 20
@@ -80,231 +194,4 @@ outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
 
 outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
 outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
-
-drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
-drawChartFrame resources input =
-  convertInputToStuff input
-      >>= refreshSymbolState resources
-      >>= drawFrames resources
-      >>= convertStuffToOutput
-
-data FrameStuff = FrameStuff
-  { frameBounds :: Box
-  , frameSymbolRequests :: [Symbol]
-  , frameCurrentFrame :: Maybe Frame
-  , framePreviousFrame :: Maybe Frame
-  , frameAddedSymbol :: Maybe Symbol
-  , frameRefreshedSymbol :: Maybe Symbol
-  , frameJustSelectedSymbol :: Maybe Symbol
-  , frameIsDirty :: Dirty
-  }
-
-convertInputToStuff :: FrameInput -> IO FrameStuff
-convertInputToStuff 
-    FrameInput
-      { bounds = bounds
-      , symbolRequests = symbolRequests
-      , inputState = FrameState
-        { currentFrame = currentFrame
-        , previousFrame = previousFrame
-        }
-      } =
-  return FrameStuff
-    { frameBounds = bounds
-    , frameSymbolRequests = symbolRequests
-    , frameCurrentFrame = currentFrame
-    , framePreviousFrame = previousFrame
-    , frameAddedSymbol = Nothing
-    , frameRefreshedSymbol = Nothing
-    , frameJustSelectedSymbol = Nothing
-    , frameIsDirty = False
-    }
-
-refreshSymbolState :: Resources -> FrameStuff -> IO FrameStuff
-
-refreshSymbolState _
-  stuff@FrameStuff
-    { frameSymbolRequests = (symbol:_)
-    , frameCurrentFrame = currentFrame
-    } = do
-  chartContent <- newChartContent symbol
-  return stuff
-    { frameCurrentFrame = newCurrentFrame chartContent
-    , framePreviousFrame = newPreviousFrame currentFrame
-    , frameJustSelectedSymbol = Just symbol
-    , frameIsDirty = True
-    }
-
-refreshSymbolState _ stuff = return stuff
-
-newChartContent :: Symbol -> IO Content
-newChartContent symbol = do
-  state <- C.newChartState symbol
-  return $ Chart symbol state
-
-newCurrentFrame :: Content -> Maybe Frame
-newCurrentFrame content = Just Frame
-  { content = content
-  , removing = False
-  , scaleAnimation = incomingScaleAnimation
-  , alphaAnimation = incomingAlphaAnimation
-  }
-
-newPreviousFrame :: Maybe Frame -> Maybe Frame
-newPreviousFrame Nothing = Nothing
-newPreviousFrame (Just frame) = Just $ frame 
-  { removing = True
-  , scaleAnimation = outgoingScaleAnimation
-  , alphaAnimation = outgoingAlphaAnimation
-  }
-
-drawFrames :: Resources -> FrameStuff -> IO FrameStuff
-drawFrames resources 
-    stuff@FrameStuff
-      { frameBounds = bounds
-      , frameCurrentFrame = currentFrame
-      , framePreviousFrame = previousFrame
-      , frameJustSelectedSymbol = selectedSymbol
-      , frameIsDirty = isDirty
-      } = do
-
-  maybeNextCurrentFrameState <- drawFrameShort currentFrame
-  maybeNextPreviousFrameState <- drawFrameShort previousFrame
-
-  let (nextCurrentFrame, isCurrentContentDirty, nextAddedSymbol,
-          nextRefreshedSymbol) = maybeNextCurrentFrameState
-      (nextPreviousFrame, isPreviousContentDirty, _, _) =
-          maybeNextPreviousFrameState
-
-  nextNextCurrentFrame <- nextFrame nextCurrentFrame
-  nextNextPreviousFrame <-  nextFrame nextPreviousFrame
-
-  let nextJustSelectedSymbol =
-          if isJust nextAddedSymbol
-            then nextAddedSymbol
-            else selectedSymbol
-      nextDirty = any id
-        [ isDirty
-        , isDirtyFrame nextNextCurrentFrame
-        , isDirtyFrame nextNextPreviousFrame
-        , isCurrentContentDirty
-        , isPreviousContentDirty
-        ]
-  return stuff
-    { frameCurrentFrame = nextNextCurrentFrame
-    , framePreviousFrame = nextNextPreviousFrame
-    , frameAddedSymbol = nextAddedSymbol
-    , frameRefreshedSymbol = nextRefreshedSymbol
-    , frameJustSelectedSymbol = nextJustSelectedSymbol
-    , frameIsDirty = nextDirty
-    } 
-  where
-    drawFrameShort = drawFrame resources bounds
-
--- TODO: Check if the Chart's MVar is empty...
-isDirtyFrame :: Maybe Frame -> Bool
-isDirtyFrame (Just (Frame
-    { scaleAnimation = scaleAnimation
-    , alphaAnimation = alphaAnimation
-    })) = any (snd . current) [scaleAnimation, alphaAnimation]
-isDirtyFrame _ = False
-
-drawFrame :: Resources -> Box -> Maybe Frame
-    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol)
-
-drawFrame resources _ Nothing = return (Nothing, False, Nothing, Nothing)
-
-drawFrame resources bounds
-    (Just frame@Frame
-      { content = content
-      , scaleAnimation = scaleAnimation
-      , alphaAnimation = alphaAnimation
-      }) = 
-  preservingMatrix $ do
-    scale3 scaleAmount scaleAmount 1
-    (nextContent, isDirty, addedSymbol, refreshedSymbol)
-        <- drawFrameContent resources bounds content alphaAmount
-    return (Just frame { content = nextContent }, isDirty, addedSymbol,
-        refreshedSymbol)
-  where
-    paddedBounds = boxShrink contentPadding bounds
-    scaleAmount = fst . current $ scaleAnimation
-    alphaAmount = fst . current $ alphaAnimation
-
-contentPadding = 5::GLfloat -- ^ Padding on one side.
-cornerRadius = 10::GLfloat
-cornerVertices = 5::Int
-
-drawFrameContent :: Resources -> Box -> Content -> GLfloat
-    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol)
-
-drawFrameContent _ _ content 0 = return (content, False, Nothing, Nothing)
-
-drawFrameContent resources bounds Instructions alpha = do
-  output <- I.drawInstructions resources input
-  return (Instructions, I.isDirty output, Nothing, Nothing)
-  where
-    input = I.InstructionsInput
-      { I.bounds = bounds
-      , I.alpha = alpha
-      }
-
-drawFrameContent resources bounds (Chart symbol state) alpha = do
-  output <- C.drawChart resources input
-  return (Chart symbol (C.outputState output), C.isDirty output,
-      C.addedSymbol output, C.refreshedSymbol output)
-  where
-    input = C.ChartInput
-      { C.bounds = boxShrink contentPadding bounds
-      , C.alpha = alpha
-      , C.symbol = symbol
-      , C.inputState = state
-      }
-
-nextFrame :: Maybe Frame -> IO (Maybe Frame)
-nextFrame Nothing = return Nothing
-nextFrame (Just frame) =
-  if shouldRemoveFrame 
-    then do
-      cleanFrameContent $ content frame
-      return Nothing
-    else
-      return $ Just nextFrame
-  where
-    shouldRemoveFrame = removing frame
-        && (fst . current . alphaAnimation) frame == 0.0
-    nextScaleAnimation = next $ scaleAnimation frame
-    nextAlphaAnimation = next $ alphaAnimation frame
-    nextFrame = frame
-      { scaleAnimation = nextScaleAnimation
-      , alphaAnimation = nextAlphaAnimation
-      }
-
-cleanFrameContent :: Content -> IO () 
-cleanFrameContent (Chart symbol state) = do
-  C.cleanChartState state
-  return ()
-
-cleanFrameContent _ = return ()
-
-convertStuffToOutput :: FrameStuff -> IO FrameOutput
-convertStuffToOutput
-    FrameStuff
-      { frameCurrentFrame = currentFrame
-      , framePreviousFrame = previousFrame
-      , frameAddedSymbol = addedSymbol
-      , frameRefreshedSymbol = refreshedSymbol
-      , frameJustSelectedSymbol = selectedSymbol
-      , frameIsDirty = isDirty
-      } =
-  return FrameOutput
-    { outputState = FrameState
-      { currentFrame = currentFrame
-      , previousFrame = previousFrame
-      }
-    , isDirty = isDirty
-    , addedSymbol = addedSymbol
-    , refreshedSymbol = refreshedSymbol
-    , selectedSymbol = selectedSymbol
-    }
 
