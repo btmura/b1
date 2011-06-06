@@ -132,8 +132,7 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
       currentAlphaAnimation = alphaAnimation frame
       scaleAmount = (fst . current) currentScaleAnimation
       alphaAmount = (fst . current) currentAlphaAnimation
-      removeInvisiblePreviousFrame = not isCurrentFrame
-          && not (scaleAmount >= 0.0)
+      removeInvisiblePreviousFrame = not isCurrentFrame && alphaAmount <= 0.0
   if removeInvisiblePreviousFrame
     then do
       cleanFrameContent currentContent
@@ -155,6 +154,7 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
                 || (snd . current) currentAlphaAnimation
         return (Just nextFrame, isDirty, addedSymbol, refreshedSymbol)
 
+-- TODO: Use type classes instead of special cases...
 cleanFrameContent :: Content -> IO () 
 cleanFrameContent (Chart symbol state) = do
   C.cleanChartState state

@@ -55,9 +55,10 @@ createQuad bounds prices numElements index =
     rightX = boxRight bounds - realToFrac index * barWidth - spacing
     leftX = rightX - barWidth + spacing
 
-    maxVolume = maximum $ map volume prices
     minVolume = minimum $ map volume prices
-    totalRange = maxVolume - minVolume
+    maxVolume = maximum $ map volume prices
+    adjustedMaxVolume = floor $ realToFrac maxVolume * 1.05
+    totalRange = adjustedMaxVolume - minVolume
 
     currentVolume = volume $ prices !! index
     range = currentVolume - minVolume
