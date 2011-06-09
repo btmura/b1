@@ -77,9 +77,6 @@ newGraphState boundSet stockData =
     , graphAlphaAnimation = animateOnce $ linearRange 0 0 1
     }
 
-incomingAlphaAnimation :: Animation (GLfloat, Dirty)
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
-
 cleanGraphState :: GraphState -> IO GraphState
 cleanGraphState state@GraphState { maybeVbo = maybeVbo } =
   case maybeVbo of
@@ -128,7 +125,7 @@ getOutput
         -> Animation (GLfloat, Dirty) 
     smoothOutgoingAlphaAnimation alphaAnimation =
       let currentValue = fst $ current alphaAnimation
-      in animateOnce $ linearRange currentValue 0 20
+      in animateOnce $ linearRange currentValue 0 10
 
     nextGraphAlphaAnimation =
         if not nextHasRendered

@@ -32,12 +32,8 @@ scrollIncrement = 50::GLfloat
 dragScrollIncrement = 10::GLfloat
 
 incomingHeightAnimation = animateOnce $ linearRange 100 100 20
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
-incomingScaleAnimation = animateOnce $ linearRange 1 1 20
 
 outgoingHeightAnimation = animateOnce $ linearRange 100 0 10
-outgoingAlphaAnimation = animateOnce $ linearRange 1 0 10
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 10
 
 draggedInHeightAnimation = animateOnce $ linearRange 50 100 10
 draggedInAlphaAnimation = animateOnce $ linearRange 1 1 20

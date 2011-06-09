@@ -113,7 +113,7 @@ drawChart resources
       { headerState = newHeaderState
       , graphState = newGraphState
       }
-    , isDirty = refreshClicked || headerDirty || graphDirty
+    , isDirty = headerDirty || graphDirty
     , addedSymbol = addedSymbol
     , refreshedSymbol = nextRefreshedSymbol
     }

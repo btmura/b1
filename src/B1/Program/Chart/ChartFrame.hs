@@ -183,15 +183,3 @@ renderContent resources bounds (Chart symbol state) alpha = do
   return (Chart symbol (C.outputState output), C.isDirty output,
       C.addedSymbol output, C.refreshedSymbol output)
 
-incomingScaleAnimation :: Animation (GLfloat, Dirty)
-incomingScaleAnimation = animateOnce $ linearRange 1.25 1 20
-
-incomingAlphaAnimation :: Animation (GLfloat, Dirty)
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
-
-outgoingScaleAnimation :: Animation (GLfloat, Dirty)
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.25 20
-
-outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
-outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
-

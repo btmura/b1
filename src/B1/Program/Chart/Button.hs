@@ -3,6 +3,7 @@ module B1.Program.Chart.Button
   , drawButton
   ) where
 
+import Control.Monad
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
@@ -14,10 +15,22 @@ import B1.Program.Chart.Resources
 data ButtonState = Normal | Hovering | Clicked deriving (Eq, Show)
 
 drawButton :: Resources -> Box -> Int -> GLfloat -> IO ButtonState
-drawButton resources bounds textureNumber alpha = 
+drawButton resources bounds textureNumber alpha = do
+  let (normalScaleX, normalScaleY) = (boxWidth bounds / 2, boxHeight bounds / 2)
+      (hoverScaleX, hoverScaleY) = (normalScaleX * 1.05, normalScaleY * 1.05)
+      (clickScaleX, clickScaleY) = (normalScaleX * 0.75, normalScaleY * 0.75)
+
+      hovering = alpha >= 1 && boxContains bounds (mousePosition resources)
+      clicked = hovering && isMouseButtonClicked resources ButtonLeft
+
+      (buttonState, buttonColor, scaleX, scaleY)
+        | clicked = (Clicked, white4, clickScaleX, clickScaleY)
+        | hovering = (Hovering, white4, hoverScaleX, hoverScaleY)
+        | otherwise = (Normal, gray4, normalScaleX, normalScaleY)
+
   preservingMatrix $ do
     color $ buttonColor alpha
-    scale3 (boxWidth bounds / 2) (boxHeight bounds / 2) 1
+    scale3 scaleX scaleY 1
     texture Texture2D $= Enabled
     textureBinding Texture2D $= Just (TextureObject
         (fromIntegral textureNumber))
@@ -33,12 +46,4 @@ drawButton resources bounds textureNumber alpha =
       vertex $ vertex2 1 (-1)
     texture Texture2D $= Disabled
     return buttonState
-  where
-    hovering = alpha >= 1 && boxContains bounds (mousePosition resources)
-    clicked = hovering && isMouseButtonClicked resources ButtonLeft
-    buttonColor = if hovering || clicked then white4 else gray4
-    buttonState
-      | clicked = Clicked
-      | hovering = Hovering
-      | otherwise = Normal
 

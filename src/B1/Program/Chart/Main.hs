@@ -145,6 +145,7 @@ drawLoop resourcesRef windowDirtyRef action = do
   unless (control == Press && c == Press) $ do
     -- TODO: Need to do the same for key presses. 
     let isMouseStateDirty = isMouseButtonPressed resources ButtonLeft
+            || isMouseButtonClicked resources ButtonLeft
             || isMouseWheelMoving resources
 
     -- If the screen is not dirty, then wait for events rather than drawing
