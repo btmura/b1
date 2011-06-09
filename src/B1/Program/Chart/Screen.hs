@@ -135,6 +135,7 @@ drawScreenLoop
       nextScreenState = screenState
         { sideBarOpen = nextSideBarOpen
         , sideBarWidthAnimation = nextSideBarWidthAnimation
+        , config = nextConfig
         }
       nextDirty = sideBarWidthDirty
           || nextSideBarWidthDirty
