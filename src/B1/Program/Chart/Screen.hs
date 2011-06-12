@@ -32,10 +32,12 @@ drawScreen resources = do
   configLock <- newEmptyMVar
   config <- readConfig configFileName
   let chartOptions = C.ChartOptions
-        { C.headerFontSize = 18
-        , C.headerPadding = 10 
-        , C.headerStatusStyle = H.LongStatus
-        , C.headerButton = H.AddButton
+        { C.headerOptions = H.HeaderOptions
+          { H.fontSize = 18
+          , H.padding = 10 
+          , H.statusStyle = H.LongStatus
+          , H.button = H.AddButton
+          }
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop

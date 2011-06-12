@@ -46,12 +46,8 @@ data ChartOutput = ChartOutput
   , refreshedSymbol :: Maybe Symbol
   }
 
--- TODO: Split into separate HeaderOptions and ChartOptions?
 data ChartOptions = ChartOptions
-  { headerFontSize :: Int
-  , headerPadding :: GLfloat
-  , headerStatusStyle :: H.HeaderStatusStyle
-  , headerButton :: H.HeaderButton
+  { headerOptions :: H.HeaderOptions
   }
 
 data ChartState = ChartState
@@ -67,11 +63,7 @@ newChartState options symbol = do
   return ChartState
     { symbol = symbol
     , stockData = stockData
-    , headerState = H.newHeaderState
-        (headerStatusStyle options)
-        (headerButton options)
-        (headerFontSize options)
-        (headerPadding options)
+    , headerState = H.newHeaderState $ headerOptions options
     , graphState = G.newGraphState boundSet stockData
     }
   where

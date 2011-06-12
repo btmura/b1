@@ -1,6 +1,7 @@
 module B1.Program.Chart.Header
   ( HeaderInput(..)
   , HeaderOutput(..)
+  , HeaderOptions(..)
   , HeaderState
   , HeaderButton(..)
   , HeaderStatusStyle(..)
@@ -47,10 +48,15 @@ data HeaderOutput = HeaderOutput
   , clickedSymbol :: Maybe Symbol
   }
 
-data HeaderState = HeaderState
-  { button :: HeaderButton
-  , fontSize :: Int
+data HeaderOptions = HeaderOptions
+  { fontSize :: Int
   , padding :: GLfloat
+  , statusStyle :: HeaderStatusStyle
+  , button :: HeaderButton
+  }
+
+data HeaderState = HeaderState
+  { options :: HeaderOptions
   , getStatus :: Symbol -> StockData -> IO HeaderStatus
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
@@ -62,18 +68,15 @@ data HeaderStatusStyle = ShortStatus | LongStatus
 
 data HeaderButton = AddButton | RemoveButton deriving (Eq)
 
-newHeaderState :: HeaderStatusStyle -> HeaderButton -> Int -> GLfloat
-    -> HeaderState
-newHeaderState statusStyle button fontSize padding = HeaderState
-  { button = button
-  , fontSize = fontSize
-  , padding = padding
+newHeaderState :: HeaderOptions -> HeaderState
+newHeaderState options = HeaderState
+  { options = options
   , getStatus = statusFunction
   , isStatusShowing = False
   , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
   }
   where
-    statusFunction = case statusStyle of
+    statusFunction = case statusStyle options of
       ShortStatus -> getShortStatus
       _ -> getLongStatus
 
@@ -90,9 +93,11 @@ drawHeader resources@Resources
       , symbol = symbol
       , stockData = stockData
       , inputState = inputState@HeaderState
-        { button = button
-        , fontSize = fontSize
-        , padding = padding
+        { options = HeaderOptions
+          { button = button
+          , fontSize = fontSize
+          , padding = padding
+          }
         , getStatus = getStatus
         , isStatusShowing = isStatusShowing
         , statusAlphaAnimation = statusAlphaAnimation

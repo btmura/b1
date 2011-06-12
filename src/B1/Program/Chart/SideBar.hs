@@ -108,13 +108,15 @@ drawSideBar resources
 createSlots :: [Symbol] -> IO [Slot]
 createSlots =
   mapM (\symbol -> do
-      let chartOptions = C.ChartOptions
-            { C.headerFontSize = 10
-            , C.headerPadding = 5
-            , C.headerStatusStyle = H.ShortStatus
-            , C.headerButton = H.RemoveButton
+      let options = C.ChartOptions
+            { C.headerOptions = H.HeaderOptions
+              { H.fontSize = 10
+              , H.padding = 5
+              , H.statusStyle = H.ShortStatus
+              , H.button = H.RemoveButton
+              }
             }
-      frameState <- F.newFrameState chartOptions $ Just symbol
+      frameState <- F.newFrameState options $ Just symbol
       return Slot
         { symbol = symbol
         , remove = False

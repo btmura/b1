@@ -20,6 +20,7 @@ import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Chart as C
+import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.Instructions as I
 
 data FrameInput = FrameInput
@@ -56,8 +57,8 @@ data Frame = Frame
 data Content = Instructions | Chart Symbol C.ChartState
 
 newFrameState :: C.ChartOptions -> Maybe Symbol -> IO FrameState
-newFrameState options maybeSymbol = do
-  let createChart = newChartContent options
+newFrameState chartOptions maybeSymbol = do
+  let createChart = newChartContent chartOptions
   content <- case maybeSymbol of
     Just symbol -> createChart symbol
     _ -> return Instructions
@@ -121,8 +122,8 @@ handleSymbolRequest (Just symbol)
   return (outputState, Just symbol)
 
 newChartContent :: C.ChartOptions -> Symbol -> IO Content
-newChartContent options symbol = do
-  state <- C.newChartState options symbol
+newChartContent chartOptions symbol = do
+  state <- C.newChartState chartOptions symbol
   return $ Chart symbol state
 
 newCurrentFrame :: Content -> Maybe Frame
