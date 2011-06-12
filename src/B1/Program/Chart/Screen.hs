@@ -29,11 +29,12 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
   config <- readConfig configFileName
+  inputFrameState <- F.newFrameState "FIXME"
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
-        , S.newMiniChartDraggedIn = Nothing
+--        , S.newMiniChartDraggedIn = Nothing
         , S.justSelectedSymbol = selectedSymbol config
         , S.refreshRequested = False
         , S.inputState = S.newSideBarState
@@ -41,7 +42,7 @@ drawScreen resources = do
       F.FrameInput
         { F.bounds = zeroBox
         , F.maybeSymbolRequest = selectedSymbol config
-        , F.inputState = F.newFrameState
+        , F.inputState = inputFrameState
         } 
       E.SymbolEntryInput
         { E.bounds = zeroBox
@@ -115,7 +116,7 @@ drawScreenLoop
 
   let nextSideBarInput = sideBarInput
         { S.newSymbols = maybeToList $ F.maybeAddedSymbol frameOutput
-        , S.newMiniChartDraggedIn = Nothing
+--        , S.newMiniChartDraggedIn = Nothing
         , S.justSelectedSymbol = F.maybeSelectedSymbol frameOutput
         , S.refreshRequested = isJust $ F.maybeRefreshedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput

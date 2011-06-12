@@ -48,15 +48,16 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: FrameState
-newFrameState = FrameState
-  { maybeCurrentFrame = Just Frame
-    { content = Instructions
-    , scaleAnimation = incomingScaleAnimation
-    , alphaAnimation = incomingAlphaAnimation
+newFrameState :: Symbol -> IO FrameState
+newFrameState symbol =
+  return FrameState
+    { maybeCurrentFrame = Just Frame
+      { content = Instructions
+      , scaleAnimation = incomingScaleAnimation
+      , alphaAnimation = incomingAlphaAnimation
+      }
+    , maybePreviousFrame = Nothing
     }
-  , maybePreviousFrame = Nothing
-  }
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources
@@ -176,7 +177,6 @@ renderContent resources bounds (Chart symbol state) alpha = do
   let input = C.ChartInput
         { C.bounds = boxShrink 5 bounds
         , C.alpha = alpha
-        , C.symbol = symbol
         , C.inputState = state
         }
   output <- C.drawChart resources input

@@ -1,7 +1,7 @@
 module B1.Program.Chart.Chart
   ( ChartInput(..)
   , ChartOutput(..)
-  , ChartState(stockData)
+  , ChartState(symbol, stockData)
   , drawChart
   , newChartState
   , cleanChartState
@@ -35,7 +35,6 @@ import qualified B1.Program.Chart.Header as H
 data ChartInput = ChartInput
   { bounds :: Box
   , alpha :: GLfloat
-  , symbol :: Symbol
   , inputState :: ChartState
   }
 
@@ -47,7 +46,8 @@ data ChartOutput = ChartOutput
   }
 
 data ChartState = ChartState
-  { stockData :: StockData
+  { symbol :: Symbol
+  , stockData :: StockData
   , headerState :: H.HeaderState
   , graphState :: G.GraphState
   }
@@ -56,7 +56,8 @@ newChartState :: Symbol -> IO ChartState
 newChartState symbol = do
   stockData <- newStockData symbol
   return ChartState
-    { stockData = stockData
+    { symbol = symbol
+    , stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
     , graphState = G.newGraphState boundSet stockData
     }
@@ -83,9 +84,9 @@ drawChart resources
     input@ChartInput
       { bounds = bounds
       , alpha = alpha
-      , symbol = symbol
       , inputState = inputState@ChartState
-        { stockData = stockData
+        { symbol = symbol
+        , stockData = stockData
         , headerState = headerState
         , graphState = graphState
         }

@@ -21,7 +21,8 @@ import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
-import qualified B1.Program.Chart.MiniChart as M
+import qualified B1.Program.Chart.Chart as C
+import qualified B1.Program.Chart.ChartFrame as F
 
 slotHeight = 100::GLfloat
 
@@ -46,7 +47,6 @@ draggedOutScaleAnimation = animateOnce $ linearRange 0 0 20
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
-  , newMiniChartDraggedIn :: Maybe M.MiniChartState
   , justSelectedSymbol :: Maybe Symbol
   , refreshRequested :: Bool
   , inputState :: SideBarState
@@ -74,7 +74,7 @@ data Slot = Slot
   , heightAnimation :: Animation (GLfloat, Dirty)
   , alphaAnimation :: Animation (GLfloat, Dirty)
   , scaleAnimation :: Animation (GLfloat, Dirty)
-  , miniChartState :: M.MiniChartState
+  , frameState :: F.FrameState
   } 
 
 newSideBarState :: SideBarState
@@ -89,7 +89,6 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
-      , newMiniChartDraggedIn = draggedInChart
       , justSelectedSymbol = justSelectedSymbol
       , refreshRequested = refreshRequested
       , inputState = inputState
@@ -102,13 +101,13 @@ drawSideBar resources
       . calculateNextScrollAmount resources bounds justSelectedSymbol
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
-      . insertDraggedInSlot resources bounds draggedInChart
+      . insertDraggedInSlot resources bounds Nothing
       . addNewSlots newSlots) inputState
 
 createSlots :: [Symbol] -> IO [Slot]
 createSlots =
   mapM (\symbol -> do
-      miniChartState <- M.newMiniChartState symbol Nothing
+      frameState <- F.newFrameState symbol
       return Slot
         { symbol = symbol
         , remove = False
@@ -118,7 +117,7 @@ createSlots =
         , heightAnimation = incomingHeightAnimation
         , alphaAnimation = incomingAlphaAnimation
         , scaleAnimation = incomingScaleAnimation
-        , miniChartState = miniChartState
+        , frameState = frameState
         })
 
 addNewSlots :: [Slot] -> SideBarState -> SideBarState 
@@ -138,7 +137,7 @@ addOnlyUniqueSymbols slots newSlot
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = symbol slot == newSymbol && not (remove slot)
 
-insertDraggedInSlot :: Resources -> Box -> Maybe M.MiniChartState
+insertDraggedInSlot :: Resources -> Box -> Maybe F.FrameState
     -> SideBarState -> SideBarState
 
 insertDraggedInSlot resources bounds (Just draggedInChart)
@@ -163,17 +162,18 @@ insertDraggedInSlot resources bounds (Just draggedInChart)
     slotsBelow = removeIndices indexedSlotsBelow
     draggedInSlot = createDraggedInSlot draggedInChart
 
-    alreadyAdded = any (containsSymbol (M.symbol draggedInChart)) slots
+--    alreadyAdded = any (containsSymbol (C.symbol draggedInChart)) slots
+    alreadyAdded = any (containsSymbol "FIXME") slots
     newSlots = if alreadyAdded
         then slots
         else slotsAbove ++ [draggedInSlot] ++ slotsBelow
 
 insertDraggedInSlot _ _ Nothing state = state
 
-createDraggedInSlot :: M.MiniChartState -> Slot
+createDraggedInSlot :: F.FrameState -> Slot
 createDraggedInSlot draggedInChart =
   Slot
-    { symbol = M.symbol draggedInChart
+    { symbol = "FIXMETOO"
     , remove = False
     , isBeingDragged = True
     , dragFreely = True
@@ -181,7 +181,7 @@ createDraggedInSlot draggedInChart =
     , heightAnimation = draggedInHeightAnimation
     , alphaAnimation = draggedInAlphaAnimation
     , scaleAnimation = draggedInScaleAnimation
-    , miniChartState = draggedInChart
+    , frameState = draggedInChart
     }
 
 calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
@@ -392,7 +392,7 @@ drawSlots resources bounds refreshRequested
   convertDrawingOutputs state output
 
 drawOneSlot :: Resources -> Box -> GLfloat -> Bool -> [Slot] -> Int
-    -> IO (M.MiniChartOutput, Dirty)
+    -> IO (F.FrameOutput, Dirty)
 drawOneSlot resources
     bounds@(Box (left, top) (right, bottom))
     scrollAmount refreshRequested slots index = 
@@ -405,7 +405,7 @@ drawOneSlot resources
         (boxTop slotBounds - slotHeight / 2) 0
 
     scale3 scale scale 1
-    output <- M.drawMiniChart resources input
+    output <- F.drawChartFrame resources input
     return (output, alphaDirty || scaleDirty || heightDirty)
   where
     slot = slots !! index
@@ -418,18 +418,19 @@ drawOneSlot resources
         then getDraggedBounds resources bounds scrollAmount slots index
         else getSlotBounds bounds scrollAmount slots index
 
-    input = M.MiniChartInput
-      { M.bounds = slotBounds
-      , M.alpha = alpha
-      , M.isBeingDragged = slotDragged
-      , M.refreshRequested = refreshRequested
-      , M.inputState = miniChartState slot
+    input = F.FrameInput
+      { F.bounds = slotBounds
+      , F.maybeSymbolRequest = Nothing
+--      , M.alpha = alpha
+--      , M.isBeingDragged = slotDragged
+--      , M.refreshRequested = refreshRequested
+      , F.inputState = frameState slot
       }
 
-convertDrawingOutputs :: SideBarState -> [(M.MiniChartOutput, Dirty)]
+convertDrawingOutputs :: SideBarState -> [(F.FrameOutput, Dirty)]
     -> IO SideBarOutput
 convertDrawingOutputs state output = do
-  mapM_ (M.cleanMiniChartState . miniChartState) cleanSlots
+--  mapM_ (M.cleanMiniChartState . miniChartState) cleanSlots
   return nextOutput
   where
     (outputStates, dirtyFlags) = unzip output
@@ -441,9 +442,9 @@ convertDrawingOutputs state output = do
     nextState = state { slots = nextSlots } 
 
     isSideBarDirty = length (newSlots state) > 0
-        || any M.isDirty outputStates
+        || any F.isDirty outputStates
         || any id dirtyFlags
-    nextSymbolRequest = (listToMaybe . mapMaybe M.symbolRequest) outputStates
+    nextSymbolRequest = Nothing -- (listToMaybe . mapMaybe M.symbolRequest) outputStates
     nextSymbols = map symbol nextSlots
     nextOutput = SideBarOutput
       { isDirty = isSideBarDirty
@@ -459,7 +460,7 @@ shouldRemoveSlot slot@Slot
     } =
   remove && (fst . current) heightAnimation == 0
 
-updateMiniChartState :: Slot -> M.MiniChartOutput -> Slot
+updateMiniChartState :: Slot -> F.FrameOutput -> Slot
 updateMiniChartState
     slot@Slot
       { remove = alreadyRemoved
@@ -467,17 +468,18 @@ updateMiniChartState
       , alphaAnimation = alphaAnimation
       , scaleAnimation = scaleAnimation
       }
-    M.MiniChartOutput
-      { M.outputState = nextState
-      , M.removeChart = removeNow
+    F.FrameOutput
+      { F.outputState = nextState
+--      , M.removeChart = removeNow
       } = slot
   { remove = alreadyRemoved || removeNow
   , heightAnimation = nextHeightAnimation
   , alphaAnimation = nextAlphaAnimation
   , scaleAnimation = nextScaleAnimation
-  , miniChartState = nextState
+  , frameState = nextState
   }
   where
+    removeNow = False -- Update
     (nextHeightAnimation, nextAlphaAnimation, nextScaleAnimation) =
         if removeNow
           then (outgoingHeightAnimation, outgoingAlphaAnimation,
