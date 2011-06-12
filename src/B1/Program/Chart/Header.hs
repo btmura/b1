@@ -34,7 +34,6 @@ import B1.Program.Chart.Resources
 
 data HeaderInput = HeaderInput
   { bounds :: Box
-  , padding :: GLfloat
   , alpha :: GLfloat
   , symbol :: Symbol
   , stockData :: StockData
@@ -51,6 +50,7 @@ data HeaderOutput = HeaderOutput
 data HeaderState = HeaderState
   { button :: HeaderButton
   , fontSize :: Int
+  , padding :: GLfloat
   , getStatus :: Symbol -> StockData -> IO HeaderStatus
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
@@ -62,10 +62,12 @@ data HeaderStatusStyle = ShortStatus | LongStatus
 
 data HeaderButton = AddButton | RemoveButton deriving (Eq)
 
-newHeaderState :: HeaderStatusStyle -> HeaderButton -> Int -> HeaderState
-newHeaderState statusStyle button fontSize = HeaderState
+newHeaderState :: HeaderStatusStyle -> HeaderButton -> Int -> GLfloat
+    -> HeaderState
+newHeaderState statusStyle button fontSize padding = HeaderState
   { button = button
   , fontSize = fontSize
+  , padding = padding
   , getStatus = statusFunction
   , isStatusShowing = False
   , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
@@ -84,13 +86,13 @@ drawHeader resources@Resources
       }
     HeaderInput
       { bounds = bounds
-      , padding = padding
       , alpha = alpha
       , symbol = symbol
       , stockData = stockData
       , inputState = inputState@HeaderState
         { button = button
         , fontSize = fontSize
+        , padding = padding
         , getStatus = getStatus
         , isStatusShowing = isStatusShowing
         , statusAlphaAnimation = statusAlphaAnimation

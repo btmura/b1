@@ -122,7 +122,7 @@ handleSymbolRequest (Just symbol)
 
 newChartContent :: C.ChartOptions -> Symbol -> IO Content
 newChartContent options symbol = do
-  state <- C.newChartState symbol options
+  state <- C.newChartState options symbol
   return $ Chart symbol state
 
 newCurrentFrame :: Content -> Maybe Frame

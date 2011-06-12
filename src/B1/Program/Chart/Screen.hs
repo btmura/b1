@@ -32,6 +32,7 @@ drawScreen resources = do
   config <- readConfig configFileName
   let chartOptions = C.ChartOptions
         { C.headerFontSize = 18
+        , C.headerPadding = 10 
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop

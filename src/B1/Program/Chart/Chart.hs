@@ -48,6 +48,7 @@ data ChartOutput = ChartOutput
 
 data ChartOptions = ChartOptions
   { headerFontSize :: Int
+  , headerPadding :: GLfloat
   }
 
 data ChartState = ChartState
@@ -57,14 +58,14 @@ data ChartState = ChartState
   , graphState :: G.GraphState
   }
 
-newChartState :: Symbol -> ChartOptions -> IO ChartState
-newChartState symbol options = do
+newChartState :: ChartOptions -> Symbol -> IO ChartState
+newChartState options symbol = do
   stockData <- newStockData symbol
   return ChartState
     { symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState H.LongStatus H.AddButton
-        (headerFontSize options)
+        (headerFontSize options) (headerPadding options)
     , graphState = G.newGraphState boundSet stockData
     }
   where
@@ -130,7 +131,6 @@ drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
 drawHeader resources alpha symbol stockData headerState bounds = do
   let headerInput = H.HeaderInput
         { H.bounds = bounds
-        , H.padding = 10
         , H.alpha = alpha
         , H.symbol = symbol
         , H.stockData = stockData

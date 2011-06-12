@@ -109,6 +109,7 @@ createSlots =
   mapM (\symbol -> do
       let chartOptions = C.ChartOptions
             { C.headerFontSize = 10
+            , C.headerPadding = 5
             }
       frameState <- F.newFrameState chartOptions $ Just symbol
       return Slot
