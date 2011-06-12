@@ -107,7 +107,7 @@ drawSideBar resources
 createSlots :: [Symbol] -> IO [Slot]
 createSlots =
   mapM (\symbol -> do
-      frameState <- F.newFrameState symbol
+      frameState <- F.newFrameState $ Just symbol
       return Slot
         { symbol = symbol
         , remove = False

@@ -48,11 +48,14 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: Symbol -> IO FrameState
-newFrameState symbol =
+newFrameState :: Maybe Symbol -> IO FrameState
+newFrameState maybeSymbol = do
+  content <- case maybeSymbol of
+    Just symbol -> newChartContent symbol
+    _ -> return Instructions
   return FrameState
     { maybeCurrentFrame = Just Frame
-      { content = Instructions
+      { content = content
       , scaleAnimation = incomingScaleAnimation
       , alphaAnimation = incomingAlphaAnimation
       }

@@ -29,7 +29,7 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
   config <- readConfig configFileName
-  inputFrameState <- F.newFrameState "FIXME"
+  inputFrameState <- F.newFrameState $ selectedSymbol config
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox
@@ -41,7 +41,7 @@ drawScreen resources = do
         }
       F.FrameInput
         { F.bounds = zeroBox
-        , F.maybeSymbolRequest = selectedSymbol config
+        , F.maybeSymbolRequest = Nothing
         , F.inputState = inputFrameState
         } 
       E.SymbolEntryInput
