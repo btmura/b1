@@ -23,6 +23,7 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
+import qualified B1.Program.Chart.Header as H
 
 slotHeight = 100::GLfloat
 
@@ -110,6 +111,7 @@ createSlots =
       let chartOptions = C.ChartOptions
             { C.headerFontSize = 10
             , C.headerPadding = 5
+            , C.headerStatusStyle = H.ShortStatus
             }
       frameState <- F.newFrameState chartOptions $ Just symbol
       return Slot

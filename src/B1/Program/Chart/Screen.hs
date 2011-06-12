@@ -21,6 +21,7 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
+import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.SideBar as S
 import qualified B1.Program.Chart.SymbolEntry as E
 
@@ -33,6 +34,7 @@ drawScreen resources = do
   let chartOptions = C.ChartOptions
         { C.headerFontSize = 18
         , C.headerPadding = 10 
+        , C.headerStatusStyle = H.LongStatus
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop
