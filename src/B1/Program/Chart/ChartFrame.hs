@@ -1,6 +1,7 @@
 module B1.Program.Chart.ChartFrame
   ( FrameInput(..)
   , FrameOutput(..)
+  , FrameOptions(..)
   , FrameState
   , drawChartFrame
   , newFrameState
@@ -35,8 +36,14 @@ data FrameOutput = FrameOutput
   , maybeSelectedSymbol :: Maybe Symbol -- ^ Symbol when a request is fulfilled
   }
 
+data FrameOptions = FrameOptions
+  { initialSymbol :: Maybe Symbol -- ^ Symbol or nothing to get instructions
+  , headerFontSize :: Int -- ^ Header font size
+  }
+
 data FrameState = FrameState
-  { maybeCurrentFrame :: Maybe Frame
+  { createChart :: Symbol -> IO Content
+  , maybeCurrentFrame :: Maybe Frame
   , maybePreviousFrame :: Maybe Frame
   }
 
@@ -48,13 +55,15 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: Maybe Symbol -> IO FrameState
-newFrameState maybeSymbol = do
+newFrameState :: C.ChartOptions -> Maybe Symbol -> IO FrameState
+newFrameState options maybeSymbol = do
+  let createChart = newChartContent options
   content <- case maybeSymbol of
-    Just symbol -> newChartContent symbol
+    Just symbol -> createChart symbol
     _ -> return Instructions
   return FrameState
-    { maybeCurrentFrame = Just Frame
+    { createChart = createChart
+    , maybeCurrentFrame = Just Frame
       { content = content
       , scaleAnimation = incomingScaleAnimation
       , alphaAnimation = incomingAlphaAnimation
@@ -83,7 +92,7 @@ drawChartFrame resources
   (nextMaybePreviousFrame, isPreviousDirty,
       _, _) <- render maybePreviousFrame False
 
-  let outputState = FrameState
+  let outputState = inputState
         { maybeCurrentFrame = nextMaybeCurrentFrame
         , maybePreviousFrame = nextMaybePreviousFrame
         }
@@ -100,17 +109,20 @@ handleSymbolRequest :: Maybe Symbol -> FrameState
     -> IO (FrameState, Maybe Symbol)
 handleSymbolRequest Nothing state = return (state, Nothing)
 handleSymbolRequest (Just symbol)
-    FrameState { maybeCurrentFrame = maybeCurrentFrame } = do
-  chartContent <- newChartContent symbol
-  let state = FrameState
+    state@FrameState
+      { createChart = createChart
+      , maybeCurrentFrame = maybeCurrentFrame
+      } = do
+  chartContent <- createChart symbol
+  let outputState = state
         { maybeCurrentFrame = newCurrentFrame chartContent
         , maybePreviousFrame = newPreviousFrame maybeCurrentFrame
         } 
-  return (state, Just symbol)
+  return (outputState, Just symbol)
 
-newChartContent :: Symbol -> IO Content
-newChartContent symbol = do
-  state <- C.newChartState symbol
+newChartContent :: C.ChartOptions -> Symbol -> IO Content
+newChartContent options symbol = do
+  state <- C.newChartState symbol options
   return $ Chart symbol state
 
 newCurrentFrame :: Content -> Maybe Frame

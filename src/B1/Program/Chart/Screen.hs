@@ -19,6 +19,7 @@ import B1.Program.Chart.Config
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 
+import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.SideBar as S
 import qualified B1.Program.Chart.SymbolEntry as E
@@ -29,7 +30,10 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
   config <- readConfig configFileName
-  inputFrameState <- F.newFrameState $ selectedSymbol config
+  let chartOptions = C.ChartOptions
+        { C.headerFontSize = 18
+        }
+  inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop
       S.SideBarInput
         { S.bounds = zeroBox

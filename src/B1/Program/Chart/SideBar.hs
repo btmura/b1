@@ -107,7 +107,10 @@ drawSideBar resources
 createSlots :: [Symbol] -> IO [Slot]
 createSlots =
   mapM (\symbol -> do
-      frameState <- F.newFrameState $ Just symbol
+      let chartOptions = C.ChartOptions
+            { C.headerFontSize = 10
+            }
+      frameState <- F.newFrameState chartOptions $ Just symbol
       return Slot
         { symbol = symbol
         , remove = False
