@@ -54,6 +54,7 @@ drawScreen resources = do
             }
           , G.fontSize = 18
           }
+        , C.showRefreshButton = True
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop

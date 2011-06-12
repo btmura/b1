@@ -49,10 +49,12 @@ data ChartOutput = ChartOutput
 data ChartOptions = ChartOptions
   { headerOptions :: H.HeaderOptions
   , graphOptions :: G.GraphOptions
+  , showRefreshButton :: Bool
   }
 
 data ChartState = ChartState
-  { symbol :: Symbol
+  { options :: ChartOptions
+  , symbol :: Symbol
   , stockData :: StockData
   , headerState :: H.HeaderState
   , graphState :: G.GraphState
@@ -60,14 +62,15 @@ data ChartState = ChartState
 
 newChartState :: ChartOptions -> Symbol -> IO ChartState
 newChartState
-    ChartOptions
+    options@ChartOptions
       { headerOptions = headerOptions
       , graphOptions = graphOptions
       }
     symbol = do
   stockData <- newStockData symbol
   return ChartState
-    { symbol = symbol
+    { options = options
+    , symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
     , graphState = G.newGraphState graphOptions stockData
@@ -84,7 +87,10 @@ drawChart resources
       { bounds = bounds
       , alpha = alpha
       , inputState = inputState@ChartState
-        { symbol = symbol
+        { options = ChartOptions
+          { showRefreshButton = showRefreshButton
+          }
+        , symbol = symbol
         , stockData = stockData
         , headerState = headerState
         , graphState = graphState
@@ -96,16 +102,20 @@ drawChart resources
   boundsSet <- getBounds resources bounds headerHeight stockData
 
   refreshClicked <- preservingMatrix $ do
-    let subBounds = refreshButtonBounds boundsSet
-    translateToCenter bounds subBounds
-    drawRefreshButton resources subBounds alpha
+    if showRefreshButton
+      then do
+        let subBounds = refreshButtonBounds boundsSet
+        translateToCenter bounds subBounds
+        drawRefreshButton resources subBounds alpha
+      else
+        return False
 
   (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = chartBounds boundsSet
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
 
-  drawFrame resources bounds headerHeight alpha
+  drawFrame resources bounds headerHeight alpha showRefreshButton
 
   let nextRefreshedSymbol = if refreshClicked then Just symbol else Nothing
   return ChartOutput
@@ -213,32 +223,32 @@ drawGraph resources alpha stockData graphState bounds = do
         } = graphOutput
   return (outputGraphState, isGraphDirty)
 
-drawFrame :: Resources -> Box -> GLfloat -> GLfloat -> IO ()
-drawFrame resources bounds headerHeight alpha = do
+drawFrame :: Resources -> Box -> GLfloat -> GLfloat -> Bool -> IO ()
+drawFrame resources bounds headerHeight alpha showRefreshButton = do
   lineWidth $= 1
-  color frameColor
+  color $ outlineColor resources bounds alpha
+
+  let halfWidth = boxWidth bounds / 2
+      halfHeight = boxHeight bounds / 2
+      (left, right) = (-halfWidth, halfWidth)
+      (top, bottom) = (halfHeight, -halfHeight)
+
+      indentFactor = if showRefreshButton then 1 else 0
+      rightForTop = right - (headerHeight / 2) - headerHeight * indentFactor
+      rightForBelowHeader = right - headerHeight * indentFactor
+      topBelowHeader = top - headerHeight
 
   -- Render the outermost lines of the jagged frame
   renderPrimitive LineLoop $ do
     vertex $ vertex2 left top
-    vertex $ vertex2 (right - headerHeight * slantFactor) top
-    vertex $ vertex2 (right - headerHeight) (top - headerHeight)
-    vertex $ vertex2 right (top - headerHeight)
+    vertex $ vertex2 rightForTop top
+    vertex $ vertex2 rightForBelowHeader topBelowHeader
+    vertex $ vertex2 right topBelowHeader
     vertex $ vertex2 right bottom
     vertex $ vertex2 left bottom
 
+  -- Line below the header
   renderPrimitive Lines $ do
-    -- Line below the header
-    vertex $ vertex2 left (top - headerHeight)
-    vertex $ vertex2 (right - headerHeight - 1) (top - headerHeight)
-  where
-    slantFactor = 1.5
-    frameColor = outlineColor resources bounds alpha
-    blackColor = black4 alpha
-    halfWidth = boxWidth bounds / 2
-    halfHeight = boxHeight bounds / 2
-    left = -halfWidth
-    top = halfHeight
-    bottom = -halfHeight
-    right = halfWidth
+    vertex $ vertex2 left topBelowHeader
+    vertex $ vertex2 (rightForBelowHeader - 1) topBelowHeader
 
