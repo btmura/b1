@@ -48,6 +48,7 @@ data ChartOutput = ChartOutput
 
 data ChartOptions = ChartOptions
   { headerOptions :: H.HeaderOptions
+  , graphOptions :: G.GraphOptions
   }
 
 data ChartState = ChartState
@@ -58,26 +59,19 @@ data ChartState = ChartState
   }
 
 newChartState :: ChartOptions -> Symbol -> IO ChartState
-newChartState options symbol = do
+newChartState
+    ChartOptions
+      { headerOptions = headerOptions
+      , graphOptions = graphOptions
+      }
+    symbol = do
   stockData <- newStockData symbol
   return ChartState
     { symbol = symbol
     , stockData = stockData
-    , headerState = H.newHeaderState $ headerOptions options
-    , graphState = G.newGraphState boundSet stockData
+    , headerState = H.newHeaderState headerOptions
+    , graphState = G.newGraphState graphOptions stockData
     }
-  where
-    boundSet = G.GraphBoundSet
-      { G.graphBounds = Just $ Box (-1, 1) (1, -0.1)
-      , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
-      , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
-      , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
-      , G.dividerLines =
-        [ LineSegment (-1, -0.1) (1, -0.1)
-        , LineSegment (-1, -0.4) (1, -0.4)
-        , LineSegment (-1, -0.7) (1, -0.7)
-        ]
-      }
 
 cleanChartState :: ChartState -> IO ChartState
 cleanChartState state@ChartState { graphState = graphState } = do

@@ -12,6 +12,7 @@ import System.IO
 import B1.Data.Action
 import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Animation
@@ -21,6 +22,7 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
+import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.Header as H
 import qualified B1.Program.Chart.SideBar as S
 import qualified B1.Program.Chart.SymbolEntry as E
@@ -37,6 +39,19 @@ drawScreen resources = do
           , H.padding = 10 
           , H.statusStyle = H.LongStatus
           , H.button = H.AddButton
+          }
+        , C.graphOptions = G.GraphOptions
+          { G.boundSet = G.GraphBoundSet
+            { G.graphBounds = Just $ Box (-1, 1) (1, -0.1)
+            , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
+            , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
+            , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
+            , G.dividerLines =
+              [ LineSegment (-1, -0.1) (1, -0.1)
+              , LineSegment (-1, -0.4) (1, -0.4)
+              , LineSegment (-1, -0.7) (1, -0.7)
+              ]
+            }
           }
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config

@@ -1,6 +1,7 @@
 module B1.Program.Chart.Graph
   ( GraphInput(..)
   , GraphOutput(..)
+  , GraphOptions(..)
   , GraphState
   , GraphBoundSet(..)
   , drawGraph
@@ -47,8 +48,12 @@ data GraphOutput = GraphOutput
   , isDirty :: Dirty
   }
 
-data GraphState = GraphState
+data GraphOptions = GraphOptions
   { boundSet :: GraphBoundSet
+  }
+
+data GraphState = GraphState
+  { options :: GraphOptions
   , stockData :: StockData
   , maybePriceData :: Maybe (Either StockPriceData String)
   , maybeVbo :: Maybe Vbo
@@ -65,10 +70,10 @@ data GraphBoundSet = GraphBoundSet
   , dividerLines :: [LineSegment]
   }
 
-newGraphState :: GraphBoundSet -> StockData -> GraphState
-newGraphState boundSet stockData =
+newGraphState :: GraphOptions -> StockData -> GraphState
+newGraphState options stockData =
   GraphState
-    { boundSet = boundSet
+    { options = options
     , stockData = stockData
     , maybePriceData = Nothing
     , maybeVbo = Nothing
@@ -177,7 +182,9 @@ renderPriceData
       { bounds = bounds
       , alpha = alpha
       , inputState = state@GraphState
-        { boundSet = boundSet
+        { options = GraphOptions
+          { boundSet = boundSet
+          }
         , maybeVbo = maybeVbo
         , graphAlphaAnimation = graphAlphaAnimation
         }
