@@ -52,6 +52,7 @@ drawScreen resources = do
               , LineSegment (-1, -0.7) (1, -0.7)
               ]
             }
+          , G.fontSize = 18
           }
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config

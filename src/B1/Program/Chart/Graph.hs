@@ -50,6 +50,7 @@ data GraphOutput = GraphOutput
 
 data GraphOptions = GraphOptions
   { boundSet :: GraphBoundSet
+  , fontSize :: Int
   }
 
 data GraphState = GraphState
@@ -266,15 +267,14 @@ renderError resources
     GraphInput
       { alpha = alpha
       , inputState = GraphState
-        { graphAlphaAnimation = graphAlphaAnimation
+        { options = GraphOptions
+          { fontSize = fontSize
+          }
+        , graphAlphaAnimation = graphAlphaAnimation
         }
       }
     _ =  do
-  -- TODO: Make a function in Animation to get the final alpha value.
-  let finalAlpha = (min alpha . fst . current) graphAlphaAnimation
-  when (finalAlpha >= 0) $ do
-    color $ red4 alpha
-    renderCenteredText resources "ERROR"
+  renderAlphaText resources alpha graphAlphaAnimation red4 fontSize "ERROR"
   return (Nothing, True)
 
 renderLoading :: Resources -> GraphInput -> IO ()
@@ -282,17 +282,27 @@ renderLoading resources
     GraphInput
       { alpha = alpha
       , inputState = GraphState
-        { loadingAlphaAnimation = loadingAlphaAnimation
+        { options = GraphOptions
+          { fontSize = fontSize
+          }
+        , loadingAlphaAnimation = loadingAlphaAnimation
         }
-      } = do
-  let finalAlpha = (min alpha . fst . current) loadingAlphaAnimation
-  when (finalAlpha >= 0) $ do
-    color $ gray4 alpha
-    renderCenteredText resources "Loading DATA..."
+      } =
+  renderAlphaText resources alpha loadingAlphaAnimation gray4 fontSize
+      "Loading DATA..."
 
-renderCenteredText :: Resources -> String -> IO ()
-renderCenteredText resources text = do
-  let textSpec = TextSpec (font resources) 18 text
+renderAlphaText :: Resources -> GLfloat -> Animation (GLfloat, Dirty)
+    -> (GLfloat -> Color4 GLfloat) -> Int -> String -> IO ()
+renderAlphaText resources alpha alphaAnimation textColor fontSize text = do
+  -- TODO: Make a function in Animation to get the final alpha value.
+  let finalAlpha = (min alpha . fst . current) alphaAnimation
+  when (finalAlpha >= 0) $ do
+    color $ textColor finalAlpha
+    renderCenteredText resources fontSize text
+
+renderCenteredText :: Resources -> Int -> String -> IO ()
+renderCenteredText resources fontSize text = do
+  let textSpec = TextSpec (font resources) fontSize text
   textBounds <- measureText textSpec
   preservingMatrix $ do
     let centerX = -(boxWidth textBounds / 2)
