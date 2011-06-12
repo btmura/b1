@@ -51,6 +51,7 @@ data ChartOptions = ChartOptions
   { headerFontSize :: Int
   , headerPadding :: GLfloat
   , headerStatusStyle :: H.HeaderStatusStyle
+  , headerButton :: H.HeaderButton
   }
 
 data ChartState = ChartState
@@ -66,8 +67,11 @@ newChartState options symbol = do
   return ChartState
     { symbol = symbol
     , stockData = stockData
-    , headerState = H.newHeaderState (headerStatusStyle options) H.AddButton
-        (headerFontSize options) (headerPadding options)
+    , headerState = H.newHeaderState
+        (headerStatusStyle options)
+        (headerButton options)
+        (headerFontSize options)
+        (headerPadding options)
     , graphState = G.newGraphState boundSet stockData
     }
   where

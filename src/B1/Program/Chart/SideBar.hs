@@ -112,6 +112,7 @@ createSlots =
             { C.headerFontSize = 10
             , C.headerPadding = 5
             , C.headerStatusStyle = H.ShortStatus
+            , C.headerButton = H.RemoveButton
             }
       frameState <- F.newFrameState chartOptions $ Just symbol
       return Slot

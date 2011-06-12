@@ -35,6 +35,7 @@ drawScreen resources = do
         { C.headerFontSize = 18
         , C.headerPadding = 10 
         , C.headerStatusStyle = H.LongStatus
+        , C.headerButton = H.AddButton
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop
