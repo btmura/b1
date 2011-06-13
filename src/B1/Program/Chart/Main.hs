@@ -147,6 +147,7 @@ drawLoop resourcesRef windowDirtyRef action = do
     let isMouseStateDirty = isMouseButtonPressed resources ButtonLeft
             || isMouseButtonClicked resources ButtonLeft
             || isMouseWheelMoving resources
+            || isMouseDrag resources
 
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.

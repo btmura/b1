@@ -35,9 +35,10 @@ data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
   , buttonClickedSymbol :: Maybe Symbol -- ^ Symbol when button clicked
-  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
   , otherClickedSymbol :: Maybe Symbol -- ^ Symbol when other area clicked
+  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
   , selectedSymbol :: Maybe Symbol -- ^ Symbol when a request is fulfilled
+  , draggedSymbol :: Maybe Symbol -- ^ Symbol when dragging starts
   }
 
 data FrameOptions = FrameOptions
@@ -111,9 +112,10 @@ drawChartFrame resources
         } = revisedState
       render = renderFrame resources bounds alpha
   (nextMaybeCurrentFrame, isCurrentDirty, buttonClickedSymbol,
-      refreshedSymbol, otherClickedSymbol) <- render maybeCurrentFrame True
-  (nextMaybePreviousFrame, isPreviousDirty, _,
-      _, _) <- render maybePreviousFrame False
+      refreshedSymbol, otherClickedSymbol, draggedSymbol)
+          <- render maybeCurrentFrame True
+  (nextMaybePreviousFrame, isPreviousDirty, _, _, _, _)
+      <- render maybePreviousFrame False
 
   let outputState = inputState
         { maybeCurrentFrame = nextMaybeCurrentFrame
@@ -124,9 +126,10 @@ drawChartFrame resources
     { outputState = outputState
     , isDirty = isDirty
     , buttonClickedSymbol = buttonClickedSymbol
-    , refreshedSymbol = refreshedSymbol
     , otherClickedSymbol = otherClickedSymbol
+    , refreshedSymbol = refreshedSymbol
     , selectedSymbol = selectedSymbol
+    , draggedSymbol = draggedSymbol
     }
 
 handleSymbolRequest :: Maybe Symbol -> FrameState
@@ -164,8 +167,10 @@ newPreviousFrame (Just frame) = Just $ frame
   }
 
 renderFrame :: Resources -> Box -> GLfloat -> Maybe Frame -> Bool
-    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
-renderFrame _ _ _ Nothing _ = return (Nothing, False, Nothing, Nothing, Nothing)
+    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol,
+        Maybe Symbol)
+renderFrame _ _ _ Nothing _ =
+  return (Nothing, False, Nothing, Nothing, Nothing, Nothing)
 renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
   let currentContent = content frame
       currentScaleAnimation = scaleAnimation frame
@@ -177,12 +182,12 @@ renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
   if removeInvisiblePreviousFrame
     then do
       cleanFrameContent currentContent
-      return (Nothing, False, Nothing, Nothing, Nothing)
+      return (Nothing, False, Nothing, Nothing, Nothing, Nothing)
     else
       preservingMatrix $ do
         scale3 scaleAmount scaleAmount 1
         (nextContent, isContentDirty, buttonClickedSymbol, refreshedSymbol, 
-            otherClickedSymbol) <- renderContent resources bounds
+            otherClickedSymbol, draggedSymbol) <- renderContent resources bounds
                 currentContent finalAlpha
         let nextScaleAnimation = next currentScaleAnimation
             nextAlphaAnimation = next currentAlphaAnimation
@@ -195,7 +200,7 @@ renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
                 || (snd . current) currentScaleAnimation
                 || (snd . current) currentAlphaAnimation
         return (Just nextFrame, isDirty, buttonClickedSymbol, refreshedSymbol,
-            otherClickedSymbol)
+            otherClickedSymbol, draggedSymbol)
 
 -- TODO: Use type classes instead of special cases...
 cleanFrameContent :: Content -> IO Content
@@ -205,7 +210,8 @@ cleanFrameContent (Chart symbol state) = do
 cleanFrameContent content = return content
 
 renderContent :: Resources -> Box -> Content -> GLfloat
-    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
+    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol,
+        Maybe Symbol)
 
 renderContent resources bounds Instructions alpha = do
   let input = I.InstructionsInput
@@ -213,7 +219,7 @@ renderContent resources bounds Instructions alpha = do
         , I.alpha = alpha
         }
   output <- I.drawInstructions resources input
-  return (Instructions, I.isDirty output, Nothing, Nothing, Nothing)
+  return (Instructions, I.isDirty output, Nothing, Nothing, Nothing, Nothing)
 
 renderContent resources bounds (Chart symbol state) alpha = do
   let input = C.ChartInput
@@ -226,5 +232,6 @@ renderContent resources bounds (Chart symbol state) alpha = do
       C.isDirty output,
       C.buttonClickedSymbol output,
       C.refreshedSymbol output,
-      C.otherClickedSymbol output)
+      C.otherClickedSymbol output,
+      C.draggedSymbol output)
 

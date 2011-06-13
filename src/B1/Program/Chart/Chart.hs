@@ -46,6 +46,7 @@ data ChartOutput = ChartOutput
   , buttonClickedSymbol :: Maybe Symbol -- ^ Symbol when custom button clicked
   , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
   , otherClickedSymbol :: Maybe Symbol -- ^ Symbol if other chart area clicked
+  , draggedSymbol :: Maybe Symbol -- ^ Symbol when dragging started
   }
 
 data ChartOptions = ChartOptions
@@ -129,6 +130,11 @@ drawChart resources
                 (chartBounds boundsSet) alpha
             then Just symbol
             else Nothing
+      draggedSymbol =
+          if hasMouseDragStarted resources
+              && boxContains bounds (mousePosition resources)
+            then Just symbol
+            else Nothing
   return ChartOutput
     { outputState = inputState
       { headerState = newHeaderState
@@ -138,6 +144,7 @@ drawChart resources
     , buttonClickedSymbol = buttonClickedSymbol
     , refreshedSymbol = refreshedSymbol
     , otherClickedSymbol = otherClickedSymbol
+    , draggedSymbol = draggedSymbol
     }
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState

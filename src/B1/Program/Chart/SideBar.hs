@@ -6,6 +6,7 @@ module B1.Program.Chart.SideBar
   , newSideBarState
   ) where
 
+import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
@@ -35,22 +36,22 @@ scrollIncrement = 50::GLfloat
 
 dragScrollIncrement = 10::GLfloat
 
-incomingHeightAnimation = animateOnce $ linearRange 100 100 20
-
+incomingHeightAnimation = animateOnce $ linearRange 100 100 10
 outgoingHeightAnimation = animateOnce $ linearRange 100 0 10
 
 draggedInHeightAnimation = animateOnce $ linearRange 50 100 10
-draggedInAlphaAnimation = animateOnce $ linearRange 1 1 20
-draggedInScaleAnimation = animateOnce $ linearRange 1 1 20
+draggedInAlphaAnimation = animateOnce $ linearRange 1 1 10
+draggedInScaleAnimation = animateOnce $ linearRange 1 1 10
 
 draggedOutHeightAnimation = animateOnce $ linearRange 100 0 10
-draggedOutAlphaAnimation = animateOnce $ linearRange 0 0 20
-draggedOutScaleAnimation = animateOnce $ linearRange 0 0 20
+draggedOutAlphaAnimation = animateOnce $ linearRange 0 0 10
+draggedOutScaleAnimation = animateOnce $ linearRange 0 0 10
 
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
   , selectedSymbol :: Maybe Symbol
+  , draggedSymbol :: Maybe Symbol
   , refreshRequested :: Bool
   , inputState :: SideBarState
   }
@@ -64,8 +65,9 @@ data SideBarOutput = SideBarOutput
 
 data SideBarState = SideBarState
   { scrollAmount :: GLfloat
-  , slots :: [Slot]
-  , newSlots :: [Slot]
+  , slots :: [Slot] -- ^ Slots currently part of the side bar
+  , newSlots :: [Slot] -- ^ TODO: Remove this!
+  , maybeFreeDragSlot :: Maybe Slot -- ^ Slot dragged outside of the side bar
   }
 
 data Slot = Slot
@@ -85,6 +87,7 @@ newSideBarState  = SideBarState
   { scrollAmount = 0
   , slots = []
   , newSlots = []
+  , maybeFreeDragSlot = Nothing
   }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
@@ -93,19 +96,20 @@ drawSideBar resources
       { bounds = bounds
       , newSymbols = newSymbols
       , selectedSymbol = selectedSymbol
+      , draggedSymbol = maybeDraggedSymbol
       , refreshRequested = refreshRequested
       , inputState = inputState
       } = do
-
   newSlots <- createSlots newSymbols
-
+  maybeNewFreeDragSlot <- createDraggedSlot maybeDraggedSymbol
   (drawSlots resources bounds refreshRequested 
       . addDraggingScrollAmount resources bounds
       . calculateNextScrollAmount resources bounds selectedSymbol
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
-      . insertDraggedInSlot resources bounds Nothing
-      . addNewSlots newSlots) inputState
+      . excludeFreeDragSlot resources bounds
+      . includeFreeDragSlot resources bounds
+      . addNewSlots newSlots maybeNewFreeDragSlot) inputState
 
 createSlots :: [Symbol] -> IO [Slot]
 createSlots = do
@@ -144,11 +148,37 @@ createSlots = do
         , frameState = frameState
         })
 
-addNewSlots :: [Slot] -> SideBarState -> SideBarState 
-addNewSlots newSlots state@SideBarState { slots = slots } =
-  state
+createDraggedSlot :: Maybe Symbol -> IO (Maybe Slot)
+createDraggedSlot Nothing = return Nothing
+createDraggedSlot (Just symbol) = do
+  newSlots <- createSlots [symbol]
+  return $ (Just . head . map makeDraggedSlot) newSlots
+  where
+    makeDraggedSlot :: Slot -> Slot
+    makeDraggedSlot slot = slot
+      { isBeingDragged = True
+      , dragFreely = True
+      , dragOffset = dragFreelyOffset
+      , heightAnimation = draggedInHeightAnimation
+      , alphaAnimation = draggedInAlphaAnimation
+      , scaleAnimation = draggedInScaleAnimation
+      }
+
+addNewSlots :: [Slot] -> Maybe Slot -> SideBarState -> SideBarState 
+addNewSlots newSlots maybeNewFreeDragSlot
+    state@SideBarState
+      { slots = slots
+      , maybeFreeDragSlot = maybeFreeDragSlot
+      }
+  | isJust maybeFreeDragSlot && isJust maybeNewFreeDragSlot =
+      error "Can't drag two slots at once!"
+  | otherwise = state
     { newSlots = newSlots
     , slots = foldl addOnlyUniqueSymbols slots newSlots
+    , maybeFreeDragSlot =
+          if isJust maybeFreeDragSlot
+            then maybeFreeDragSlot
+            else maybeNewFreeDragSlot
     }
 
 addOnlyUniqueSymbols :: [Slot] -> Slot -> [Slot]
@@ -161,52 +191,56 @@ addOnlyUniqueSymbols slots newSlot
 containsSymbol :: Symbol -> Slot -> Bool
 containsSymbol newSymbol slot = symbol slot == newSymbol && not (remove slot)
 
-insertDraggedInSlot :: Resources -> Box -> Maybe F.FrameState
-    -> SideBarState -> SideBarState
-
-insertDraggedInSlot resources bounds (Just draggedInChart)
+includeFreeDragSlot :: Resources -> Box -> SideBarState -> SideBarState
+includeFreeDragSlot resources bounds
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
-      } =
-  state { slots = newSlots }
+      , maybeFreeDragSlot = maybeFreeDragSlot
+      }
+  | isDraggedIntoBounds = draggedIntoBoundsState
+  | otherwise = state
   where
-    (mouseX, mouseY) = mousePosition resources
-    indexedSlots = zip [0 .. length slots - 1] slots
+    dragSymbol = symbol $ fromJust maybeFreeDragSlot
+    alreadyAdded = any (containsSymbol dragSymbol) slots
+    isDraggedIntoBounds = isJust maybeFreeDragSlot
+        && not alreadyAdded
+        && boxContains bounds (mousePosition resources)
+    draggedIntoBoundsState = state
+      { slots = newSlots
+      , maybeFreeDragSlot = Nothing
+      }
 
+    (mouseX, mouseY) = mousePosition resources
     isSlotAboveMousePosition :: (Int, Slot) -> Bool
     isSlotAboveMousePosition (index, slot) =
       let Box (_, _) (_, bottom) = getSlotBounds bounds scrollAmount slots index
       in mouseY < bottom
 
+    indexedSlots = zip [0 .. ] slots
     (indexedSlotsAbove, indexedSlotsBelow) =
         span isSlotAboveMousePosition indexedSlots
     removeIndices = snd . unzip
     slotsAbove = removeIndices indexedSlotsAbove 
     slotsBelow = removeIndices indexedSlotsBelow
-    draggedInSlot = createDraggedInSlot draggedInChart
+    newSlots = slotsAbove ++ [fromJust maybeFreeDragSlot] ++ slotsBelow
 
---    alreadyAdded = any (containsSymbol (C.symbol draggedInChart)) slots
-    alreadyAdded = any (containsSymbol "FIXME") slots
-    newSlots = if alreadyAdded
-        then slots
-        else slotsAbove ++ [draggedInSlot] ++ slotsBelow
-
-insertDraggedInSlot _ _ Nothing state = state
-
-createDraggedInSlot :: F.FrameState -> Slot
-createDraggedInSlot draggedInChart =
-  Slot
-    { symbol = "FIXMETOO"
-    , remove = False
-    , isBeingDragged = True
-    , dragFreely = True
-    , dragOffset = dragFreelyOffset
-    , heightAnimation = draggedInHeightAnimation
-    , alphaAnimation = draggedInAlphaAnimation
-    , scaleAnimation = draggedInScaleAnimation
-    , frameState = draggedInChart
-    }
+excludeFreeDragSlot :: Resources -> Box -> SideBarState -> SideBarState
+excludeFreeDragSlot resources bounds
+    state@SideBarState
+      { slots = slots
+      }
+  | isDraggedOutOfBounds = draggedOutOfBoundsState
+  | otherwise = state
+  where
+    freeDragSlots = filter dragFreely slots
+    isDraggedOutOfBounds = not (null freeDragSlots)
+        && not (boxContains bounds (mousePosition resources))
+    withoutFreeDragSlot = filter (not . dragFreely) slots
+    draggedOutOfBoundsState = state
+      { slots = withoutFreeDragSlot
+      , maybeFreeDragSlot = Just $ head freeDragSlots
+      }
 
 calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
     -> SideBarState -> SideBarState
@@ -286,10 +320,6 @@ updateIsBeingDragged :: Resources -> Box -> GLfloat -> [Slot] -> Int -> Slot
 updateIsBeingDragged resources bounds scrollAmount slots index
   | hasMouseDragFinished resources = updatedSlot { dragFreely = False }
   | hasMouseDragStarted resources = updatedSlot
-  | isMouseDrag resources
-      && dragFreely slot
-      && not (remove slot)
-      && not (boxContains bounds (mousePosition resources)) = removeSlot
   | otherwise = slot
   where
     slot = slots !! index
@@ -315,15 +345,11 @@ isDraggingSlot :: Resources -> Box -> GLfloat -> [Slot] -> Int
 isDraggingSlot resources bounds scrollAmount slots index =
   (slotDragged, dragOffset)
   where
-    slotDragged
-      | not (isMouseDrag resources) = False
-      | isDraggedFreely = boxContains bounds (mousePosition resources)
-      | otherwise = boxContains slotBounds dragStartPosition
-
     isDraggedFreely = dragFreely $ slots !! index
+    slotDragged = isMouseDrag resources
+        && (isDraggedFreely || boxContains slotBounds dragStartPosition)
     slotBounds = getSlotBounds bounds scrollAmount slots index
     dragStartPosition = mouseDragStartPosition resources
-
     dragOffset
       | not (isMouseDrag resources) = 0
       | isDraggedFreely = dragFreelyOffset
@@ -356,7 +382,7 @@ reorderSlotsBeingDragged resources bounds
     indexedDragSlots = filter (isBeingDragged . snd) indexedSlots
     (dragIndex, dragSlot) = head indexedDragSlots
     dragPoint = boxCenter $ getDraggedBounds resources bounds scrollAmount
-        slots dragIndex
+        dragSlot
     reorderedSlots = swapSlots resources bounds scrollAmount slots
         dragPoint dragIndex
 
@@ -386,23 +412,21 @@ swapSlots resources bounds scrollAmount slots dragPoint dragIndex = swappedSlots
               then swapSlot
               else slot) (zip [0..] slots)
 
-getDraggedBounds :: Resources -> Box -> GLfloat -> [Slot] -> Int -> Box
-getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount
-    slots index = dragBounds
+getDraggedBounds :: Resources -> Box -> GLfloat -> Slot -> Box
+getDraggedBounds resources bounds@(Box (left, _) (right, _)) scrollAmount slot =
+  dragBounds
   where
-    (Box (_, slotTop) _) = getSlotBounds bounds scrollAmount slots index
     (mouseX, mouseY) = mousePosition resources
     (_, dragStartY) = mouseDragStartPosition resources
 
-    draggedSlot = slots !! index
     (dragLeft, dragRight) =
-        if dragFreely draggedSlot
+        if dragFreely slot
           then
             let halfWidth = boxWidth bounds / 2
             in (mouseX - halfWidth, mouseX + halfWidth)
           else (left, right)
 
-    dragTop = mouseY + dragOffset draggedSlot
+    dragTop = mouseY + dragOffset slot
     dragBottom = dragTop - slotHeight
     dragBounds = Box (dragLeft, dragTop) (dragRight, dragBottom)
 
@@ -411,10 +435,16 @@ drawSlots resources bounds refreshRequested
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
+      , maybeFreeDragSlot = maybeFreeDragSlot
       } = do
-  output <- mapM (drawOneSlot resources bounds scrollAmount
-      refreshRequested slots) [0 .. length slots - 1]
-  convertDrawingOutputs state output
+  let drawOne = drawOneSlot resources bounds scrollAmount refreshRequested
+  outputs <- mapM (drawOne slots) [0 .. length slots - 1]
+  case maybeFreeDragSlot of
+    Just freeDragSlot -> do
+      freeDragOutput <- drawOne [freeDragSlot] 0
+      convertDrawingOutputs resources state outputs [freeDragOutput]
+    _ ->
+      convertDrawingOutputs resources state outputs []
 
 drawOneSlot :: Resources -> Box -> GLfloat -> Bool -> [Slot] -> Int
     -> IO (F.FrameOutput, Dirty)
@@ -438,10 +468,9 @@ drawOneSlot resources
     (alpha, alphaDirty) = current $ alphaAnimation slot
     (scale, scaleDirty) = current $ scaleAnimation slot
 
-    slotDragged = isBeingDragged slot
     slotBounds =
-        if slotDragged
-          then getDraggedBounds resources bounds scrollAmount slots index
+        if isBeingDragged slot
+          then getDraggedBounds resources bounds scrollAmount slot
           else getSlotBounds bounds scrollAmount slots index
 
     maybeSymbolRequest =
@@ -456,23 +485,45 @@ drawOneSlot resources
       , F.inputState = frameState slot
       }
 
-convertDrawingOutputs :: SideBarState -> [(F.FrameOutput, Dirty)]
-    -> IO SideBarOutput
-convertDrawingOutputs state output = do
-  mapM_ (F.cleanFrameState . frameState) cleanSlots
+convertDrawingOutputs :: Resources -> SideBarState -> [(F.FrameOutput, Dirty)]
+    -> [(F.FrameOutput, Dirty)] -> IO SideBarOutput
+convertDrawingOutputs resources state outputs freeDragOutputs = do
+  mapM_ (F.cleanFrameState . frameState) (cleanSlots ++ cleanFreeDragSlots)
   return nextOutput
   where
-    (outputStates, dirtyFlags) = unzip output
-    updatedSlots = zipWith updateMiniChartState (slots state) outputStates
+    (outputStates, dirtyFlags) = unzip outputs
+    (updatedSlots, animationsDirty) = unzip $ zipWith
+        (updateSlot resources)
+        (slots state)
+        outputStates
     cleanSlots = filter
         (\slot -> shouldRemoveSlot slot && not (dragFreely slot))
         updatedSlots
     nextSlots = filter (not . shouldRemoveSlot) updatedSlots
-    nextState = state { slots = nextSlots } 
+
+    (freeDragOutputStates, freeDragDirtyFlags) = unzip freeDragOutputs
+    (updatedFreeDragSlots, freeDragAnimationsDirty) = unzip $ zipWith
+        (updateSlot resources)
+        (maybeToList (maybeFreeDragSlot state))
+        freeDragOutputStates
+    cleanFreeDragSlots = filter
+        shouldRemoveSlot
+        updatedFreeDragSlots
+    nextMaybeFreeDragSlot = listToMaybe $
+        filter (not . shouldRemoveSlot) updatedFreeDragSlots
+
+    nextState = state
+      { slots = nextSlots
+      , maybeFreeDragSlot = nextMaybeFreeDragSlot
+      } 
 
     isSideBarDirty = length (newSlots state) > 0
         || any F.isDirty outputStates
+        || any F.isDirty freeDragOutputStates
         || any id dirtyFlags
+        || any id freeDragDirtyFlags
+        || any id animationsDirty
+        || any id freeDragAnimationsDirty
     nextSymbolRequest = (listToMaybe . mapMaybe F.otherClickedSymbol) outputStates
     nextSymbols = map symbol nextSlots
     nextOutput = SideBarOutput
@@ -489,10 +540,11 @@ shouldRemoveSlot slot@Slot
     } =
   remove && (fst . current) heightAnimation == 0
 
-updateMiniChartState :: Slot -> F.FrameOutput -> Slot
-updateMiniChartState
+updateSlot :: Resources -> Slot -> F.FrameOutput -> (Slot, Dirty)
+updateSlot resources
     slot@Slot
       { remove = alreadyRemoved
+      , dragFreely = dragFreely
       , heightAnimation = heightAnimation
       , alphaAnimation = alphaAnimation
       , scaleAnimation = scaleAnimation
@@ -500,21 +552,29 @@ updateMiniChartState
     F.FrameOutput
       { F.outputState = nextState
       , F.buttonClickedSymbol = buttonClickedSymbol
-      } = slot
-  { remove = alreadyRemoved || removeNow
-  , heightAnimation = nextHeightAnimation
-  , alphaAnimation = nextAlphaAnimation
-  , scaleAnimation = nextScaleAnimation
-  , frameState = nextState
-  }
+      } = (updatedSlot, animationsDirty)
   where
     removeNow = isJust buttonClickedSymbol
+        || (dragFreely && hasMouseDragFinished resources)
     (nextHeightAnimation, nextAlphaAnimation, nextScaleAnimation) =
         if removeNow
           then (outgoingHeightAnimation, outgoingAlphaAnimation,
               outgoingScaleAnimation)
           else (next heightAnimation, next alphaAnimation,
               next scaleAnimation)
+
+    updatedSlot = slot
+      { remove = alreadyRemoved || removeNow
+      , heightAnimation = nextHeightAnimation
+      , alphaAnimation = nextAlphaAnimation
+      , scaleAnimation = nextScaleAnimation
+      , frameState = nextState
+      }
+
+    isDirty :: Animation (GLfloat, Dirty) -> Bool
+    isDirty = snd . current
+    animationsDirty = any isDirty [nextHeightAnimation, nextAlphaAnimation,
+        nextScaleAnimation]
 
 addDraggingScrollAmount :: Resources -> Box -> SideBarState -> SideBarState
 addDraggingScrollAmount resources bounds 
