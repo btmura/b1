@@ -217,6 +217,7 @@ calculateNextScrollAmount resources bounds justSelectedSymbol
       , newSlots = newSlots
       }
   | allShowing = state { scrollAmount = 0 }
+  | addedNewSlots = state { scrollAmount = maxScrollAmount }
   | needScrollToSelected = state { scrollAmount = selectedScrollAmount }
   | scrolling = state { scrollAmount = adjustedScrollAmount }
   | otherwise = state { scrollAmount = possiblySameScrollAmount }
@@ -452,7 +453,6 @@ drawOneSlot resources
       { F.bounds = slotBounds
       , F.alpha = alpha
       , F.maybeSymbolRequest = maybeSymbolRequest
---      , M.isBeingDragged = slotDragged
       , F.inputState = frameState slot
       }
 
