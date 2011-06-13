@@ -50,7 +50,7 @@ draggedOutScaleAnimation = animateOnce $ linearRange 0 0 20
 data SideBarInput = SideBarInput
   { bounds :: Box
   , newSymbols :: [Symbol]
-  , justSelectedSymbol :: Maybe Symbol
+  , selectedSymbol :: Maybe Symbol
   , refreshRequested :: Bool
   , inputState :: SideBarState
   }
@@ -92,7 +92,7 @@ drawSideBar resources
     SideBarInput
       { bounds = bounds
       , newSymbols = newSymbols
-      , justSelectedSymbol = justSelectedSymbol
+      , selectedSymbol = selectedSymbol
       , refreshRequested = refreshRequested
       , inputState = inputState
       } = do
@@ -101,7 +101,7 @@ drawSideBar resources
 
   (drawSlots resources bounds refreshRequested 
       . addDraggingScrollAmount resources bounds
-      . calculateNextScrollAmount resources bounds justSelectedSymbol
+      . calculateNextScrollAmount resources bounds selectedSymbol
       . reorderSlotsBeingDragged resources bounds
       . markSlotsBeingDragged resources bounds
       . insertDraggedInSlot resources bounds Nothing
@@ -210,7 +210,7 @@ createDraggedInSlot draggedInChart =
 
 calculateNextScrollAmount :: Resources -> Box -> Maybe Symbol 
     -> SideBarState -> SideBarState
-calculateNextScrollAmount resources bounds justSelectedSymbol
+calculateNextScrollAmount resources bounds selectedSymbol
     state@SideBarState
       { scrollAmount = scrollAmount
       , slots = slots
@@ -225,12 +225,12 @@ calculateNextScrollAmount resources bounds justSelectedSymbol
     allShowing = areAllSlotsShowing bounds slots
     addedNewSlots = length newSlots > 0
 
-    needScrollToSelected = isJust justSelectedSymbol 
-        && any (containsSymbol (fromJust justSelectedSymbol)) slots
+    needScrollToSelected = isJust selectedSymbol 
+        && any (containsSymbol (fromJust selectedSymbol)) slots
         && not (boxContainsBox bounds selectedBounds)
 
     selectedIndex = (fst . head 
-        . filter (containsSymbol (fromJust justSelectedSymbol) . snd)) $
+        . filter (containsSymbol (fromJust selectedSymbol) . snd)) $
             zip [0..] slots
     selectedBounds = getSlotBounds bounds scrollAmount slots selectedIndex
     selectedScrollAmount 

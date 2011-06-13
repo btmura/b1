@@ -62,7 +62,7 @@ drawScreen resources = do
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
 --        , S.newMiniChartDraggedIn = Nothing
-        , S.justSelectedSymbol = selectedSymbol config
+        , S.selectedSymbol = selectedSymbol config
         , S.refreshRequested = False
         , S.inputState = S.newSideBarState
         }
@@ -145,7 +145,7 @@ drawScreenLoop
   let nextSideBarInput = sideBarInput
         { S.newSymbols = maybeToList $ F.buttonClickedSymbol frameOutput
 --        , S.newMiniChartDraggedIn = Nothing
-        , S.justSelectedSymbol = F.selectedSymbol frameOutput
+        , S.selectedSymbol = F.selectedSymbol frameOutput
         , S.refreshRequested = isJust $ F.refreshedSymbol frameOutput
         , S.inputState = S.outputState sideBarOutput
         }
