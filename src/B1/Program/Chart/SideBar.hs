@@ -438,16 +438,21 @@ drawOneSlot resources
     (scale, scaleDirty) = current $ scaleAnimation slot
 
     slotDragged = isBeingDragged slot
-    slotBounds = if slotDragged
-        then getDraggedBounds resources bounds scrollAmount slots index
-        else getSlotBounds bounds scrollAmount slots index
+    slotBounds =
+        if slotDragged
+          then getDraggedBounds resources bounds scrollAmount slots index
+          else getSlotBounds bounds scrollAmount slots index
+
+    maybeSymbolRequest =
+        if refreshRequested 
+            then Just $ symbol slot
+            else Nothing
 
     input = F.FrameInput
       { F.bounds = slotBounds
       , F.alpha = alpha
-      , F.maybeSymbolRequest = Nothing
+      , F.maybeSymbolRequest = maybeSymbolRequest
 --      , M.isBeingDragged = slotDragged
---      , M.refreshRequested = refreshRequested
       , F.inputState = frameState slot
       }
 
