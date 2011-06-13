@@ -454,7 +454,7 @@ drawOneSlot resources
 convertDrawingOutputs :: SideBarState -> [(F.FrameOutput, Dirty)]
     -> IO SideBarOutput
 convertDrawingOutputs state output = do
---  mapM_ (M.cleanMiniChartState . miniChartState) cleanSlots
+  mapM_ (F.cleanFrameState . frameState) cleanSlots
   return nextOutput
   where
     (outputStates, dirtyFlags) = unzip output
@@ -494,7 +494,7 @@ updateMiniChartState
       }
     F.FrameOutput
       { F.outputState = nextState
---      , M.removeChart = removeNow
+      , F.buttonClickedSymbol = buttonClickedSymbol
       } = slot
   { remove = alreadyRemoved || removeNow
   , heightAnimation = nextHeightAnimation
@@ -503,7 +503,7 @@ updateMiniChartState
   , frameState = nextState
   }
   where
-    removeNow = False -- Update
+    removeNow = isJust buttonClickedSymbol
     (nextHeightAnimation, nextAlphaAnimation, nextScaleAnimation) =
         if removeNow
           then (outgoingHeightAnimation, outgoingAlphaAnimation,

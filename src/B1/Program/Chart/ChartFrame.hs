@@ -5,6 +5,7 @@ module B1.Program.Chart.ChartFrame
   , FrameState
   , drawChartFrame
   , newFrameState
+  , cleanFrameState
   ) where
 
 import Control.Monad
@@ -71,6 +72,24 @@ newFrameState chartOptions maybeSymbol = do
       , alphaAnimation = incomingAlphaAnimation
       }
     , maybePreviousFrame = Nothing
+    }
+
+cleanFrameState :: FrameState -> IO FrameState
+cleanFrameState
+    state@FrameState
+      { maybeCurrentFrame = maybeCurrentFrame
+      , maybePreviousFrame = maybePreviousFrame
+      } = do
+  let cleanContent :: Maybe Frame -> IO (Maybe Frame)
+      cleanContent Nothing = return Nothing
+      cleanContent (Just frame) = do
+        newContent <- cleanFrameContent $ content frame
+        return $ Just (frame { content = newContent })
+  newCurrentFrame <- cleanContent maybeCurrentFrame
+  newPreviousFrame <- cleanContent maybePreviousFrame
+  return state
+    { maybeCurrentFrame = newCurrentFrame
+    , maybePreviousFrame = newPreviousFrame
     }
 
 drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
@@ -176,11 +195,11 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
             otherClickedSymbol)
 
 -- TODO: Use type classes instead of special cases...
-cleanFrameContent :: Content -> IO () 
+cleanFrameContent :: Content -> IO Content
 cleanFrameContent (Chart symbol state) = do
-  C.cleanChartState state
-  return ()
-cleanFrameContent _ = return ()
+  newState <- C.cleanChartState state
+  return $ Chart symbol newState
+cleanFrameContent content = return content
 
 renderContent :: Resources -> Box -> Content -> GLfloat
     -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
