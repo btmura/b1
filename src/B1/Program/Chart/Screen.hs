@@ -111,13 +111,13 @@ drawScreenLoop
       }
     resources = do
 
-  sideBarOutput <- preservingMatrix $ do
-    translateToCenter sideBarBounds
-    S.drawSideBar resources sideBarInput { S.bounds = sideBarBounds }
-
   frameOutput <- preservingMatrix $ do
     translateToCenter frameBounds
     F.drawChartFrame resources frameInput { F.bounds = frameBounds }
+
+  sideBarOutput <- preservingMatrix $ do
+    translateToCenter sideBarBounds
+    S.drawSideBar resources sideBarInput { S.bounds = sideBarBounds }
 
   symbolEntryOutput <- preservingMatrix $ do
     translateToCenter frameBounds
@@ -177,7 +177,7 @@ drawScreenLoop
   where
     (sideBarWidth, sideBarWidthDirty) = current sideBarWidthAnimation
 
-    nextSideBarOpen = length slots > 0
+    nextSideBarOpen = not $ null slots
     nextSideBarWidthAnimation
       | not sideBarOpen && nextSideBarOpen = openSideBarAnimation
       | sideBarOpen && not nextSideBarOpen = closeSideBarAnimation

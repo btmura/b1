@@ -265,7 +265,8 @@ createGraphVbo boundSet priceData =
 renderError :: Resources -> GraphInput -> String -> IO (Maybe Vbo, Bool)
 renderError resources
     GraphInput
-      { alpha = alpha
+      { bounds = bounds
+      , alpha = alpha
       , inputState = GraphState
         { options = GraphOptions
           { fontSize = fontSize
@@ -274,13 +275,15 @@ renderError resources
         }
       }
     _ =  do
-  renderAlphaText resources alpha graphAlphaAnimation red4 fontSize "ERROR"
+  renderAlphaText resources bounds alpha graphAlphaAnimation red4 fontSize
+      "ERROR"
   return (Nothing, True)
 
 renderLoading :: Resources -> GraphInput -> IO ()
 renderLoading resources 
     GraphInput
-      { alpha = alpha
+      { bounds = bounds
+      , alpha = alpha
       , inputState = GraphState
         { options = GraphOptions
           { fontSize = fontSize
@@ -288,26 +291,27 @@ renderLoading resources
         , loadingAlphaAnimation = loadingAlphaAnimation
         }
       } =
-  renderAlphaText resources alpha loadingAlphaAnimation gray4 fontSize
+  renderAlphaText resources bounds alpha loadingAlphaAnimation gray4 fontSize
       "Loading DATA..."
 
-renderAlphaText :: Resources -> GLfloat -> Animation (GLfloat, Dirty)
+renderAlphaText :: Resources -> Box -> GLfloat -> Animation (GLfloat, Dirty)
     -> (GLfloat -> Color4 GLfloat) -> Int -> String -> IO ()
-renderAlphaText resources alpha alphaAnimation textColor fontSize text = do
+renderAlphaText resources bounds alpha alphaAnimation
+    textColor fontSize text = do
   -- TODO: Make a function in Animation to get the final alpha value.
   let finalAlpha = (min alpha . fst . current) alphaAnimation
   when (finalAlpha >= 0) $ do
     color $ textColor finalAlpha
-    renderCenteredText resources fontSize text
+    renderCenteredText resources bounds fontSize text
 
-renderCenteredText :: Resources -> Int -> String -> IO ()
-renderCenteredText resources fontSize text = do
+renderCenteredText :: Resources -> Box -> Int -> String -> IO ()
+renderCenteredText resources bounds fontSize text = do
   let textSpec = TextSpec (font resources) fontSize text
   textBounds <- measureText textSpec
-  preservingMatrix $ do
-    let centerX = -(boxWidth textBounds / 2)
-        centerY = -(boxHeight textBounds / 2)
-    translate $ vector3 centerX centerY 0
-    renderText textSpec
-
+  when (boxWidth bounds > boxWidth textBounds) $ do
+    preservingMatrix $ do
+      let centerX = -(boxWidth textBounds / 2)
+          centerY = -(boxHeight textBounds / 2)
+      translate $ vector3 centerX centerY 0
+      renderText textSpec
 
