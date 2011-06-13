@@ -26,6 +26,7 @@ import qualified B1.Program.Chart.Instructions as I
 
 data FrameInput = FrameInput
   { bounds :: Box
+  , alpha :: GLfloat
   , maybeSymbolRequest :: Maybe Symbol
   , inputState :: FrameState
   }
@@ -96,6 +97,7 @@ drawChartFrame :: Resources -> FrameInput -> IO FrameOutput
 drawChartFrame resources
     FrameInput
       { bounds = bounds
+      , alpha = alpha
       , maybeSymbolRequest = maybeSymbolRequest
       , inputState = inputState
       } = do
@@ -107,7 +109,7 @@ drawChartFrame resources
         { maybeCurrentFrame = maybeCurrentFrame
         , maybePreviousFrame = maybePreviousFrame
         } = revisedState
-      render = renderFrame resources bounds
+      render = renderFrame resources bounds alpha
   (nextMaybeCurrentFrame, isCurrentDirty, buttonClickedSymbol,
       refreshedSymbol, otherClickedSymbol) <- render maybeCurrentFrame True
   (nextMaybePreviousFrame, isPreviousDirty, _,
@@ -161,16 +163,17 @@ newPreviousFrame (Just frame) = Just $ frame
   , alphaAnimation = outgoingAlphaAnimation
   }
 
-renderFrame :: Resources -> Box -> Maybe Frame -> Bool
+renderFrame :: Resources -> Box -> GLfloat -> Maybe Frame -> Bool
     -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
-renderFrame _ _ Nothing _ = return (Nothing, False, Nothing, Nothing, Nothing)
-renderFrame resources bounds (Just frame) isCurrentFrame = do
+renderFrame _ _ _ Nothing _ = return (Nothing, False, Nothing, Nothing, Nothing)
+renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
   let currentContent = content frame
       currentScaleAnimation = scaleAnimation frame
       currentAlphaAnimation = alphaAnimation frame
       scaleAmount = (fst . current) currentScaleAnimation
       alphaAmount = (fst . current) currentAlphaAnimation
-      removeInvisiblePreviousFrame = not isCurrentFrame && alphaAmount <= 0.0
+      finalAlpha = min alpha alphaAmount
+      removeInvisiblePreviousFrame = not isCurrentFrame && finalAlpha <= 0.0
   if removeInvisiblePreviousFrame
     then do
       cleanFrameContent currentContent
@@ -180,7 +183,7 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
         scale3 scaleAmount scaleAmount 1
         (nextContent, isContentDirty, buttonClickedSymbol, refreshedSymbol, 
             otherClickedSymbol) <- renderContent resources bounds
-                currentContent alphaAmount
+                currentContent finalAlpha
         let nextScaleAnimation = next currentScaleAnimation
             nextAlphaAnimation = next currentAlphaAnimation
             nextFrame = frame
@@ -189,7 +192,7 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
               , alphaAnimation = nextAlphaAnimation
               }
             isDirty = isContentDirty
-                ||  (snd . current) currentScaleAnimation
+                || (snd . current) currentScaleAnimation
                 || (snd . current) currentAlphaAnimation
         return (Just nextFrame, isDirty, buttonClickedSymbol, refreshedSymbol,
             otherClickedSymbol)

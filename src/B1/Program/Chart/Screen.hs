@@ -68,6 +68,7 @@ drawScreen resources = do
         }
       F.FrameInput
         { F.bounds = zeroBox
+        , F.alpha = 1
         , F.maybeSymbolRequest = Nothing
         , F.inputState = inputFrameState
         } 

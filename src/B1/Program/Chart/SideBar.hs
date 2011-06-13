@@ -444,8 +444,8 @@ drawOneSlot resources
 
     input = F.FrameInput
       { F.bounds = slotBounds
+      , F.alpha = alpha
       , F.maybeSymbolRequest = Nothing
---      , M.alpha = alpha
 --      , M.isBeingDragged = slotDragged
 --      , M.refreshRequested = refreshRequested
       , F.inputState = frameState slot
