@@ -28,6 +28,7 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Button
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.MouseUtils
 import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Graph as G
@@ -42,8 +43,9 @@ data ChartInput = ChartInput
 data ChartOutput = ChartOutput
   { outputState :: ChartState
   , isDirty :: Dirty
-  , addedSymbol :: Maybe Symbol
-  , refreshedSymbol :: Maybe Symbol
+  , buttonClickedSymbol :: Maybe Symbol -- ^ Symbol when custom button clicked
+  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
+  , otherClickedSymbol :: Maybe Symbol -- ^ Symbol if other chart area clicked
   }
 
 data ChartOptions = ChartOptions
@@ -97,8 +99,9 @@ drawChart resources
         }
       } = do
 
-  (newHeaderState, headerDirty, addedSymbol, headerHeight)
-      <- drawHeader resources alpha symbol stockData headerState bounds
+  (newHeaderState, headerDirty, buttonClickedSymbol, statusClickedSymbol,
+      headerHeight) <- drawHeader resources alpha symbol stockData headerState
+          bounds
   boundsSet <- getBounds resources bounds headerHeight stockData
 
   refreshClicked <- preservingMatrix $ do
@@ -117,19 +120,28 @@ drawChart resources
 
   drawFrame resources bounds headerHeight alpha showRefreshButton
 
-  let nextRefreshedSymbol = if refreshClicked then Just symbol else Nothing
+  let refreshedSymbol =
+          if refreshClicked
+            then Just symbol
+            else Nothing
+      otherClickedSymbol =
+          if isJust statusClickedSymbol || isMouseClickedWithinBox resources
+                (chartBounds boundsSet) alpha
+            then Just symbol
+            else Nothing
   return ChartOutput
     { outputState = inputState
       { headerState = newHeaderState
       , graphState = newGraphState
       }
     , isDirty = headerDirty || graphDirty
-    , addedSymbol = addedSymbol
-    , refreshedSymbol = nextRefreshedSymbol
+    , buttonClickedSymbol = buttonClickedSymbol
+    , refreshedSymbol = refreshedSymbol
+    , otherClickedSymbol = otherClickedSymbol
     }
 
 drawHeader :: Resources -> GLfloat -> Symbol -> StockData -> H.HeaderState
-    -> Box -> IO (H.HeaderState, Dirty, Maybe Symbol, GLfloat)
+    -> Box -> IO (H.HeaderState, Dirty, Maybe Symbol, Maybe Symbol, GLfloat)
 drawHeader resources alpha symbol stockData headerState bounds = do
   let headerInput = H.HeaderInput
         { H.bounds = bounds
@@ -145,9 +157,11 @@ drawHeader resources alpha symbol stockData headerState bounds = do
         { H.outputState = outputHeaderState
         , H.isDirty = isHeaderDirty
         , H.height = headerHeight
-        , H.clickedSymbol = addedSymbol
+        , H.buttonClickedSymbol = buttonClickedSymbol
+        , H.statusClickedSymbol = statusClickedSymbol
         } = headerOutput
-  return (outputHeaderState, isHeaderDirty, addedSymbol, headerHeight)
+  return (outputHeaderState, isHeaderDirty, buttonClickedSymbol,
+      statusClickedSymbol, headerHeight)
 
 data Bounds = Bounds
   { refreshButtonBounds :: Box

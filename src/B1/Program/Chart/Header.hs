@@ -31,6 +31,7 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Button
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.MouseUtils
 import B1.Program.Chart.Resources
 
 data HeaderInput = HeaderInput
@@ -45,7 +46,8 @@ data HeaderOutput = HeaderOutput
   { outputState :: HeaderState
   , isDirty :: Dirty
   , height :: GLfloat
-  , clickedSymbol :: Maybe Symbol
+  , buttonClickedSymbol :: Maybe Symbol
+  , statusClickedSymbol :: Maybe Symbol
   }
 
 data HeaderOptions = HeaderOptions
@@ -123,6 +125,8 @@ drawHeader resources@Resources
     -- TODO: Improve texture choosing to not hardcode numbers
     let buttonBounds = Box (boxLeft bounds, boxTop bounds)
             (boxLeft bounds + headerHeight, boxTop bounds - headerHeight)
+        statusBounds = Box (boxRight buttonBounds, boxTop bounds)
+            (boxRight bounds, boxTop bounds - headerHeight)
         buttonTextureNumber = if button == AddButton then 0 else 1
 
     buttonState <- preservingMatrix $ do
@@ -138,15 +142,20 @@ drawHeader resources@Resources
           , statusAlphaAnimation = nextStatusAlphaAnimation
           }
         nextIsDirty = (snd . current) nextStatusAlphaAnimation
-        nextClickedSymbol = if buttonState == Clicked
-            then Just symbol
-            else Nothing
-
+        nextButtonClickedSymbol =
+            if buttonState == Clicked
+              then Just symbol
+              else Nothing
+        nextStatusClickedSymbol =
+            if isMouseClickedWithinBox resources statusBounds alpha
+              then Just symbol
+              else Nothing
     return HeaderOutput
       { outputState = outputState
       , isDirty = nextIsDirty
       , height = headerHeight
-      , clickedSymbol = nextClickedSymbol
+      , buttonClickedSymbol = nextButtonClickedSymbol
+      , statusClickedSymbol = nextStatusClickedSymbol
       }
 
   where

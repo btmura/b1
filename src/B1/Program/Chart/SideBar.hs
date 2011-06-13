@@ -468,7 +468,7 @@ convertDrawingOutputs state output = do
     isSideBarDirty = length (newSlots state) > 0
         || any F.isDirty outputStates
         || any id dirtyFlags
-    nextSymbolRequest = Nothing -- (listToMaybe . mapMaybe M.symbolRequest) outputStates
+    nextSymbolRequest = (listToMaybe . mapMaybe F.otherClickedSymbol) outputStates
     nextSymbols = map symbol nextSlots
     nextOutput = SideBarOutput
       { isDirty = isSideBarDirty

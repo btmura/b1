@@ -10,6 +10,7 @@ import Graphics.UI.GLFW
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
+import B1.Program.Chart.MouseUtils
 import B1.Program.Chart.Resources
 
 data ButtonState = Normal | Hovering | Clicked deriving (Eq, Show)
@@ -20,8 +21,8 @@ drawButton resources bounds textureNumber alpha = do
       (hoverScaleX, hoverScaleY) = (normalScaleX * 1.05, normalScaleY * 1.05)
       (clickScaleX, clickScaleY) = (normalScaleX * 0.75, normalScaleY * 0.75)
 
-      hovering = alpha >= 1 && boxContains bounds (mousePosition resources)
-      clicked = hovering && isMouseButtonClicked resources ButtonLeft
+      hovering = isMouseHoveringWithinBox resources bounds alpha
+      clicked = isMouseClickedWithinBox resources bounds alpha
 
       (buttonState, buttonColor, scaleX, scaleY)
         | clicked = (Clicked, white4, clickScaleX, clickScaleY)

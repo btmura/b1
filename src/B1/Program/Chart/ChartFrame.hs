@@ -32,9 +32,10 @@ data FrameInput = FrameInput
 data FrameOutput = FrameOutput
   { outputState :: FrameState
   , isDirty :: Dirty
-  , maybeAddedSymbol :: Maybe Symbol -- ^ Symbol when add button clicked
-  , maybeRefreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
-  , maybeSelectedSymbol :: Maybe Symbol -- ^ Symbol when a request is fulfilled
+  , buttonClickedSymbol :: Maybe Symbol -- ^ Symbol when button clicked
+  , refreshedSymbol :: Maybe Symbol -- ^ Symbol when refresh button clicked
+  , otherClickedSymbol :: Maybe Symbol -- ^ Symbol when other area clicked
+  , selectedSymbol :: Maybe Symbol -- ^ Symbol when a request is fulfilled
   }
 
 data FrameOptions = FrameOptions
@@ -80,7 +81,7 @@ drawChartFrame resources
       , inputState = inputState
       } = do
 
-  (revisedState, maybeSelectedSymbol) <- handleSymbolRequest
+  (revisedState, selectedSymbol) <- handleSymbolRequest
       maybeSymbolRequest inputState
 
   let FrameState
@@ -88,9 +89,9 @@ drawChartFrame resources
         , maybePreviousFrame = maybePreviousFrame
         } = revisedState
       render = renderFrame resources bounds
-  (nextMaybeCurrentFrame, isCurrentDirty,
-      maybeAddedSymbol, maybeRefreshedSymbol) <- render maybeCurrentFrame True
-  (nextMaybePreviousFrame, isPreviousDirty,
+  (nextMaybeCurrentFrame, isCurrentDirty, buttonClickedSymbol,
+      refreshedSymbol, otherClickedSymbol) <- render maybeCurrentFrame True
+  (nextMaybePreviousFrame, isPreviousDirty, _,
       _, _) <- render maybePreviousFrame False
 
   let outputState = inputState
@@ -101,9 +102,10 @@ drawChartFrame resources
   return FrameOutput
     { outputState = outputState
     , isDirty = isDirty
-    , maybeAddedSymbol = maybeAddedSymbol
-    , maybeRefreshedSymbol = maybeRefreshedSymbol
-    , maybeSelectedSymbol = maybeSelectedSymbol
+    , buttonClickedSymbol = buttonClickedSymbol
+    , refreshedSymbol = refreshedSymbol
+    , otherClickedSymbol = otherClickedSymbol
+    , selectedSymbol = selectedSymbol
     }
 
 handleSymbolRequest :: Maybe Symbol -> FrameState
@@ -141,8 +143,8 @@ newPreviousFrame (Just frame) = Just $ frame
   }
 
 renderFrame :: Resources -> Box -> Maybe Frame -> Bool
-    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol)
-renderFrame _ _ Nothing _ = return (Nothing, False, Nothing, Nothing)
+    -> IO (Maybe Frame, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
+renderFrame _ _ Nothing _ = return (Nothing, False, Nothing, Nothing, Nothing)
 renderFrame resources bounds (Just frame) isCurrentFrame = do
   let currentContent = content frame
       currentScaleAnimation = scaleAnimation frame
@@ -153,12 +155,13 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
   if removeInvisiblePreviousFrame
     then do
       cleanFrameContent currentContent
-      return (Nothing, False, Nothing, Nothing)
+      return (Nothing, False, Nothing, Nothing, Nothing)
     else
       preservingMatrix $ do
         scale3 scaleAmount scaleAmount 1
-        (nextContent, isContentDirty, addedSymbol, refreshedSymbol)
-            <- renderContent resources bounds currentContent alphaAmount
+        (nextContent, isContentDirty, buttonClickedSymbol, refreshedSymbol, 
+            otherClickedSymbol) <- renderContent resources bounds
+                currentContent alphaAmount
         let nextScaleAnimation = next currentScaleAnimation
             nextAlphaAnimation = next currentAlphaAnimation
             nextFrame = frame
@@ -169,7 +172,8 @@ renderFrame resources bounds (Just frame) isCurrentFrame = do
             isDirty = isContentDirty
                 ||  (snd . current) currentScaleAnimation
                 || (snd . current) currentAlphaAnimation
-        return (Just nextFrame, isDirty, addedSymbol, refreshedSymbol)
+        return (Just nextFrame, isDirty, buttonClickedSymbol, refreshedSymbol,
+            otherClickedSymbol)
 
 -- TODO: Use type classes instead of special cases...
 cleanFrameContent :: Content -> IO () 
@@ -179,7 +183,7 @@ cleanFrameContent (Chart symbol state) = do
 cleanFrameContent _ = return ()
 
 renderContent :: Resources -> Box -> Content -> GLfloat
-    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol)
+    -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol)
 
 renderContent resources bounds Instructions alpha = do
   let input = I.InstructionsInput
@@ -187,7 +191,7 @@ renderContent resources bounds Instructions alpha = do
         , I.alpha = alpha
         }
   output <- I.drawInstructions resources input
-  return (Instructions, I.isDirty output, Nothing, Nothing)
+  return (Instructions, I.isDirty output, Nothing, Nothing, Nothing)
 
 renderContent resources bounds (Chart symbol state) alpha = do
   let input = C.ChartInput
@@ -196,6 +200,9 @@ renderContent resources bounds (Chart symbol state) alpha = do
         , C.inputState = state
         }
   output <- C.drawChart resources input
-  return (Chart symbol (C.outputState output), C.isDirty output,
-      C.addedSymbol output, C.refreshedSymbol output)
+  return (Chart symbol (C.outputState output),
+      C.isDirty output,
+      C.buttonClickedSymbol output,
+      C.refreshedSymbol output,
+      C.otherClickedSymbol output)
 
