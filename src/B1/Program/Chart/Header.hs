@@ -62,6 +62,7 @@ data HeaderState = HeaderState
   , getStatus :: Symbol -> StockData -> IO HeaderStatus
   , isStatusShowing :: Bool
   , statusAlphaAnimation :: Animation (GLfloat, Dirty)
+  , maybeTextBounds :: Maybe Box
   }
 
 data HeaderStatus = HeaderStatus String (GLfloat -> Color4 GLfloat)
@@ -76,6 +77,7 @@ newHeaderState options = HeaderState
   , getStatus = statusFunction
   , isStatusShowing = False
   , statusAlphaAnimation = animateOnce $ linearRange 0 1 30
+  , maybeTextBounds = Nothing
   }
   where
     statusFunction = case statusStyle options of
@@ -103,6 +105,7 @@ drawHeader resources@Resources
         , getStatus = getStatus
         , isStatusShowing = isStatusShowing
         , statusAlphaAnimation = statusAlphaAnimation
+        , maybeTextBounds = maybeTextBounds
         }
       } = 
   preservingMatrix $ do
@@ -110,12 +113,12 @@ drawHeader resources@Resources
 
     HeaderStatus statusText statusColor <- getStatus symbol stockData
     let statusTextSpec = headerTextSpec statusText
-    statusBox <- measureText statusTextSpec
+    textBounds <- maybe (measureText statusTextSpec) return maybeTextBounds
 
-    let statusHeight = boxHeight statusBox
+    let textHeight = boxHeight textBounds
         statusAlpha = fst $ current statusAlphaAnimation
-        headerHeight = padding + statusHeight + padding
-        statusY = (-headerHeight - statusHeight) / 2
+        headerHeight = padding + textHeight + padding
+        statusY = (-headerHeight - textHeight) / 2
 
     preservingMatrix $ do
       translate $ vector3 headerHeight statusY 0
@@ -140,6 +143,7 @@ drawHeader resources@Resources
         outputState = inputState
           { isStatusShowing = nextIsStatusShowing
           , statusAlphaAnimation = nextStatusAlphaAnimation
+          , maybeTextBounds = Just textBounds
           }
         nextIsDirty = (snd . current) nextStatusAlphaAnimation
         nextButtonClickedSymbol =
