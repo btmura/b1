@@ -53,6 +53,7 @@ data ChartOptions = ChartOptions
   { headerOptions :: H.HeaderOptions
   , graphOptions :: G.GraphOptions
   , showRefreshButton :: Bool
+  , showHud :: Bool
   }
 
 data ChartState = ChartState
@@ -92,6 +93,7 @@ drawChart resources
       , inputState = inputState@ChartState
         { options = ChartOptions
           { showRefreshButton = showRefreshButton
+          , showHud = showHud
           }
         , symbol = symbol
         , stockData = stockData

@@ -134,6 +134,7 @@ createSlots = do
           , G.fontSize = 10
           }
         , C.showRefreshButton = False
+        , C.showHud = False
         }
   mapM (\symbol -> do
       frameState <- F.newFrameState options $ Just symbol
