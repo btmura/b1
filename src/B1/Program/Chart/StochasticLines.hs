@@ -32,25 +32,22 @@ data StochasticTimeSpec = Daily | Weekly
 
 data DataStatus = Loading | Received
 
+floatsPerVertex = 2 + 3 -- x, y, and 3 for color
+
 getVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box -> [VboSpec]
 getVboSpecs priceData lineSpecs bounds =
-  [getBackgroundVboSpec priceData lineSpecs bounds]
+  getBackgroundVboSpecs priceData lineSpecs bounds
+      ++ getPercentageLineVboSpecs bounds
       ++ getLineVboSpecs priceData lineSpecs bounds
 
-getBackgroundVboSpec :: StockPriceData -> [StochasticLineSpec] -> Box
-    -> VboSpec
-getBackgroundVboSpec priceData lineSpecs bounds = VboSpec Quads size elements
-  where
-    size = getBackgroundSize
-    elements = getBackgroundElements priceData lineSpecs bounds
-
-getBackgroundSize :: Int
-getBackgroundSize = size
+getBackgroundVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box
+    -> [VboSpec]
+getBackgroundVboSpecs priceData lineSpecs bounds =
+  [VboSpec Quads size elements]
   where
     numQuads = 1
-    verticesPerQuad = 4
-    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
-    size = numQuads * (verticesPerQuad * floatsPerVertex)
+    size = numQuads * (4 * floatsPerVertex)
+    elements = getBackgroundElements priceData lineSpecs bounds
 
 getBackgroundElements :: StockPriceData -> [StochasticLineSpec] -> Box
     -> [GLfloat]
@@ -104,7 +101,6 @@ getLineSize priceData lineSpec = size
         Daily -> numDailyElements
         _ -> numWeeklyElements
     numElements = numElementsFunction priceData
-    floatsPerVertex = 2 + 3 -- x, y, and 3 for color
     size = numElements * floatsPerVertex
 
 createLine :: StockPriceData -> Box -> StochasticLineSpec -> [GLfloat]
@@ -131,4 +127,23 @@ createLineSegment bounds color values index = [x, y] ++ colorList
     value = values !! index
     totalHeight = boxHeight bounds
     y = boxBottom bounds + realToFrac value * totalHeight
+
+getPercentageLineVboSpecs :: Box -> [VboSpec]
+getPercentageLineVboSpecs bounds = [VboSpec Lines size elements]
+  where
+    numLines = 2
+    size = numLines * (2 * floatsPerVertex)
+    elements = getPercentageLineElements bounds
+
+getPercentageLineElements :: Box -> [GLfloat]
+getPercentageLineElements bounds@(Box (left, _) (right, bottom)) =
+  [left, thirty] ++ colorList 
+      ++ [right, thirty] ++ colorList 
+      ++ [left, seventy] ++ colorList 
+      ++ [right, seventy] ++ colorList 
+  where
+    colorList = color3ToList darkBlue3
+    lineY percentage = bottom + (percentage * boxHeight bounds)
+    thirty = lineY 0.3
+    seventy = lineY 0.7
 

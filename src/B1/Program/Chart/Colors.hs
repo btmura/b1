@@ -1,6 +1,7 @@
 module B1.Program.Chart.Colors
   ( black4
   , blue4
+  , darkBlue3
   , lightBlue4
   , lighterBlue4
   , gray4
@@ -31,6 +32,9 @@ black4 = color4 0 0 0
 
 blue4 :: GLfloat -> Color4 GLfloat
 blue4 = color4 0 0.25 0.5 
+
+darkBlue3 :: Color3 GLfloat
+darkBlue3 = color3 0 0.125 0.25
 
 lightBlue4 :: GLfloat -> Color4 GLfloat
 lightBlue4 = color4 0 0.25 0.75
