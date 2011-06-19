@@ -126,6 +126,7 @@ createSlots = do
             , G.volumeBounds = Nothing
             , G.stochasticsBounds = Just $ Box (-1, 1) (1, 0)
             , G.weeklyStochasticsBounds = Just $ Box (-1, 0) (1, -1)
+            , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
             , G.dividerLines =
               [ LineSegment (-1, 0) (1, -0)
               ]

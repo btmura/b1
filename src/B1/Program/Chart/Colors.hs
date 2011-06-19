@@ -34,7 +34,7 @@ blue4 :: GLfloat -> Color4 GLfloat
 blue4 = color4 0 0.25 0.5 
 
 darkBlue3 :: Color3 GLfloat
-darkBlue3 = color3 0 0.125 0.25
+darkBlue3 = color3 0 0.05 0.15
 
 lightBlue4 :: GLfloat -> Color4 GLfloat
 lightBlue4 = color4 0 0.25 0.75

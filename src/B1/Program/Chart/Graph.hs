@@ -34,6 +34,7 @@ import B1.Program.Chart.Vbo
 
 import qualified B1.Program.Chart.Candlesticks as C
 import qualified B1.Program.Chart.MovingAverageLines as M
+import qualified B1.Program.Chart.MonthLines as L
 import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.VolumeBars as V
 
@@ -68,6 +69,7 @@ data GraphBoundSet = GraphBoundSet
   , volumeBounds :: Maybe Box
   , stochasticsBounds :: Maybe Box
   , weeklyStochasticsBounds :: Maybe Box
+  , monthLineBounds :: Maybe Box
   , dividerLines :: [LineSegment]
   }
 
@@ -216,7 +218,9 @@ renderPriceData
 createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
 createGraphVbo boundSet priceData = 
   createVbo $ concat
-    [ getVboSpecList graphBounds $
+    [ getVboSpecList monthLineBounds $
+        L.getVboSpecs priceData
+    , getVboSpecList graphBounds $
         getGraphVboSpecs priceData
     , getVboSpecList volumeBounds $
         V.getVboSpecs priceData

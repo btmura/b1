@@ -46,6 +46,7 @@ drawScreen resources = do
             , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
             , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
             , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
+            , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
             , G.dividerLines =
               [ LineSegment (-1, -0.1) (1, -0.1)
               , LineSegment (-1, -0.4) (1, -0.4)

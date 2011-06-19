@@ -30,8 +30,6 @@ data StochasticLineSpec = StochasticLineSpec
 
 data StochasticTimeSpec = Daily | Weekly
 
-data DataStatus = Loading | Received
-
 floatsPerVertex = 2 + 3 -- x, y, and 3 for color
 
 getVboSpecs :: StockPriceData -> [StochasticLineSpec] -> Box -> [VboSpec]
