@@ -7,20 +7,27 @@ import Data.IORef
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
+import System.Environment
 
 import B1.Data.Action
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
+import B1.Program.Chart.Options
 import B1.Program.Chart.Screen
 
 main :: IO ()
 main = do
+  args <- getArgs
+  (options, nonOptions) <- readOptions args
+
   initialize
   createWindow
   initClientState
-  loadTextures
 
-  resourcesRef <- createInitialResources
+  resourcesRef <- createInitialResources options
+  resources <- readIORef resourcesRef
+  loadTextures resources
+
   windowDirtyRef <- newIORef False
   windowSizeCallback $= myWindowSizeCallback resourcesRef windowDirtyRef
 
@@ -42,9 +49,9 @@ initClientState = do
   clientState VertexArray $= Enabled
   clientState ColorArray $= Enabled
 
-loadTextures :: IO ()
-loadTextures = do
-  mapM_ (uncurry bindTexture) (zip [0 ..] fileNames)
+loadTextures :: Resources -> IO ()
+loadTextures resources = do
+  mapM_ (uncurry (bindTexture resources)) (zip [0 ..] fileNames)
   texture Texture2D $= Disabled
   where
     fileNames =
@@ -53,22 +60,23 @@ loadTextures = do
       , "res/tga/refresh-button.tga"
       ]
 
-bindTexture :: Int -> String -> IO ()
-bindTexture textureNumber fileName = do
+bindTexture :: Resources -> Int -> String -> IO ()
+bindTexture resources textureNumber fileName = do
   textureBinding Texture2D $= Just (TextureObject (fromIntegral textureNumber))
   textureFilter Texture2D $= ((Linear', Nothing), Linear')
   loadResult <- loadTexture2D fileName [BuildMipMaps]
-  putStrLn $ "Loading texture " ++ fileName ++ ": " ++ show loadResult
+  logMessage resources $ "Loading texture " ++ fileName ++ ": "
+      ++ show loadResult
 
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.
-createInitialResources :: IO (IORef Resources)
-createInitialResources = do
+createInitialResources :: Options -> IO (IORef Resources)
+createInitialResources options = do
   font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
   program <- loadProgram
       ["res/shaders/vertex-shader.txt"]
       ["res/shaders/fragment-shader.txt"]
-  newIORef $ newResources font program
+  newIORef $ newResources (verbose options) font program
 
 loadProgram :: [FilePath] -> [FilePath] -> IO Program
 loadProgram vertexShaderPaths fragmentShaderPaths= do

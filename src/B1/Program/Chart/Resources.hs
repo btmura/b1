@@ -10,6 +10,7 @@ module B1.Program.Chart.Resources
     , mouseDragStartPosition
     )
   , newResources
+  , logMessage
   , updateKeysPressed
   , isKeyPressed
   , getKeyPressed
@@ -27,7 +28,10 @@ module B1.Program.Chart.Resources
   , updateWindowSize
   ) where
 
+import Control.Monad
 import Data.Maybe
+import GHC.IO.Handle
+import GHC.IO.Handle.FD
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
@@ -35,7 +39,8 @@ import Graphics.UI.GLFW
 dragThreshold = 10::Int 
 
 data Resources = Resources
-  { font :: Font
+  { verbose :: Bool
+  , font :: Font
   , program :: Program
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
@@ -54,9 +59,10 @@ data Resources = Resources
   , previousMouseWheelPosition :: Int
   } deriving (Show, Eq)
 
-newResources :: Font -> Program -> Resources
-newResources font program = Resources
-  { font = font
+newResources :: Bool -> Font -> Program -> Resources
+newResources verbose font program = Resources
+  { verbose = verbose
+  , font = font
   , program = program
   , windowWidth = 0
   , windowHeight = 0
@@ -74,6 +80,12 @@ newResources font program = Resources
   , mouseWheelPosition = 0
   , previousMouseWheelPosition = 0
   }
+
+logMessage :: Resources -> String -> IO ()
+logMessage resources message = do
+  when (verbose resources) $ do
+    hPutStr stderr $ message ++ "\n"
+  return ()
 
 updateKeysPressed :: [Key] -> Resources -> Resources
 updateKeysPressed keysPressed
