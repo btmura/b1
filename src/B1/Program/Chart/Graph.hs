@@ -35,6 +35,7 @@ import B1.Program.Chart.Vbo
 import qualified B1.Program.Chart.Candlesticks as C
 import qualified B1.Program.Chart.MovingAverageLines as M
 import qualified B1.Program.Chart.MonthLines as L
+import qualified B1.Program.Chart.PriceLines as P
 import qualified B1.Program.Chart.StochasticLines as S
 import qualified B1.Program.Chart.VolumeBars as V
 
@@ -220,6 +221,8 @@ createGraphVbo boundSet priceData =
   createVbo $ concat
     [ getVboSpecList monthLineBounds $
         L.getVboSpecs priceData
+    , getVboSpecList graphBounds $
+        P.getVboSpecs priceData
     , getVboSpecList graphBounds $
         getGraphVboSpecs priceData
     , getVboSpecList volumeBounds $
