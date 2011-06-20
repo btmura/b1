@@ -8,6 +8,7 @@ module B1.Program.Chart.Chart
   , cleanChartState
   ) where
 
+import Control.Monad
 import Data.Maybe
 import Data.Time.Calendar
 import Data.Time.Clock
@@ -33,6 +34,7 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.Header as H
+import qualified B1.Program.Chart.Hud as D
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -62,6 +64,7 @@ data ChartState = ChartState
   , stockData :: StockData
   , headerState :: H.HeaderState
   , graphState :: G.GraphState
+  , hudState :: D.HudState
   }
 
 newChartState :: ChartOptions -> Symbol -> IO ChartState
@@ -78,6 +81,7 @@ newChartState
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
     , graphState = G.newGraphState graphOptions stockData
+    , hudState = D.newHudState
     }
 
 cleanChartState :: ChartState -> IO ChartState
@@ -99,6 +103,7 @@ drawChart resources
         , stockData = stockData
         , headerState = headerState
         , graphState = graphState
+        , hudState = hudState
         }
       } = do
 
@@ -116,12 +121,18 @@ drawChart resources
       else
         return False
 
+  drawFrame resources bounds headerHeight alpha showRefreshButton
+
   (newGraphState, graphDirty) <- preservingMatrix $ do
     let subBounds = chartBounds boundsSet
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
 
-  drawFrame resources bounds headerHeight alpha showRefreshButton
+  (newHudState, hudDirty) <- preservingMatrix $ do
+    let subBounds = chartBounds boundsSet
+        subAlpha = if showHud then alpha else 0
+    translateToCenter bounds subBounds
+    drawHud resources subAlpha stockData hudState subBounds
 
   let refreshedSymbol =
           if refreshClicked
@@ -141,8 +152,9 @@ drawChart resources
     { outputState = inputState
       { headerState = newHeaderState
       , graphState = newGraphState
+      , hudState = newHudState
       }
-    , isDirty = headerDirty || graphDirty
+    , isDirty = headerDirty || graphDirty || hudDirty
     , buttonClickedSymbol = buttonClickedSymbol
     , refreshedSymbol = refreshedSymbol
     , otherClickedSymbol = otherClickedSymbol
@@ -245,6 +257,23 @@ drawGraph resources alpha stockData graphState bounds = do
         , G.isDirty = isGraphDirty
         } = graphOutput
   return (outputGraphState, isGraphDirty)
+
+drawHud :: Resources -> GLfloat -> StockData -> D.HudState -> Box
+    -> IO (D.HudState, Dirty)
+drawHud resources alpha stockData hudState bounds = do
+  let hudInput = D.HudInput
+        { D.bounds = bounds
+        , D.alpha = alpha
+        , D.inputState = hudState
+        }
+
+  hudOutput <- D.drawHud resources hudInput
+
+  let D.HudOutput
+        { D.outputState = outputHudState
+        , D.isDirty = isHudDirty
+        } = hudOutput
+  return (outputHudState, isHudDirty)
 
 drawFrame :: Resources -> Box -> GLfloat -> GLfloat -> Bool -> IO ()
 drawFrame resources bounds headerHeight alpha showRefreshButton = do
