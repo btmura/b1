@@ -131,15 +131,27 @@ renderPriceText resources bounds alpha price = do
       lineSpacing = 3
 
       textSpec = TextSpec (font resources) 12
-      printFloat = printf "%+.2f"
-      openText = "Open: " ++ (printFloat . open) price
-      closeText = "Close: " ++ (printFloat . close) price
-      highText = "High: " ++ (printFloat . high) price
-      lowText = "Low: " ++ (printFloat . low) price
+      openLabel = "Open: "
+      closeLabel = "Close: "
+      highLabel = "High: "
+      lowLabel = "Low: "
+      volumeLabel = "Volume: "
 
-      printVolume = printf "%dK"
+      printFloat = printf "%+.2f"
+      openText = openLabel ++ (printFloat . open) price
+      closeText = closeLabel ++ (printFloat . close) price
+      highText = highLabel ++ (printFloat . high) price
+      lowText = lowLabel ++ (printFloat . low) price
+
+      printVolume = printf "%+dK"
       reduceVolume volume = volume `div` 1000
-      volumeText = "Volume: " ++ (printVolume . reduceVolume . volume) price
+      volumeText = volumeLabel ++ (printVolume . reduceVolume . volume) price
+
+  openLabelBox <- measureText $ textSpec openLabel
+  closeLabelBox <- measureText $ textSpec closeLabel
+  highLabelBox <- measureText $ textSpec highLabel
+  lowLabelBox <- measureText $ textSpec lowLabel
+  volumeLabelBox <- measureText $ textSpec volumeLabel
 
   openTextBox <- measureText $ textSpec openText
   closeTextBox <- measureText $ textSpec closeText
@@ -147,9 +159,17 @@ renderPriceText resources bounds alpha price = do
   lowTextBox <- measureText $ textSpec lowText
   volumeTextBox <- measureText $ textSpec volumeText
 
-  let textItems = [closeText, openText, highText, lowText, volumeText]
+  let textLabels = [closeLabel, openLabel, highLabel, lowLabel, volumeLabel]
+      textLabelBoxes = [closeLabelBox, openLabelBox, highLabelBox, lowLabelBox,
+          volumeLabelBox]
+
+      textItems = [closeText, openText, highText, lowText, volumeText]
       textBoxes = [closeTextBox, openTextBox, highTextBox, lowTextBox,
           volumeTextBox]
+
+      largestLabelWidth = maximum $ map boxWidth textLabelBoxes
+      getTextIndentation labelBox = largestLabelWidth - boxWidth labelBox
+      textIndents = map getTextIndentation textLabelBoxes
 
       largestTextWidth = maximum $ map boxWidth textBoxes
       bubbleWidth = bubblePadding + largestTextWidth + bubblePadding
@@ -168,11 +188,11 @@ renderPriceText resources bounds alpha price = do
 
     color $ yellow4 alpha
     translate $ vector3 bubblePadding (-bubblePadding) 0
-    mapM_ (\(textBox, text) -> do
-        translate $ vector3 0 (-boxHeight textBox) 0
+    mapM_ (\(textIndent, textBox, text) -> do
+        translate $ vector3 textIndent (-boxHeight textBox) 0
         renderText $ textSpec text
-        translate $ vector3 0 (-lineSpacing) 0
-        ) (zip textBoxes textItems)
+        translate $ vector3 (-textIndent) (-lineSpacing) 0
+        ) (zip3 textIndents textBoxes textItems)
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
