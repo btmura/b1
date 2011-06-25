@@ -10,9 +10,11 @@ module B1.Program.Chart.Overlay
 
 import Control.Monad
 import Graphics.Rendering.OpenGL
+import Text.Printf
 
 import B1.Data.Price
 import B1.Data.Technicals.StockData
+import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
 import B1.Graphics.Rendering.OpenGL.Shapes
@@ -103,8 +105,10 @@ renderCrosshair resources bounds alpha =
 
 renderPriceInfo :: Resources -> Box -> GLfloat -> StockPriceData -> IO ()
 renderPriceInfo resources bounds alpha priceData = do
-  let price = getPriceForMousePosition resources bounds priceData
-  putStrLn $ show price
+  let maybePrice = getPriceForMousePosition resources bounds priceData
+  case maybePrice of
+    Just price -> renderPriceText resources bounds alpha price
+    _ -> return ()
 
 getPriceForMousePosition :: Resources -> Box -> StockPriceData -> Maybe Price
 getPriceForMousePosition resources bounds priceData
@@ -119,6 +123,31 @@ getPriceForMousePosition resources bounds priceData
     index = floor $ (mouseX - left) / elementWidth
     reverseIndex = numElements - 1 - index
     price = prices priceData !! reverseIndex
+
+renderPriceText :: Resources -> Box -> GLfloat -> Price -> IO ()
+renderPriceText resources bounds alpha price = do
+  let padding = 10
+      textSpec = TextSpec (font resources) 14
+      printFunc = printf "%+.2f"
+      openText = " Open: " ++ (printFunc . open) price
+      closeText = " Close: " ++ (printFunc . close) price
+      highText = " High: " ++ (printFunc . high) price
+      lowText = " Low: " ++ (printFunc . low) price
+  openTextBox <- measureText $ textSpec openText
+  preservingMatrix $ do
+    color $ yellow4 alpha
+    translate $ vector3 (-boxWidth bounds / 2 + padding)
+        (boxHeight bounds / 2 - padding - boxHeight openTextBox) 0
+    renderText $ textSpec openText
+
+    translate $ vector3 0 (-boxHeight openTextBox) 0
+    renderText $ textSpec closeText
+
+    translate $ vector3 0 (-boxHeight openTextBox) 0
+    renderText $ textSpec highText
+
+    translate $ vector3 0 (-boxHeight openTextBox) 0
+    renderText $ textSpec lowText
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
