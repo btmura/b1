@@ -126,28 +126,53 @@ getPriceForMousePosition resources bounds priceData
 
 renderPriceText :: Resources -> Box -> GLfloat -> Price -> IO ()
 renderPriceText resources bounds alpha price = do
-  let padding = 10
-      textSpec = TextSpec (font resources) 14
-      printFunc = printf "%+.2f"
-      openText = " Open: " ++ (printFunc . open) price
-      closeText = " Close: " ++ (printFunc . close) price
-      highText = " High: " ++ (printFunc . high) price
-      lowText = " Low: " ++ (printFunc . low) price
+  let windowPadding = 10
+      bubblePadding = 7
+      lineSpacing = 3
+
+      textSpec = TextSpec (font resources) 12
+      printFloat = printf "%+.2f"
+      openText = "Open: " ++ (printFloat . open) price
+      closeText = "Close: " ++ (printFloat . close) price
+      highText = "High: " ++ (printFloat . high) price
+      lowText = "Low: " ++ (printFloat . low) price
+
+      printVolume = printf "%dK"
+      reduceVolume volume = volume `div` 1000
+      volumeText = "Volume: " ++ (printVolume . reduceVolume . volume) price
+
   openTextBox <- measureText $ textSpec openText
+  closeTextBox <- measureText $ textSpec closeText
+  highTextBox <- measureText $ textSpec highText
+  lowTextBox <- measureText $ textSpec lowText
+  volumeTextBox <- measureText $ textSpec volumeText
+
+  let textItems = [closeText, openText, highText, lowText, volumeText]
+      textBoxes = [closeTextBox, openTextBox, highTextBox, lowTextBox,
+          volumeTextBox]
+
+      largestTextWidth = maximum $ map boxWidth textBoxes
+      bubbleWidth = bubblePadding + largestTextWidth + bubblePadding
+
+      totalTextHeight = sum $ map ((+) lineSpacing . boxHeight) textBoxes
+      bubbleHeight = bubblePadding + totalTextHeight + bubblePadding
+
   preservingMatrix $ do
+    translate $ vector3 (-boxWidth bounds / 2 + windowPadding)
+        (boxHeight bounds / 2 - windowPadding) 0
+
+    preservingMatrix $ do
+      color $ red4 alpha
+      translate $ vector3 (bubbleWidth / 2) (-bubbleHeight / 2) 0
+      drawRectangle bubbleWidth bubbleHeight bubblePadding
+
     color $ yellow4 alpha
-    translate $ vector3 (-boxWidth bounds / 2 + padding)
-        (boxHeight bounds / 2 - padding - boxHeight openTextBox) 0
-    renderText $ textSpec openText
-
-    translate $ vector3 0 (-boxHeight openTextBox) 0
-    renderText $ textSpec closeText
-
-    translate $ vector3 0 (-boxHeight openTextBox) 0
-    renderText $ textSpec highText
-
-    translate $ vector3 0 (-boxHeight openTextBox) 0
-    renderText $ textSpec lowText
+    translate $ vector3 bubblePadding (-bubblePadding) 0
+    mapM_ (\(textBox, text) -> do
+        translate $ vector3 0 (-boxHeight textBox) 0
+        renderText $ textSpec text
+        translate $ vector3 0 (-lineSpacing) 0
+        ) (zip textBoxes textItems)
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
