@@ -11,6 +11,7 @@ module B1.Program.Chart.Overlay
 import Control.Monad
 import Graphics.Rendering.OpenGL
 
+import B1.Data.Price
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
 import B1.Graphics.Rendering.OpenGL.Point
@@ -68,6 +69,7 @@ renderOverlay :: Resources -> Box -> GLfloat -> StockPriceData -> IO ()
 renderOverlay resources bounds alpha priceData =
   when (alpha > 0 && boxContains bounds (mousePosition resources)) $ do
     renderCrosshair resources bounds alpha
+    renderPriceInfo resources bounds alpha priceData
 
 renderCrosshair :: Resources -> Box -> GLfloat -> IO ()
 renderCrosshair resources bounds alpha =
@@ -98,6 +100,25 @@ renderCrosshair resources bounds alpha =
 
       color $ lineColor4 0
       vertex $ vertex2 (boxRight bounds) mouseY
+
+renderPriceInfo :: Resources -> Box -> GLfloat -> StockPriceData -> IO ()
+renderPriceInfo resources bounds alpha priceData = do
+  let price = getPriceForMousePosition resources bounds priceData
+  putStrLn $ show price
+
+getPriceForMousePosition :: Resources -> Box -> StockPriceData -> Maybe Price
+getPriceForMousePosition resources bounds priceData
+  | mouseX < left = Nothing
+  | mouseX >= right = Nothing
+  | otherwise = Just price
+  where
+    (mouseX, _) = mousePosition resources
+    Box (left, _) (right, _) = bounds
+    numElements = numDailyElements priceData
+    elementWidth = boxWidth bounds / realToFrac numElements
+    index = floor $ (mouseX - left) / elementWidth
+    reverseIndex = numElements - 1 - index
+    price = prices priceData !! reverseIndex
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
