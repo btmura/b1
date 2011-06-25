@@ -24,6 +24,7 @@ import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.Header as H
+import qualified B1.Program.Chart.Overlay as O
 import qualified B1.Program.Chart.SideBar as S
 import qualified B1.Program.Chart.SymbolEntry as E
 
@@ -55,8 +56,11 @@ drawScreen resources = do
             }
           , G.fontSize = 18
           }
+        , C.overlayOptions = O.OverlayOptions
+          { O.boundSet = O.OverlayBoundSet
+          }
         , C.showRefreshButton = True
-        , C.showHud = True
+        , C.showOverlay = True
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop

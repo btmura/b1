@@ -3,9 +3,13 @@ module B1.Data.Technicals.StockData
   , StockPriceData(..)
   , newStockData
   , refreshStockData
-  , isStockDataLoading
   , createStockPriceData
+  , isLoading
+  , isStockPriceData
+  , isErrorMessage
   , getStockPriceData
+  , getErrorMessage
+  , handleStockData
   ) where
 
 import Control.Concurrent
@@ -27,6 +31,7 @@ data StockData
   -- | Symbol is used when refreshing the stock data.
   = StockData Symbol (MVar (Either StockPriceData String))
 
+-- TODO: Rename to something more different from StockData
 data StockPriceData = StockPriceData
   { prices :: [Price]
   , stochastics :: [Stochastic]
@@ -52,15 +57,6 @@ newStockData symbol = do
 
 refreshStockData :: StockData -> IO StockData
 refreshStockData (StockData symbol _) = newStockData symbol
-
-isStockDataLoading :: StockData -> IO Bool
-isStockDataLoading (StockData _ priceDataMVar) = do
-  maybePrices <- tryTakeMVar priceDataMVar
-  case maybePrices of
-    Just prices -> do
-      tryPutMVar priceDataMVar prices
-      return False
-    _ -> return True
 
 getStartDate :: IO LocalTime
 getStartDate = do
@@ -133,6 +129,38 @@ createStockPriceData prices =
         . takeWhile ((>= earliestStartTime) . startTime) 
         . take maxWeeklyElements
         ) weeklyPrices
+
+isLoading :: StockData -> IO Bool
+isLoading = handleStockData (ignore False) (ignore False) True
+
+isStockPriceData :: StockData -> IO Bool
+isStockPriceData = handleStockData (ignore True) (ignore False) False 
+
+isErrorMessage :: StockData -> IO Bool
+isErrorMessage = handleStockData (ignore False) (ignore True) False
+
+getErrorMessage :: StockData -> IO (Maybe String)
+getErrorMessage = handleStockData (ignore Nothing) (return . Just) Nothing
+
+handleStockData :: (StockPriceData -> IO a) -> (String -> IO a) -> a
+    -> StockData -> IO a
+handleStockData priceFunction errorFunction noValue
+    (StockData _ contentsVar) = do
+  maybeContents <- tryTakeMVar contentsVar
+  case maybeContents of
+    Just contents -> do
+      tryPutMVar contentsVar contents
+      either priceFunction errorFunction contents
+    _ ->
+      return noValue
+
+ignore :: a -> b -> IO a
+ignore value _ = return value
+
+{-- TODO: Replace getStockPriceData with this function...
+getStockPriceData :: StockData -> IO (Maybe StockPriceData)
+getStockPriceData = handleStockData Just (ignore Nothing) Nothing
+--}
 
 getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
 getStockPriceData (StockData _ pricesMVar) = do

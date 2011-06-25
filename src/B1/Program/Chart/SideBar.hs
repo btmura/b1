@@ -27,6 +27,7 @@ import qualified B1.Program.Chart.Chart as C
 import qualified B1.Program.Chart.ChartFrame as F
 import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.Header as H
+import qualified B1.Program.Chart.Overlay as O
 
 slotHeight = 100::GLfloat
 
@@ -133,8 +134,11 @@ createSlots = do
             }
           , G.fontSize = 10
           }
+        , C.overlayOptions = O.OverlayOptions
+          { O.boundSet = O.OverlayBoundSet
+          }
         , C.showRefreshButton = False
-        , C.showHud = False
+        , C.showOverlay = False
         }
   mapM (\symbol -> do
       frameState <- F.newFrameState options $ Just symbol

@@ -136,9 +136,8 @@ drawHeader resources@Resources
       translate $ vector3 (headerHeight / 2) (-headerHeight / 2) 0
       drawButton resources buttonBounds buttonTextureNumber alpha
 
-    maybePriceData <- getStockPriceData stockData
-    let nextIsStatusShowing = isJust maybePriceData
-        nextStatusAlphaAnimation =
+    nextIsStatusShowing <- isStockPriceData stockData
+    let nextStatusAlphaAnimation =
           (if nextIsStatusShowing then next else id) statusAlphaAnimation
         outputState = inputState
           { isStatusShowing = nextIsStatusShowing
@@ -174,12 +173,11 @@ getShortStatus = renderStatus renderShortStatus
 
 renderStatus :: (Symbol -> [Price] -> HeaderStatus) -> Symbol -> StockData
     -> IO HeaderStatus
-renderStatus renderFunction symbol stockData = do
-  maybePriceData <- getStockPriceData stockData
-  return $ maybe (HeaderStatus symbol green4)
-      (either (renderFunction symbol . prices)
-          (\_ -> renderEmptyStatus symbol))
-      maybePriceData
+renderStatus renderFunction symbol stockData =
+  handleStockData (return . renderFunction symbol . prices)
+      (\_ -> return (renderEmptyStatus symbol))
+      (HeaderStatus symbol green4) -- Doesn't render anything
+      stockData
 
 renderLongStatus :: Symbol -> [Price] -> HeaderStatus
 renderLongStatus symbol prices =
