@@ -10,7 +10,9 @@ module B1.Program.Chart.Overlay
 
 import Control.Monad
 import Data.Maybe
+import Data.Time.Format
 import Graphics.Rendering.OpenGL
+import System.Locale
 import Text.Printf
 
 import B1.Data.Price
@@ -85,9 +87,11 @@ renderOverlay resources
       }
     priceData = do
   when (alpha >= 1 -- Too expensive to draw the overlay while animating
+      && not (isMouseDrag resources)
       && boxContains bounds (mousePosition resources)) $ do
     let maybeTextX = getHorizontalAxisText resources bounds boundSet priceData
-    renderCrosshair resources bounds maybeTextX
+        maybeTextY = getVerticalAxisText resources bounds priceData
+    renderCrosshair resources bounds maybeTextX maybeTextY
     renderPriceInfoBox resources bounds priceData
 
 getHorizontalAxisText :: Resources -> Box -> OverlayBoundSet -> StockPriceData
@@ -170,22 +174,33 @@ getStochasticText resources priceData bounds = stochasticText
     stochastic = realToFrac heightPercentage * 100.0
     stochasticText = printf "%.0f%%" stochastic
 
-renderCrosshair :: Resources -> Box -> Maybe String -> IO ()
-renderCrosshair resources bounds maybeTextX = do
+renderCrosshair :: Resources -> Box -> Maybe String -> Maybe String -> IO ()
+renderCrosshair resources bounds maybeTextX maybeTextY = do
   let (mouseX, mouseY) = mousePosition resources
-      (lowAlpha, highAlpha) = (0.25, 1)
+      (lowAlpha, highAlpha) = (0.1, 1)
       lineColor4 = red4
-      textColor4 = yellow4
       textPadding = 5
       textSpec = TextSpec (font resources) 12
 
+  color $ yellow4 1
+
   when (isJust maybeTextX) $
     preservingMatrix $ do
-      color $ textColor4 1
-      translateToWindowLowerLeft bounds
-      translate $ vector3 (boxLeft bounds + textPadding)
-          (mouseY + textPadding) 0
+      let translateX = (-boxWidth bounds / 2) + textPadding
+          translateY = (-boxHeight bounds / 2) - boxBottom bounds
+              + mouseY + textPadding
+      translate $ vector3 translateX translateY 0
       renderText $ textSpec $ fromJust maybeTextX
+
+  when (isJust maybeTextY) $
+    preservingMatrix $ do
+      let fullTextSpec = textSpec $ fromJust maybeTextY
+      textBox <- measureText fullTextSpec
+      let translateX = (-boxWidth bounds / 2) - boxLeft bounds
+              + mouseX - (boxWidth textBox / 2)
+          translateY = boxHeight bounds / 2 - boxHeight textBox - textPadding
+      translate $ vector3 translateX translateY 0
+      renderText fullTextSpec
 
   preservingMatrix $ do
     translateToWindowLowerLeft bounds
@@ -218,6 +233,13 @@ renderPriceInfoBox resources bounds priceData = do
   case maybePrice of
     Just price -> renderPriceText resources bounds price
     _ -> return ()
+
+getVerticalAxisText :: Resources -> Box -> StockPriceData -> Maybe String
+getVerticalAxisText resources bounds priceData = do
+  let maybePrice = getPriceDataForMousePosition resources bounds priceData
+  case maybePrice of
+    Just price -> Just $ formatTime defaultTimeLocale "%D" $ endTime price
+    _ -> Nothing
 
 getPriceDataForMousePosition :: Resources -> Box -> StockPriceData
     -> Maybe Price
