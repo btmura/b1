@@ -104,7 +104,7 @@ getHorizontalAxisText resources bounds
         [ (graphBounds, getPriceText)
         , (volumeBounds, getVolumeText)
         , (stochasticBounds, getStochasticText)
-        , (weeklyStochasticBounds, getWeeklyStochasticText)
+        , (weeklyStochasticBounds, getStochasticText)
         ]
 
       filterLabelGroup :: Maybe Box
@@ -147,13 +147,28 @@ getPriceText resources priceData bounds = priceText
     priceText = printf "%+.2f" price
  
 getVolumeText :: Resources -> StockPriceData -> Box -> String
-getVolumeText resources priceData bounds = ""
+getVolumeText resources priceData bounds = volumeText
+  where
+    (_, mouseY) = mousePosition resources
+    numElements = numDailyElements priceData
+    maxVolume = maximum $ map volume $ take numElements $ prices priceData
+    heightPercentage = (realToFrac mouseY - boxBottom bounds) / boxHeight bounds
+    volumeValue = floor $ realToFrac maxVolume * heightPercentage
+
+    reduceVolume :: Int -> Int
+    reduceVolume volumeValue = volumeValue `div` 1000
+
+    printVolume = printf "%+dK"
+    volumeText = printVolume $ reduceVolume volumeValue
 
 getStochasticText :: Resources -> StockPriceData -> Box -> String
-getStochasticText resources priceData bounds = ""
-
-getWeeklyStochasticText :: Resources -> StockPriceData -> Box -> String
-getWeeklyStochasticText resources priceData bounds = ""
+getStochasticText resources priceData bounds = stochasticText
+  where
+    (_, mouseY) = mousePosition resources
+    heightPercentage = (realToFrac mouseY - boxBottom bounds) / boxHeight bounds
+    stochastic :: Float
+    stochastic = realToFrac heightPercentage * 100.0
+    stochasticText = printf "%.0f%%" stochastic
 
 renderCrosshair :: Resources -> Box -> Maybe String -> IO ()
 renderCrosshair resources bounds maybeTextX = do
