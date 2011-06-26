@@ -34,7 +34,12 @@ drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
   config <- readConfig configFileName
-  let chartOptions = C.ChartOptions
+  let graphBounds = Just $ Box (-1, 1) (1, -0.1)
+      volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
+      stochasticBounds = Just $ Box (-1, -0.4) (1, -0.7)
+      weeklyStochasticBounds = Just $ Box (-1, -0.7) (1, -1)
+
+      chartOptions = C.ChartOptions
         { C.headerOptions = H.HeaderOptions
           { H.fontSize = 18
           , H.padding = 10 
@@ -43,10 +48,10 @@ drawScreen resources = do
           }
         , C.graphOptions = G.GraphOptions
           { G.boundSet = G.GraphBoundSet
-            { G.graphBounds = Just $ Box (-1, 1) (1, -0.1)
-            , G.volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
-            , G.stochasticsBounds = Just $ Box (-1, -0.4) (1, -0.7)
-            , G.weeklyStochasticsBounds = Just $ Box (-1, -0.7) (1, -1)
+            { G.graphBounds = graphBounds
+            , G.volumeBounds = volumeBounds
+            , G.stochasticsBounds = stochasticBounds
+            , G.weeklyStochasticsBounds = weeklyStochasticBounds
             , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
             , G.dividerLines =
               [ LineSegment (-1, -0.1) (1, -0.1)
@@ -58,6 +63,11 @@ drawScreen resources = do
           }
         , C.overlayOptions = O.OverlayOptions
           { O.boundSet = O.OverlayBoundSet
+            { O.graphBounds = graphBounds
+            , O.volumeBounds = volumeBounds
+            , O.stochasticBounds = stochasticBounds
+            , O.weeklyStochasticBounds = weeklyStochasticBounds
+            }
           }
         , C.showRefreshButton = True
         , C.showOverlay = True

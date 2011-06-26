@@ -9,6 +9,7 @@ module B1.Program.Chart.Overlay
   ) where
 
 import Control.Monad
+import Data.Maybe
 import Graphics.Rendering.OpenGL
 import Text.Printf
 
@@ -21,6 +22,7 @@ import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
+import B1.Program.Chart.GraphUtils
 import B1.Program.Chart.Resources
 
 data OverlayInput = OverlayInput
@@ -44,6 +46,11 @@ data OverlayOptions = OverlayOptions
   }
 
 data OverlayBoundSet = OverlayBoundSet
+  { graphBounds :: Maybe Box
+  , volumeBounds :: Maybe Box
+  , stochasticBounds :: Maybe Box
+  , weeklyStochasticBounds :: Maybe Box
+  }
 
 newOverlayState :: OverlayOptions -> StockData -> OverlayState
 newOverlayState options stockData = OverlayState
@@ -54,64 +61,152 @@ newOverlayState options stockData = OverlayState
 drawOverlay :: Resources -> OverlayInput -> IO OverlayOutput
 drawOverlay resources
     input@OverlayInput
-      { bounds = bounds
-      , alpha = alpha
-      , inputState = inputState@OverlayState
+      { inputState = inputState@OverlayState
         { stockData = stockData
         }
       } = do
-  handleStockData (renderOverlay resources bounds alpha)
+  handleStockData (renderOverlay resources input)
       (\_ -> return ()) () stockData
   return OverlayOutput
     { outputState = inputState
     , isDirty = False
     }
 
-renderOverlay :: Resources -> Box -> GLfloat -> StockPriceData -> IO ()
-renderOverlay resources bounds alpha priceData =
-  when (alpha > 0 && boxContains bounds (mousePosition resources)) $ do
-    renderCrosshair resources bounds alpha
-    renderPriceInfo resources bounds alpha priceData
+renderOverlay :: Resources -> OverlayInput -> StockPriceData -> IO ()
+renderOverlay resources
+    input@OverlayInput
+      { bounds = bounds
+      , alpha = alpha
+      , inputState = OverlayState
+        { options = OverlayOptions
+          { boundSet = boundSet
+          }
+        }
+      }
+    priceData = do
+  when (alpha >= 1 -- Too expensive to draw the overlay while animating
+      && boxContains bounds (mousePosition resources)) $ do
+    let maybeTextX = getHorizontalAxisText resources bounds boundSet priceData
+    renderCrosshair resources bounds maybeTextX
+    renderPriceInfoBox resources bounds priceData
 
-renderCrosshair :: Resources -> Box -> GLfloat -> IO ()
-renderCrosshair resources bounds alpha =
+getHorizontalAxisText :: Resources -> Box -> OverlayBoundSet -> StockPriceData
+    -> Maybe String
+getHorizontalAxisText resources bounds 
+    OverlayBoundSet
+      { graphBounds = graphBounds
+      , volumeBounds = volumeBounds
+      , stochasticBounds = stochasticBounds
+      , weeklyStochasticBounds = weeklyStochasticBounds
+      }
+    priceData =
+  let labelGroups =
+        [ (graphBounds, getPriceText)
+        , (volumeBounds, getVolumeText)
+        , (stochasticBounds, getStochasticText)
+        , (weeklyStochasticBounds, getWeeklyStochasticText)
+        ]
+
+      filterLabelGroup :: Maybe Box
+          -> (Resources -> StockPriceData -> Box -> String)
+          -> Maybe String
+      filterLabelGroup maybeRelativeBounds textFunction
+        | isNothing maybeRelativeBounds = Nothing
+        | isMouseWithinBounds = Just text
+        | otherwise = Nothing
+        where
+          absoluteBounds = convertRelativeBounds bounds $
+              fromJust maybeRelativeBounds
+          isMouseWithinBounds = boxContains absoluteBounds
+              (mousePosition resources)
+          text = textFunction resources priceData absoluteBounds
+
+      maybeTextItems = map (uncurry filterLabelGroup) labelGroups
+
+  in listToMaybe $ catMaybes maybeTextItems
+
+convertRelativeBounds :: Box -> Box -> Box
+convertRelativeBounds bounds relativeBounds =
+  let (centerX, centerY) = boxCenter bounds
+      Box (relativeLeft, relativeTop)
+          (relativeRight, relativeBottom) = relativeBounds
+      newLeft = centerX + boxWidth bounds / 2 * relativeLeft
+      newRight = centerX + boxWidth bounds / 2 * relativeRight
+      newTop = centerY + boxHeight bounds / 2 * relativeTop
+      newBottom = centerY + boxHeight bounds / 2 * relativeBottom
+  in Box (newLeft, newTop) (newRight, newBottom)
+
+getPriceText :: Resources -> StockPriceData -> Box -> String
+getPriceText resources priceData bounds = priceText
+  where
+    (_, mouseY) = mousePosition resources
+    (minPrice, maxPrice) = getPriceRange priceData
+    priceRange = realToFrac $ maxPrice - minPrice
+    heightPercentage = (realToFrac mouseY - boxBottom bounds) / boxHeight bounds
+    price = minPrice + realToFrac (priceRange * heightPercentage)
+    priceText = printf "%+.2f" price
+ 
+getVolumeText :: Resources -> StockPriceData -> Box -> String
+getVolumeText resources priceData bounds = ""
+
+getStochasticText :: Resources -> StockPriceData -> Box -> String
+getStochasticText resources priceData bounds = ""
+
+getWeeklyStochasticText :: Resources -> StockPriceData -> Box -> String
+getWeeklyStochasticText resources priceData bounds = ""
+
+renderCrosshair :: Resources -> Box -> Maybe String -> IO ()
+renderCrosshair resources bounds maybeTextX = do
+  let (mouseX, mouseY) = mousePosition resources
+      (lowAlpha, highAlpha) = (0.25, 1)
+      lineColor4 = red4
+      textColor4 = yellow4
+      textPadding = 5
+      textSpec = TextSpec (font resources) 12
+
+  when (isJust maybeTextX) $
+    preservingMatrix $ do
+      color $ textColor4 1
+      translateToWindowLowerLeft bounds
+      translate $ vector3 (boxLeft bounds + textPadding)
+          (mouseY + textPadding) 0
+      renderText $ textSpec $ fromJust maybeTextX
+
   preservingMatrix $ do
     translateToWindowLowerLeft bounds
-
-    let (mouseX, mouseY) = mousePosition resources
-        lineColor4 = red4
     renderPrimitive Lines $ do
       -- Vertical line
-      color $ lineColor4 0 
+      color $ lineColor4 lowAlpha 
       vertex $ vertex2 mouseX (boxBottom bounds)
 
-      color $ lineColor4 alpha
+      color $ lineColor4 highAlpha
       vertex $ vertex2 mouseX mouseY
       vertex $ vertex2 mouseX mouseY
 
-      color $ lineColor4 0
+      color $ lineColor4 lowAlpha
       vertex $ vertex2 mouseX (boxTop bounds)
 
       -- Horizontal line
-      color $ lineColor4 0 
+      color $ lineColor4 lowAlpha 
       vertex $ vertex2 (boxLeft bounds) mouseY
 
-      color $ lineColor4 alpha
+      color $ lineColor4 highAlpha
       vertex $ vertex2 mouseX mouseY
       vertex $ vertex2 mouseX mouseY
 
-      color $ lineColor4 0
+      color $ lineColor4 lowAlpha
       vertex $ vertex2 (boxRight bounds) mouseY
 
-renderPriceInfo :: Resources -> Box -> GLfloat -> StockPriceData -> IO ()
-renderPriceInfo resources bounds alpha priceData = do
-  let maybePrice = getPriceForMousePosition resources bounds priceData
+renderPriceInfoBox :: Resources -> Box -> StockPriceData -> IO ()
+renderPriceInfoBox resources bounds priceData = do
+  let maybePrice = getPriceDataForMousePosition resources bounds priceData
   case maybePrice of
-    Just price -> renderPriceText resources bounds alpha price
+    Just price -> renderPriceText resources bounds price
     _ -> return ()
 
-getPriceForMousePosition :: Resources -> Box -> StockPriceData -> Maybe Price
-getPriceForMousePosition resources bounds priceData
+getPriceDataForMousePosition :: Resources -> Box -> StockPriceData
+    -> Maybe Price
+getPriceDataForMousePosition resources bounds priceData
   | mouseX < left = Nothing
   | mouseX >= right = Nothing
   | otherwise = Just price
@@ -124,11 +219,12 @@ getPriceForMousePosition resources bounds priceData
     reverseIndex = numElements - 1 - index
     price = prices priceData !! reverseIndex
 
-renderPriceText :: Resources -> Box -> GLfloat -> Price -> IO ()
-renderPriceText resources bounds alpha price = do
+renderPriceText :: Resources -> Box -> Price -> IO ()
+renderPriceText resources bounds price = do
   let windowPadding = 10
       bubblePadding = 7
       lineSpacing = 3
+      alpha = 1
 
       textSpec = TextSpec (font resources) 12
       openLabel = "Open: "
@@ -170,8 +266,10 @@ renderPriceText resources bounds alpha price = do
       largestLabelWidth = maximum $ map boxWidth textLabelBoxes
       getTextIndentation labelBox = largestLabelWidth - boxWidth labelBox
       textIndents = map getTextIndentation textLabelBoxes
+      textWidths = map (\(indent, box) -> indent + boxWidth box)
+          (zip textIndents textBoxes)
 
-      largestTextWidth = maximum $ map boxWidth textBoxes
+      largestTextWidth = maximum textWidths
       bubbleWidth = bubblePadding + largestTextWidth + bubblePadding
 
       totalTextHeight = sum $ map ((+) lineSpacing . boxHeight) textBoxes

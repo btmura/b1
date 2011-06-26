@@ -136,6 +136,8 @@ createSlots = do
           }
         , C.overlayOptions = O.OverlayOptions
           { O.boundSet = O.OverlayBoundSet
+            { O.graphBounds = Nothing
+            }
           }
         , C.showRefreshButton = False
         , C.showOverlay = False
