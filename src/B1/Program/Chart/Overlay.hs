@@ -196,8 +196,15 @@ renderCrosshair resources bounds maybeTextX maybeTextY = do
     preservingMatrix $ do
       let fullTextSpec = textSpec $ fromJust maybeTextY
       textBox <- measureText fullTextSpec
-      let translateX = (-boxWidth bounds / 2) - boxLeft bounds
-              + mouseX - (boxWidth textBox / 2)
+      let (graphLeft, graphRight) = (-boxWidth bounds / 2, boxWidth bounds / 2)
+          windowLeft = graphLeft - boxLeft bounds
+          idealTranslateX = windowLeft + mouseX - (boxWidth textBox / 2)
+          idealTextRight = idealTranslateX + boxWidth textBox
+          translateX 
+            | idealTranslateX < graphLeft + textPadding = graphLeft + textPadding
+            | idealTextRight + textPadding > graphRight = 
+                graphRight - boxWidth textBox - textPadding
+            | otherwise = idealTranslateX
           translateY = boxHeight bounds / 2 - boxHeight textBox - textPadding
       translate $ vector3 translateX translateY 0
       renderText fullTextSpec
