@@ -340,7 +340,8 @@ getPriceDataForMousePosition :: Resources -> Box -> StockPriceData
 getPriceDataForMousePosition resources bounds priceData
   | mouseX < left = Nothing
   | mouseX >= right = Nothing
-  | otherwise = Just price
+  | index < numElements = Just price
+  | otherwise = Nothing
   where
     (mouseX, _) = mousePosition resources
     Box (left, _) (right, _) = bounds
