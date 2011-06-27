@@ -245,14 +245,15 @@ renderHorizontalAxisText resources bounds maybeText direction =
       let textSpec = TextSpec (font resources) 14 text
       textBox <- measureText textSpec
 
-      let bubblePadding = 5
+      let windowPadding = -2
+          bubblePadding = 5
           bubbleWidth = bubblePadding + boxWidth textBox + bubblePadding
           bubbleHeight = bubblePadding + boxHeight textBox + bubblePadding
 
           (mouseX, mouseY) = mousePosition resources
           bubbleX = case direction of
-                      West -> boxLeft bounds + bubbleWidth / 2
-                      _ -> boxRight bounds - bubbleWidth / 2
+                      West -> boxLeft bounds + bubbleWidth / 2 + windowPadding
+                      _ -> boxRight bounds - bubbleWidth / 2 - windowPadding
           bubbleY = mouseY
           (bubbleTranslateX, bubbleTranslateY) =
               globalTranslate bounds (bubbleX, bubbleY)
@@ -263,8 +264,9 @@ renderHorizontalAxisText resources bounds maybeText direction =
             (black4 1) (lineColor4 1)
        
       let textX = case direction of
-                    West -> boxLeft bounds + bubblePadding
+                    West -> boxLeft bounds + bubblePadding + windowPadding
                     _ -> boxRight bounds - bubblePadding - boxWidth textBox
+                        - windowPadding
           textY = mouseY - boxHeight textBox / 2
           (textTranslateX, textTranslateY) =
               globalTranslate bounds (textX, textY)
@@ -290,7 +292,8 @@ renderVerticalAxisText resources bounds maybeText =
       let textSpec = TextSpec (font resources) 14 text
       textBox <- measureText textSpec
 
-      let bubblePadding = 5
+      let windowPadding = -2
+          bubblePadding = 5
           bubbleWidth = bubblePadding + boxWidth textBox + bubblePadding
           bubbleHeight = bubblePadding + boxHeight textBox + bubblePadding
 
@@ -303,7 +306,7 @@ renderVerticalAxisText resources bounds maybeText =
             | otherwise = mouseX
 
           bubbleX = centerX
-          bubbleY = boxTop bounds - bubbleHeight / 2
+          bubbleY = boxTop bounds - bubbleHeight / 2 - windowPadding
           (bubbleTranslateX, bubbleTranslateY) =
               globalTranslate bounds (bubbleX, bubbleY)
 
@@ -314,6 +317,7 @@ renderVerticalAxisText resources bounds maybeText =
 
       let textX = centerX - boxWidth textBox / 2
           textY = boxTop bounds - boxHeight textBox - bubblePadding
+              - windowPadding
           (textTranslateX, textTranslateY) =
               globalTranslate bounds (textX, textY)
        
