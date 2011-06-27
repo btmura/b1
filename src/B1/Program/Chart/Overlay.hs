@@ -42,6 +42,7 @@ data OverlayOutput = OverlayOutput
 data OverlayState = OverlayState
   { options :: OverlayOptions
   , stockData :: StockData
+  , minBubbleWidth :: GLfloat
   }
 
 data OverlayOptions = OverlayOptions
@@ -61,6 +62,7 @@ newOverlayState :: OverlayOptions -> StockData -> OverlayState
 newOverlayState options stockData = OverlayState
   { options = options
   , stockData = stockData
+  , minBubbleWidth = 0
   }
 
 drawOverlay :: Resources -> OverlayInput -> IO OverlayOutput
@@ -70,39 +72,46 @@ drawOverlay resources
         { stockData = stockData
         }
       } = do
-  handleStockData (renderOverlay resources input)
-      (\_ -> return ()) () stockData
+  outputState <- handleStockData (renderOverlay resources input)
+      (\_ -> return inputState) inputState stockData
   return OverlayOutput
-    { outputState = inputState
+    { outputState = outputState
     , isDirty = False
     }
 
-renderOverlay :: Resources -> OverlayInput -> StockPriceData -> IO ()
+renderOverlay :: Resources -> OverlayInput -> StockPriceData -> IO OverlayState
 renderOverlay resources
     input@OverlayInput
       { bounds = bounds
       , alpha = alpha
-      , inputState = OverlayState
+      , inputState = state@OverlayState
         { options = OverlayOptions
           { boundSet = boundSet
           }
+        , minBubbleWidth = minBubbleWidth
         }
       }
-    priceData = do
-  when (alpha >= 1 -- Too expensive to draw the overlay while animating
+    priceData =
+  if alpha >= 1 -- Too expensive to draw the overlay while animating
       && not (isMouseDrag resources)
-      && boxContains bounds (mousePosition resources)) $ do
-    let maybeTextX = getHorizontalAxisText resources bounds boundSet priceData
-        maybeTextY = getVerticalAxisText resources bounds priceData
-        maybePrice = getPriceDataForMousePosition resources bounds priceData
-    case maybePrice of
-      Just price -> do
-        direction <- renderPriceInfoBox resources bounds boundSet price
-        renderCrosshair resources bounds maybeTextY
-        renderHorizontalAxisText resources bounds maybeTextX direction
-        renderVerticalAxisText resources bounds maybeTextY
-      _ ->
-        return ()
+      && boxContains bounds (mousePosition resources)
+    then do
+      let maybeTextX = getHorizontalAxisText resources bounds boundSet priceData
+          maybeTextY = getVerticalAxisText resources bounds priceData
+          maybePrice = getPriceDataForMousePosition resources bounds priceData
+      case maybePrice of
+        Just price -> do
+          (direction, bubbleWidth) <- renderPriceInfoBox resources bounds
+              boundSet minBubbleWidth  price
+          renderCrosshair resources bounds maybeTextY
+          renderHorizontalAxisText resources bounds maybeTextX direction
+          renderVerticalAxisText resources bounds maybeTextY
+          return state
+            { minBubbleWidth = bubbleWidth
+            }
+        _ -> return state
+    else
+      return state
 
 getHorizontalAxisText :: Resources -> Box -> OverlayBoundSet -> StockPriceData
     -> Maybe String
@@ -286,9 +295,9 @@ getPriceDataForMousePosition resources bounds priceData
     reverseIndex = numElements - 1 - index
     price = prices priceData !! reverseIndex
 
-renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet -> Price
-    -> IO Direction
-renderPriceInfoBox resources bounds boundSet price = do
+renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet -> GLfloat -> Price
+    -> IO (Direction, GLfloat)
+renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
   let windowPadding = 20
       bubblePadding = 7
       lineSpacing = 3
@@ -338,7 +347,8 @@ renderPriceInfoBox resources bounds boundSet price = do
           (zip textIndents textBoxes)
 
       largestTextWidth = maximum textWidths
-      bubbleWidth = bubblePadding + largestTextWidth + bubblePadding
+      tightBubbleWidth = bubblePadding + largestTextWidth + bubblePadding
+      bubbleWidth = max minBubbleWidth tightBubbleWidth
 
       totalTextHeight = sum $ map ((+) lineSpacing . boxHeight) textBoxes
       bubbleHeight = bubblePadding + totalTextHeight + bubblePadding
@@ -385,7 +395,7 @@ renderPriceInfoBox resources bounds boundSet price = do
         translate $ vector3 (-textIndent) (-lineSpacing) 0
         ) (zip3 textIndents textBoxes textItems)
 
-    return direction
+    return (direction, bubbleWidth)
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
