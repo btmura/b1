@@ -42,7 +42,9 @@ data OverlayOutput = OverlayOutput
 data OverlayState = OverlayState
   { options :: OverlayOptions
   , stockData :: StockData
-  , minBubbleWidth :: GLfloat
+  , infoHorizontalPosition :: Direction
+  , infoVerticalPosition :: Direction
+  , minInfoBubbleWidth :: GLfloat
   }
 
 data OverlayOptions = OverlayOptions
@@ -62,7 +64,9 @@ newOverlayState :: OverlayOptions -> StockData -> OverlayState
 newOverlayState options stockData = OverlayState
   { options = options
   , stockData = stockData
-  , minBubbleWidth = 0
+  , infoHorizontalPosition = West
+  , infoVerticalPosition = East
+  , minInfoBubbleWidth = 0
   }
 
 drawOverlay :: Resources -> OverlayInput -> IO OverlayOutput
@@ -88,7 +92,9 @@ renderOverlay resources
         { options = OverlayOptions
           { boundSet = boundSet
           }
-        , minBubbleWidth = minBubbleWidth
+        , infoHorizontalPosition = horizontalPosition
+        , infoVerticalPosition = verticalPosition
+        , minInfoBubbleWidth = minInfoBubbleWidth
         }
       }
     priceData =
@@ -101,13 +107,18 @@ renderOverlay resources
           maybePrice = getPriceDataForMousePosition resources bounds priceData
       case maybePrice of
         Just price -> do
-          (direction, bubbleWidth) <- renderPriceInfoBox resources bounds
-              boundSet minBubbleWidth  price
+          (horizontalDirection, verticalDirection, bubbleWidth)
+              <- renderPriceInfoBox resources bounds boundSet
+                  horizontalPosition verticalPosition
+                  minInfoBubbleWidth  price
           renderCrosshair resources bounds maybeTextY
-          renderHorizontalAxisText resources bounds maybeTextX direction
+          renderHorizontalAxisText resources bounds maybeTextX
+              horizontalDirection
           renderVerticalAxisText resources bounds maybeTextY
           return state
-            { minBubbleWidth = bubbleWidth
+            { infoHorizontalPosition = horizontalDirection
+            , infoVerticalPosition = verticalDirection
+            , minInfoBubbleWidth = bubbleWidth
             }
         _ -> return state
     else
@@ -330,9 +341,12 @@ getPriceDataForMousePosition resources bounds priceData
     reverseIndex = numElements - 1 - index
     price = prices priceData !! reverseIndex
 
-renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet -> GLfloat -> Price
-    -> IO (Direction, GLfloat)
-renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
+renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet
+    -> Direction -> Direction -> GLfloat -> Price
+    -> IO (Direction, Direction, GLfloat)
+renderPriceInfoBox resources bounds boundSet
+    horizontalPosition verticalPosition
+    minInfoBubbleWidth price = do
   let windowPadding = 10
       bubblePadding = 7
       lineSpacing = 3
@@ -383,7 +397,7 @@ renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
 
       largestTextWidth = maximum textWidths
       tightBubbleWidth = bubblePadding + largestTextWidth + bubblePadding
-      bubbleWidth = max minBubbleWidth tightBubbleWidth
+      bubbleWidth = max minInfoBubbleWidth tightBubbleWidth
 
       totalTextHeight = sum $ map ((+) lineSpacing . boxHeight) textBoxes
       bubbleHeight = bubblePadding + totalTextHeight + bubblePadding
@@ -398,21 +412,26 @@ renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
       leftBubbleRight = leftBubbleLeft + bubbleWidth
       rightBubbleLeft = boxRight subBounds - windowPadding - bubbleWidth
       rightBubbleRight = rightBubbleLeft + bubbleWidth
-      (bubbleX, direction) = if mouseX < leftBubbleRight
-                               then (rightBubbleLeft, East)
-                               else (leftBubbleLeft, West)
+      (bubbleX, horizontalDirection)
+        | mouseX < leftBubbleRight = (rightBubbleLeft, East)
+        | mouseX > rightBubbleLeft = (leftBubbleLeft, West)
+        | otherwise = case horizontalPosition of
+                        West -> (leftBubbleLeft, West)
+                        _ -> (rightBubbleLeft, East)
 
       topBubbleTop = boxTop subBounds - windowPadding
       topBubbleBottom = topBubbleTop - bubbleHeight
 
       bottomBubbleBottom = boxBottom subBounds + windowPadding
       bottomBubbleTop = bottomBubbleBottom + bubbleHeight
-      bubbleY = if mouseY > topBubbleBottom - windowPadding
-                  then bottomBubbleTop
-                  else topBubbleTop
+      (bubbleY, verticalDirection)
+        | mouseY > topBubbleBottom = (bottomBubbleTop, South)
+        | mouseY < bottomBubbleTop = (topBubbleTop, North)
+        | otherwise = case verticalPosition of
+                        North -> (topBubbleTop, North)
+                        _ -> (bottomBubbleTop, South)
 
-      translateX = -boxWidth bounds / 2 - boxLeft bounds + bubbleX
-      translateY = -boxHeight bounds / 2 - boxBottom bounds + bubbleY
+      (translateX, translateY) = globalTranslate bounds (bubbleX, bubbleY)
 
   preservingMatrix $ do
     translate $ vector3 translateX translateY 0
@@ -430,7 +449,7 @@ renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
         translate $ vector3 (-textIndent) (-lineSpacing) 0
         ) (zip3 textIndents textBoxes textItems)
 
-    return (direction, bubbleWidth)
+    return (horizontalDirection, verticalDirection, bubbleWidth)
 
 translateToWindowLowerLeft :: Box -> IO ()
 translateToWindowLowerLeft bounds =
