@@ -227,50 +227,85 @@ renderHorizontalAxisText :: Resources -> Box -> Maybe String -> Direction
     -> IO ()
 renderHorizontalAxisText resources bounds maybeText direction =
   case maybeText of
-    Just text -> 
+    Just text -> do
+      let textSpec = TextSpec (font resources) 14 text
+      textBox <- measureText textSpec
+
+      let bubblePadding = 5
+          bubbleWidth = bubblePadding + boxWidth textBox + bubblePadding
+          bubbleHeight = bubblePadding + boxHeight textBox + bubblePadding
+
+          (mouseX, mouseY) = mousePosition resources
+          bubbleX = case direction of
+                      West -> boxLeft bounds + bubbleWidth / 2
+                      _ -> boxRight bounds - bubbleWidth / 2
+          bubbleY = mouseY
+          (bubbleTranslateX, bubbleTranslateY) =
+              globalTranslate bounds (bubbleX, bubbleY)
+
       preservingMatrix $ do
+        translate $ vector3 bubbleTranslateX bubbleTranslateY 0
+        opaqueBubble bubbleWidth bubbleHeight bubblePadding (black4 1) (red4 1)
+       
+      let textX = case direction of
+                    West -> boxLeft bounds + bubblePadding
+                    _ -> boxRight bounds - bubblePadding - boxWidth textBox
+          textY = mouseY - boxHeight textBox / 2
+          (textTranslateX, textTranslateY) =
+              globalTranslate bounds (textX, textY)
+
+      preservingMatrix $ do
+        translate $ vector3 textTranslateX textTranslateY 0
         color $ yellow4 1
-        let textSpec = TextSpec (font resources) 12 text
-        textBox <- measureText textSpec
-        let (mouseX, mouseY) = mousePosition resources
-            (graphTop, graphBottom) = (boxHeight bounds / 2,
-                -boxHeight bounds / 2)
-            translateX = case direction of
-                           West -> -boxWidth bounds / 2 + textPadding
-                           _ -> boxWidth bounds / 2 - boxWidth textBox
-                              - textPadding
-            idealTranslateY = (-boxHeight bounds / 2) - boxBottom bounds
-                + mouseY + textPadding
-            translateY
-              | idealTranslateY + boxHeight textBox + textPadding > graphTop =
-                  graphTop - boxHeight textBox - textPadding
-              | otherwise = idealTranslateY
-        translate $ vector3 translateX translateY 0
         renderText textSpec
+
     _ -> return ()
+
+-- TODO: Put into a separate module
+globalTranslate :: Box -> Point -> Point
+globalTranslate bounds (globalX, globalY) = 
+  let translateX = -boxWidth bounds / 2 - boxLeft bounds + globalX
+      translateY = -boxHeight bounds / 2 - boxBottom bounds + globalY
+  in (translateX, translateY)
 
 renderVerticalAxisText :: Resources -> Box -> Maybe String -> IO ()
 renderVerticalAxisText resources bounds maybeText =
   case maybeText of
-    Just text ->
-      preservingMatrix $ do
-      let textSpec = TextSpec (font resources) 12 text
+    Just text -> do
+      let textSpec = TextSpec (font resources) 14 text
       textBox <- measureText textSpec
-      let (mouseX, mouseY) = mousePosition resources
-          (graphLeft, graphRight) = (-boxWidth bounds / 2, boxWidth bounds / 2)
-          windowLeft = graphLeft - boxLeft bounds
-          idealTranslateX = windowLeft + mouseX - (boxWidth textBox / 2)
-          idealTextRight = idealTranslateX + boxWidth textBox
-          textPadding = 5
-          translateX 
-            | idealTranslateX < graphLeft + textPadding = graphLeft
-                + textPadding
-            | idealTextRight + textPadding > graphRight = 
-                graphRight - boxWidth textBox - textPadding
-            | otherwise = idealTranslateX
-          translateY = boxHeight bounds / 2 - boxHeight textBox - textPadding
-      translate $ vector3 translateX translateY 0
-      renderText textSpec
+
+      let bubblePadding = 5
+          bubbleWidth = bubblePadding + boxWidth textBox + bubblePadding
+          bubbleHeight = bubblePadding + boxHeight textBox + bubblePadding
+
+          (mouseX, mouseY) = mousePosition resources
+          centerX 
+            | mouseX - bubbleWidth / 2 < boxLeft bounds =
+                  boxLeft bounds + bubbleWidth / 2
+            | mouseX + bubbleWidth / 2 > boxRight bounds =
+                  boxRight bounds - bubbleWidth / 2
+            | otherwise = mouseX
+
+          bubbleX = centerX
+          bubbleY = boxTop bounds - bubbleHeight / 2
+          (bubbleTranslateX, bubbleTranslateY) =
+              globalTranslate bounds (bubbleX, bubbleY)
+
+      preservingMatrix $ do
+        translate $ vector3 bubbleTranslateX bubbleTranslateY 0
+        opaqueBubble bubbleWidth bubbleHeight bubblePadding (black4 1) (red4 1)
+
+      let textX = centerX - boxWidth textBox / 2
+          textY = boxTop bounds - boxHeight textBox - bubblePadding
+          (textTranslateX, textTranslateY) =
+              globalTranslate bounds (textX, textY)
+       
+      preservingMatrix $ do
+        translate $ vector3 textTranslateX textTranslateY 0
+        color $ yellow4 1
+        renderText textSpec
+
     _ -> return ()
 
 getVerticalAxisText :: Resources -> Box -> StockPriceData -> Maybe String
@@ -298,7 +333,7 @@ getPriceDataForMousePosition resources bounds priceData
 renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet -> GLfloat -> Price
     -> IO (Direction, GLfloat)
 renderPriceInfoBox resources bounds boundSet minBubbleWidth price = do
-  let windowPadding = 20
+  let windowPadding = 10
       bubblePadding = 7
       lineSpacing = 3
       alpha = 1
