@@ -362,7 +362,7 @@ renderPriceInfoBox resources bounds boundSet price = do
 
       bottomBubbleBottom = boxBottom subBounds + windowPadding
       bottomBubbleTop = bottomBubbleBottom + bubbleHeight
-      bubbleY = if mouseY > topBubbleBottom
+      bubbleY = if mouseY > topBubbleBottom - windowPadding
                   then bottomBubbleTop
                   else topBubbleTop
 
