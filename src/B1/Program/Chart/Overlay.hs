@@ -58,7 +58,11 @@ data OverlayBoundSet = OverlayBoundSet
   , weeklyStochasticBounds :: Maybe Box
   }
 
+textPadding :: GLfloat
 textPadding = 5
+
+lineColor4 :: GLfloat -> Color4 GLfloat
+lineColor4 = gray4
 
 newOverlayState :: OverlayOptions -> StockData -> OverlayState
 newOverlayState options stockData = OverlayState
@@ -208,7 +212,6 @@ renderCrosshair :: Resources -> Box -> Maybe String -> IO ()
 renderCrosshair resources bounds maybeTextY = do
   let (mouseX, mouseY) = mousePosition resources
       (lowAlpha, highAlpha) = (0.1, 1)
-      lineColor4 = red4
   preservingMatrix $ do
     translateToWindowLowerLeft bounds
     renderPrimitive Lines $ do
@@ -256,7 +259,8 @@ renderHorizontalAxisText resources bounds maybeText direction =
 
       preservingMatrix $ do
         translate $ vector3 bubbleTranslateX bubbleTranslateY 0
-        opaqueBubble bubbleWidth bubbleHeight bubblePadding (black4 1) (red4 1)
+        opaqueBubble bubbleWidth bubbleHeight bubblePadding
+            (black4 1) (lineColor4 1)
        
       let textX = case direction of
                     West -> boxLeft bounds + bubblePadding
@@ -305,7 +309,8 @@ renderVerticalAxisText resources bounds maybeText =
 
       preservingMatrix $ do
         translate $ vector3 bubbleTranslateX bubbleTranslateY 0
-        opaqueBubble bubbleWidth bubbleHeight bubblePadding (black4 1) (red4 1)
+        opaqueBubble bubbleWidth bubbleHeight bubblePadding
+            (black4 1) (lineColor4 1)
 
       let textX = centerX - boxWidth textBox / 2
           textY = boxTop bounds - boxHeight textBox - bubblePadding
@@ -439,7 +444,7 @@ renderPriceInfoBox resources bounds boundSet
     preservingMatrix $ do
       translate $ vector3 (bubbleWidth / 2) (-bubbleHeight / 2) 0
       opaqueBubble bubbleWidth bubbleHeight bubblePadding
-          (black4 1) (red4 1)
+          (black4 1) (lineColor4 1)
 
     color $ yellow4 alpha
     translate $ vector3 bubblePadding (-bubblePadding) 0
