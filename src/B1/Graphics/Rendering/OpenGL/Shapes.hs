@@ -1,20 +1,24 @@
 module B1.Graphics.Rendering.OpenGL.Shapes
-  ( drawHorizontalRule
-  , drawVerticalRule
-  , drawRectangle
-  , fillRectangle
+  ( opaqueBubble
   ) where
 
 import Graphics.Rendering.OpenGL
 
-import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Utils
 
-drawRectangle :: GLfloat -> GLfloat -> GLfloat -> IO ()
-drawRectangle = renderRectangle LineLoop
+opaqueBubble :: GLfloat -> GLfloat -> GLfloat
+    -> Color4 GLfloat -> Color4 GLfloat -> IO ()
+opaqueBubble width height padding fillColor borderColor = do
+  blend $= Disabled
+  color fillColor >> fillRectangle width height padding
+  color borderColor >> drawRectangle width height padding
+  blend $= Enabled
 
 fillRectangle :: GLfloat -> GLfloat -> GLfloat -> IO ()
 fillRectangle = renderRectangle Polygon
+
+drawRectangle :: GLfloat -> GLfloat -> GLfloat -> IO ()
+drawRectangle = renderRectangle LineLoop
 
 renderRectangle :: PrimitiveMode -> GLfloat -> GLfloat -> GLfloat -> IO ()
 renderRectangle primitiveMode width height padding =
@@ -32,18 +36,4 @@ renderRectangle primitiveMode width height padding =
     right = halfWidth
     top = halfHeight
     bottom = -halfHeight
-
--- | Draws a horizontal rule of width around (0, 0).
-drawHorizontalRule :: GLfloat -> IO ()
-drawHorizontalRule width =
-  renderPrimitive Lines $ do
-    vertex $ vertex2 (-width / 2) 0
-    vertex $ vertex2 (width / 2) 0
-
--- | Draws a vertical rule of height around (0, 0).
-drawVerticalRule :: GLfloat -> IO ()
-drawVerticalRule height =
-  renderPrimitive Lines $ do
-    vertex $ vertex2 0 (-height / 2)
-    vertex $ vertex2 0 (height / 2)
 

@@ -92,7 +92,7 @@ renderOverlay resources
     let maybeTextX = getHorizontalAxisText resources bounds boundSet priceData
         maybeTextY = getVerticalAxisText resources bounds priceData
     renderCrosshair resources bounds maybeTextX maybeTextY
-    renderPriceInfoBox resources bounds priceData
+    renderPriceInfoBox resources bounds boundSet priceData
 
 getHorizontalAxisText :: Resources -> Box -> OverlayBoundSet -> StockPriceData
     -> Maybe String
@@ -174,6 +174,8 @@ getStochasticText resources priceData bounds = stochasticText
     stochastic = realToFrac heightPercentage * 100.0
     stochasticText = printf "%.0f%%" stochastic
 
+
+
 renderCrosshair :: Resources -> Box -> Maybe String -> Maybe String -> IO ()
 renderCrosshair resources bounds maybeTextX maybeTextY = do
   let (mouseX, mouseY) = mousePosition resources
@@ -241,11 +243,12 @@ renderCrosshair resources bounds maybeTextX maybeTextY = do
       color $ lineColor4 lowAlpha
       vertex $ vertex2 (boxRight bounds) mouseY
 
-renderPriceInfoBox :: Resources -> Box -> StockPriceData -> IO ()
-renderPriceInfoBox resources bounds priceData = do
+renderPriceInfoBox :: Resources -> Box -> OverlayBoundSet -> StockPriceData
+    -> IO ()
+renderPriceInfoBox resources bounds boundSet priceData = do
   let maybePrice = getPriceDataForMousePosition resources bounds priceData
   case maybePrice of
-    Just price -> renderPriceText resources bounds price
+    Just price -> renderPriceText resources bounds boundSet price
     _ -> return ()
 
 getVerticalAxisText :: Resources -> Box -> StockPriceData -> Maybe String
@@ -270,8 +273,8 @@ getPriceDataForMousePosition resources bounds priceData
     reverseIndex = numElements - 1 - index
     price = prices priceData !! reverseIndex
 
-renderPriceText :: Resources -> Box -> Price -> IO ()
-renderPriceText resources bounds price = do
+renderPriceText :: Resources -> Box -> OverlayBoundSet -> Price -> IO ()
+renderPriceText resources bounds boundSet price = do
   let windowPadding = 10
       bubblePadding = 7
       lineSpacing = 3
@@ -326,14 +329,39 @@ renderPriceText resources bounds price = do
       totalTextHeight = sum $ map ((+) lineSpacing . boxHeight) textBoxes
       bubbleHeight = bubblePadding + totalTextHeight + bubblePadding
 
+      subBounds = case graphBounds boundSet of
+                    Just sub -> convertRelativeBounds bounds sub
+                    _ -> bounds
+      (centerX, centerY) = boxCenter subBounds
+
+      (mouseX, mouseY) = mousePosition resources
+      leftBubbleLeft = boxLeft subBounds + windowPadding
+      leftBubbleRight = leftBubbleLeft + bubbleWidth
+      rightBubbleLeft = boxRight subBounds - windowPadding - bubbleWidth
+      rightBubbleRight = rightBubbleLeft + bubbleWidth
+      bubbleX = if mouseX < leftBubbleRight
+                  then rightBubbleLeft
+                  else leftBubbleLeft
+
+      topBubbleTop = boxTop subBounds - windowPadding
+      topBubbleBottom = topBubbleTop - bubbleHeight
+
+      bottomBubbleBottom = boxBottom subBounds + windowPadding
+      bottomBubbleTop = bottomBubbleBottom + bubbleHeight
+      bubbleY = if mouseY > topBubbleBottom
+                  then bottomBubbleTop
+                  else topBubbleTop
+
+      translateX = -boxWidth bounds / 2 - boxLeft bounds + bubbleX
+      translateY = -boxHeight bounds / 2 - boxBottom bounds + bubbleY
+
   preservingMatrix $ do
-    translate $ vector3 (-boxWidth bounds / 2 + windowPadding)
-        (boxHeight bounds / 2 - windowPadding) 0
+    translate $ vector3 translateX translateY 0
 
     preservingMatrix $ do
-      color $ red4 alpha
       translate $ vector3 (bubbleWidth / 2) (-bubbleHeight / 2) 0
-      drawRectangle bubbleWidth bubbleHeight bubblePadding
+      opaqueBubble bubbleWidth bubbleHeight bubblePadding
+          (black4 1) (red4 1)
 
     color $ yellow4 alpha
     translate $ vector3 bubblePadding (-bubblePadding) 0

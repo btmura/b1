@@ -137,6 +137,9 @@ createSlots = do
         , C.overlayOptions = O.OverlayOptions
           { O.boundSet = O.OverlayBoundSet
             { O.graphBounds = Nothing
+            , O.volumeBounds = Nothing
+            , O.stochasticBounds = Nothing
+            , O.weeklyStochasticBounds = Nothing
             }
           }
         , C.showRefreshButton = False

@@ -62,13 +62,8 @@ renderSymbolEntry resources input = do
     let textBubblePadding = 15
         textBubbleWidth = boxWidth textBounds + textBubblePadding * 2
         textBubbleHeight = boxHeight textBounds + textBubblePadding * 2
-    -- Disable blending or else the background won't work.
-    blend $= Disabled
-    color $ black4 1
-    fillRectangle textBubbleWidth textBubbleHeight textBubblePadding
-    color $ blue4 1
-    drawRectangle textBubbleWidth textBubbleHeight textBubblePadding
-    blend $= Enabled
+    opaqueBubble textBubbleWidth textBubbleHeight textBubblePadding
+        (black4 1) (blue4 1)
 
     let textWidth = boxWidth textBounds
         textHeight = boxHeight textBounds
