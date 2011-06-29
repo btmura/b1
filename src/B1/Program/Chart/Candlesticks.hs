@@ -12,8 +12,47 @@ import B1.Program.Chart.GraphUtils
 import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
 
+floatsPerVertex = 2 + 3 -- x, y, and 3 for color
+
 getVboSpecs :: StockPriceData -> Box -> [VboSpec]
 getVboSpecs priceData bounds =
+  getBackgroundVboSpecs bounds
+      ++ getCandlestickVboSpecs priceData bounds
+
+getBackgroundVboSpecs :: Box -> [VboSpec]
+getBackgroundVboSpecs bounds =
+  [VboSpec Quads size elements]
+  where
+    numQuads = 1
+    size = numQuads * (4 * floatsPerVertex)
+    elements = getBackgroundElements bounds
+
+getBackgroundElements :: Box -> [GLfloat]
+getBackgroundElements bounds = elements
+  where
+    color = [0, 0, 0.15]
+    Box (left, top) (right, bottom) = bounds
+    elements =
+      -- Top Quad
+      [ left
+      , bottom
+      , 0, 0, 0
+
+      , left
+      , top
+      ] ++ color ++
+
+      [ right
+      , top
+      ] ++ color ++
+
+      [ right
+      , bottom
+      , 0, 0, 0
+      ] 
+
+getCandlestickVboSpecs :: StockPriceData -> Box -> [VboSpec]
+getCandlestickVboSpecs priceData bounds =
   [VboSpec Lines size elements]
   where
     size = getCandlesticksSize priceData
