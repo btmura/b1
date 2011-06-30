@@ -105,14 +105,14 @@ createStockPriceData prices =
     maxDailyElements = minimum
         [ length prices
         , length stochastics
-        , length movingAverage25
-        , length movingAverage50
-        , length movingAverage200
         ]
+
+    weeksInYear = 52
 
     maxWeeklyElements = minimum
         [ length weeklyPrices
         , length weeklyStochastics
+        , weeksInYear
         ]
    
     earliestStartTime = (startTime

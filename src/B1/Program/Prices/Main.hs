@@ -47,32 +47,30 @@ getEndDate currentDate = currentDate
 
 printInfo :: [Price] -> IO ()
 printInfo stockPrices = do
-{--
-  printPrices stockPrices
-  printStochastics $ getStochastics 10 3 stockPrices
-  printPrices weeklyStockPrices
-  printStochastics $ getStochastics 10 3 weeklyStockPrices
-  putStrLn ""
-  putStrLn ""
---}
+  printPrices "Prices " $ prices stockData
+  printPrices "Trimmed Prices " $
+      take (numDailyElements stockData) $ prices stockData
 
-  printPrices $ prices stockData
-  printStochastics $ stochastics stockData
-  printPrices $ weeklyPrices stockData
-  printStochastics $ weeklyStochastics stockData
+  printPrices "Weekly Prices " $ weeklyPrices stockData
+  printPrices "Trimmed Weekly Prices " $
+      take (numWeeklyElements stockData) $ weeklyPrices stockData
+
+  printStochastics "Stochastics " $ stochastics stockData
+  printStochastics "Weekly Stochastics " $ weeklyStochastics stockData
+
   where
     weeklyStockPrices = getWeeklyPrices stockPrices
     stockData = createStockPriceData stockPrices
 
-printPrices :: [Price] -> IO ()
-printPrices prices = do
-  putStrLn $ "Prices (" ++ show (length prices) ++ "):" 
+printPrices :: String -> [Price] -> IO ()
+printPrices label prices = do
+  putStrLn $ label ++ " (" ++ show (length prices) ++ "):" 
   mapM_ (\price -> putStrLn $ "  " ++ show price) prices
   putStrLn ""
 
-printStochastics :: [Stochastic] -> IO ()
-printStochastics stochastics = do
-  putStrLn $ "Stochastics (" ++ show (length stochastics) ++ "):" 
+printStochastics :: String -> [Stochastic] -> IO ()
+printStochastics label stochastics = do
+  putStrLn $ label ++ " (" ++ show (length stochastics) ++ "):" 
   mapM_ (\stochastic -> putStrLn $ "  " ++ show stochastic) stochastics
   putStrLn ""
 
