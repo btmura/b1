@@ -115,11 +115,13 @@ createLine priceData bounds lineSpec =
     indices = [0 .. length values - 1]
 
 createLineSegment :: Box -> Color3 GLfloat -> [Float] -> Int -> [GLfloat]
-createLineSegment bounds color values index = [x, y] ++ colorList
+createLineSegment bounds color values index
+  | null values = []
+  | otherwise = [x, y] ++ colorList
   where
     colorList = color3ToList color
     totalWidth = boxWidth bounds
-    segmentWidth = realToFrac totalWidth / realToFrac (length values)
+    segmentWidth = realToFrac totalWidth / realToFrac (length values - 1)
     x = boxRight bounds - realToFrac index * segmentWidth
 
     value = values !! index

@@ -56,7 +56,12 @@ printInfo stockPrices = do
       take (numWeeklyElements stockData) $ weeklyPrices stockData
 
   printStochastics "Stochastics " $ stochastics stockData
+  printStochastics "Trimmed Stochastics " $
+      take (numDailyElements stockData) $ stochastics stockData
+
   printStochastics "Weekly Stochastics " $ weeklyStochastics stockData
+  printStochastics "Trimmed Weekly Stochastics " $
+      take (numWeeklyElements stockData) $ weeklyStochastics stockData
 
   where
     weeklyStockPrices = getWeeklyPrices stockPrices
