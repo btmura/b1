@@ -7,6 +7,7 @@ import Data.IORef
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
+import Paths_b1
 import System.Environment
 
 import B1.Data.Action
@@ -51,7 +52,8 @@ initClientState = do
 
 loadTextures :: Resources -> IO ()
 loadTextures resources = do
-  mapM_ (uncurry (bindTexture resources)) (zip [0 ..] fileNames)
+  filePaths <- mapM getDataFileName fileNames
+  mapM_ (uncurry (bindTexture resources)) (zip [0 ..] filePaths)
   texture Texture2D $= Disabled
   where
     fileNames =
@@ -72,10 +74,11 @@ bindTexture resources textureNumber fileName = do
 -- The other fields will be filled in later.
 createInitialResources :: Options -> IO (IORef Resources)
 createInitialResources options = do
-  font <- createTextureFont "res/fonts/orbitron/orbitron-medium.ttf"
-  program <- loadProgram
-      ["res/shaders/vertex-shader.txt"]
-      ["res/shaders/fragment-shader.txt"]
+  fontPath <- getDataFileName "res/fonts/orbitron/orbitron-medium.ttf"
+  font <- createTextureFont fontPath
+  vertexShaderPath <- getDataFileName "res/shaders/vertex-shader.txt"
+  fragmentShaderPath <- getDataFileName "res/shaders/fragment-shader.txt"
+  program <- loadProgram [vertexShaderPath] [fragmentShaderPath]
   newIORef $ newResources (verbose options) font program
 
 loadProgram :: [FilePath] -> [FilePath] -> IO Program

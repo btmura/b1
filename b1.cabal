@@ -41,6 +41,14 @@ Build-type:          Custom
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
+Extra-source-files:
+  res/fonts/orbitron/*.txt
+
+Data-files:
+  res/fonts/orbitron/*.ttf,
+  res/shaders/*.txt,
+  res/tga/*.tga
+
 Executable b1-chart
   Main-is: B1/Program/Chart/Main.hs
   Ghc-options: -main-is B1.Program.Chart.Main -threaded
