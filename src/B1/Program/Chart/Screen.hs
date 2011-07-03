@@ -7,6 +7,8 @@ import Control.Concurrent.MVar
 import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
+import System.Directory
+import System.FilePath
 import System.IO
 
 import B1.Data.Action
@@ -33,7 +35,9 @@ configFileName = ".b1config"
 drawScreen :: Resources -> IO (Action Resources Dirty, Dirty)
 drawScreen resources = do 
   configLock <- newEmptyMVar
-  config <- readConfig configFileName
+  homeDirectory <- getHomeDirectory
+  let configPath = homeDirectory ++ [pathSeparator] ++ configFileName
+  config <- readConfig configPath
   let graphBounds = Just $ Box (-1, 1) (1, -0.1)
       volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
       stochasticBounds = Just $ Box (-1, -0.4) (1, -0.7)
@@ -74,6 +78,7 @@ drawScreen resources = do
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop
+      configPath
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
@@ -111,9 +116,10 @@ sideBarOpenWidth = 150
 openSideBarAnimation = animateOnce $ linearRange 0 sideBarOpenWidth 10
 closeSideBarAnimation = animateOnce $ linearRange sideBarOpenWidth 0 10
 
-drawScreenLoop :: S.SideBarInput -> F.FrameInput -> E.SymbolEntryInput
+drawScreenLoop :: String -> S.SideBarInput -> F.FrameInput -> E.SymbolEntryInput
     -> ScreenState -> Resources -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop
+    configPath
     sideBarInput@S.SideBarInput
       { S.inputState = S.SideBarState { S.slots = slots }
       }
@@ -153,7 +159,7 @@ drawScreenLoop
     putStrLn $ "Saving configuration..."
     forkIO $ do
       putMVar configLock nextConfig
-      writeConfig configFileName nextConfig
+      writeConfig configPath nextConfig
       takeMVar configLock
       return ()
     return ()
@@ -187,7 +193,7 @@ drawScreenLoop
           || S.isDirty sideBarOutput
           || E.isDirty symbolEntryOutput
           || F.isDirty frameOutput
-  return (Action (drawScreenLoop nextSideBarInput nextFrameInput
+  return (Action (drawScreenLoop configPath nextSideBarInput nextFrameInput
       nextSymbolEntryInput nextScreenState), nextDirty)
 
   where

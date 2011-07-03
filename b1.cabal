@@ -55,6 +55,7 @@ Executable b1-chart
   Build-depends:
     array >= 0.3.0.0,
     base >= 4,
+    filepath >= 1.1.0.3,
     FTGL == 1.333,
     GLFW >= 0.4.2,
     HTTP >= 4000.0.8,
