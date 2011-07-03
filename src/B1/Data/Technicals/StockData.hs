@@ -61,11 +61,7 @@ refreshStockData (StockData symbol _) = newStockData symbol
 getStartDate :: IO LocalTime
 getStartDate = do
   endDate <- getEndDate
-  let startDay = (addDays (-13)
-          . addDays (-200)
-          . addGregorianYearsClip (-1)
-          . localDay
-          ) endDate
+  let startDay = (addGregorianYearsClip (-2) . localDay) endDate
   return endDate
     { localDay = startDay
     , localTimeOfDay = midnight
@@ -114,7 +110,7 @@ createStockPriceData prices =
         , length weeklyStochastics
         , weeksInYear
         ]
-   
+
     earliestStartTime = (startTime
         . last
         . take maxWeeklyElements

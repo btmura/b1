@@ -40,42 +40,40 @@ getCurrentDate = do
 
 getStartDate :: LocalTime -> LocalTime
 getStartDate currentDate@LocalTime { localDay = day } =
-  currentDate { localDay = addGregorianYearsClip (-3) day }
+  currentDate { localDay = (addGregorianYearsClip (-1)) day }
 
 getEndDate :: LocalTime -> LocalTime
 getEndDate currentDate = currentDate
 
 printInfo :: [Price] -> IO ()
 printInfo stockPrices = do
-  printPrices "Prices " $ prices stockData
-  printPrices "Trimmed Prices " $
+  printData "Prices " $ prices stockData
+  printData "Trimmed Prices " $
       take (numDailyElements stockData) $ prices stockData
 
-  printPrices "Weekly Prices " $ weeklyPrices stockData
-  printPrices "Trimmed Weekly Prices " $
+  printData "Weekly Prices " $ weeklyPrices stockData
+  printData "Trimmed Weekly Prices " $
       take (numWeeklyElements stockData) $ weeklyPrices stockData
 
-  printStochastics "Stochastics " $ stochastics stockData
-  printStochastics "Trimmed Stochastics " $
+  printData "Stochastics " $ stochastics stockData
+  printData "Trimmed Stochastics " $
       take (numDailyElements stockData) $ stochastics stockData
 
-  printStochastics "Weekly Stochastics " $ weeklyStochastics stockData
-  printStochastics "Trimmed Weekly Stochastics " $
+  printData "Weekly Stochastics " $ weeklyStochastics stockData
+  printData "Trimmed Weekly Stochastics " $
       take (numWeeklyElements stockData) $ weeklyStochastics stockData
+
+  printData "Moving Average 200 " $ weeklyStochastics stockData
+  printData "Moving Average 200" $
+      take (numDailyElements stockData) $ movingAverage200 stockData
 
   where
     weeklyStockPrices = getWeeklyPrices stockPrices
     stockData = createStockPriceData stockPrices
 
-printPrices :: String -> [Price] -> IO ()
-printPrices label prices = do
-  putStrLn $ label ++ " (" ++ show (length prices) ++ "):" 
-  mapM_ (\price -> putStrLn $ "  " ++ show price) prices
-  putStrLn ""
-
-printStochastics :: String -> [Stochastic] -> IO ()
-printStochastics label stochastics = do
-  putStrLn $ label ++ " (" ++ show (length stochastics) ++ "):" 
-  mapM_ (\stochastic -> putStrLn $ "  " ++ show stochastic) stochastics
+printData :: Show a => String -> [a] -> IO ()
+printData label values = do
+  putStrLn $ label ++ " (" ++ show (length values) ++ "):" 
+  mapM_ (\price -> putStrLn $ "  " ++ show price) values
   putStrLn ""
 

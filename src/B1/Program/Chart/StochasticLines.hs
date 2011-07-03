@@ -93,6 +93,7 @@ createLineVboSpec priceData bounds lineSpec =
     size = getLineSize priceData lineSpec
     elements = createLine priceData bounds lineSpec
 
+-- TODO: Fix inaccurate calculation of line size...
 getLineSize :: StockPriceData -> StochasticLineSpec -> Int
 getLineSize priceData lineSpec = size
   where
