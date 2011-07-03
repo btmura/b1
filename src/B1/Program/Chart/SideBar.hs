@@ -33,7 +33,7 @@ slotHeight = 100::GLfloat
 
 dragFreelyOffset = slotHeight / 2
 
-scrollIncrement = 50::GLfloat
+scrollIncrement = 25::GLfloat
 
 dragScrollIncrement = 10::GLfloat
 
