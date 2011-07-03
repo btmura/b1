@@ -1,7 +1,10 @@
 module B1.Program.Chart.GraphUtils
-  ( getPriceRange
+  ( colorLineStripPoint
+  , lineStripPoint
+  , getPriceRange
   , getXValues
   , getY
+  , heightPercentage
   ) where
 
 import Graphics.Rendering.OpenGL
@@ -9,6 +12,39 @@ import Graphics.Rendering.OpenGL
 import B1.Data.Price
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.Point
+import B1.Program.Chart.Colors
+
+colorLineStripPoint :: Box -> Color3 GLfloat -> [GLfloat] -> Int -> Int
+    -> [GLfloat]
+colorLineStripPoint bounds color heightPercentages size index =
+  let point = lineStripPoint bounds heightPercentages size index
+      colorList = color3ToList color
+  in if null point
+       then []
+       else point ++ colorList
+
+lineStripPoint :: Box -> [GLfloat] -> Int -> Int -> [GLfloat]
+lineStripPoint bounds heightPercentages size index
+  | numSegments == 0 = []
+  | null heightPercentages = []
+  | index >= size = []
+  | index >= length heightPercentages = []
+  | otherwise = [x, y]
+  where
+    numSegments = if size > 1 then size - 1 else 0
+    (totalWidth, totalHeight) = boxSize bounds
+    segmentWidth = totalWidth / realToFrac numSegments
+    x = boxRight bounds - realToFrac index * segmentWidth
+    percentage = heightPercentages !! index
+    y = boxBottom bounds + realToFrac percentage * totalHeight
+
+heightPercentage :: (Float, Float) -> Float -> Float
+heightPercentage (minimum, maximum) value = percentage
+  where
+    difference = value - minimum
+    totalRange = maximum - minimum
+    percentage = difference / totalRange
 
 getXValues :: Box -> Int -> Int -> (GLfloat, GLfloat, GLfloat)
 getXValues bounds numElements index = (leftX, centerX, rightX)

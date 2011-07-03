@@ -9,6 +9,7 @@ import qualified B1.Data.RangeTest
 import qualified B1.Data.String.UtilsTest
 import qualified B1.Data.Technicals.StochasticTest
 import qualified B1.Program.Chart.ConfigTest
+import qualified B1.Program.Chart.GraphUtilsTest
 import qualified B1.Program.Chart.ResourcesTest
 
 main :: IO ()
@@ -23,6 +24,7 @@ tests =
   , B1.Data.String.UtilsTest.getTestGroup
   , B1.Data.Technicals.StochasticTest.getTestGroup
   , B1.Program.Chart.ConfigTest.getTestGroup
+  , B1.Program.Chart.GraphUtilsTest.getTestGroup
   , B1.Program.Chart.ResourcesTest.getTestGroup
   ]
 

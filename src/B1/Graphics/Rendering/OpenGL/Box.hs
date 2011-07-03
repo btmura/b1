@@ -4,6 +4,7 @@ module B1.Graphics.Rendering.OpenGL.Box
   , boxContains
   , boxContainsBox
   , boxShrink
+  , boxSize
   , boxLeft
   , boxTop
   , boxRight
@@ -42,6 +43,9 @@ boxContainsBox (Box (parentLeft, parentTop) (parentRight, parentBottom))
       && parentRight >= childRight
       && parentTop >= childTop
       && parentBottom <= childBottom
+
+boxSize :: Box -> (GLfloat, GLfloat)
+boxSize box = (boxWidth box, boxHeight box)
 
 boxShrink :: GLfloat -> Box -> Box
 boxShrink shrink (Box (left, top) (right, bottom)) =

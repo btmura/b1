@@ -18,6 +18,7 @@ import B1.Program.Chart.Animation
 import B1.Program.Chart.Colors
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.FragmentShader
+import B1.Program.Chart.GraphUtils
 import B1.Program.Chart.Resources
 import B1.Program.Chart.StochasticColors
 import B1.Program.Chart.Vbo
@@ -102,31 +103,19 @@ getLineSize priceData lineSpec = size
     size = numElements * floatsPerVertex
 
 createLine :: StockPriceData -> Box -> StochasticLineSpec -> [GLfloat]
-createLine priceData bounds lineSpec =
-  concat $ map (createLineSegment bounds color values) indices
+createLine priceData bounds lineSpec = lineStrip
   where
     color = lineColor lineSpec
-    (dataFunction, numElements) = case timeSpec lineSpec of
-        Daily -> (stochastics, numDailyElements)
-        _ -> (weeklyStochastics, numWeeklyElements)
-    values = map (stochasticFunction lineSpec) $
-        take (numElements priceData) $
-        dataFunction priceData
-    indices = [0 .. length values - 1]
-
-createLineSegment :: Box -> Color3 GLfloat -> [Float] -> Int -> [GLfloat]
-createLineSegment bounds color values index
-  | null values = []
-  | otherwise = [x, y] ++ colorList
-  where
-    colorList = color3ToList color
-    totalWidth = boxWidth bounds
-    segmentWidth = realToFrac totalWidth / realToFrac (length values - 1)
-    x = boxRight bounds - realToFrac index * segmentWidth
-
-    value = values !! index
-    totalHeight = boxHeight bounds
-    y = boxBottom bounds + realToFrac value * totalHeight
+    (getData, getSize) = case timeSpec lineSpec of
+                           Daily -> (stochastics, numDailyElements)
+                           _ -> (weeklyStochastics, numWeeklyElements)
+    numValues = getSize priceData
+    dataValues = take numValues $ getData priceData
+    getValue = stochasticFunction lineSpec
+    values = map (realToFrac . getValue) dataValues
+    indices = [0 .. numValues - 1]
+    points = map (colorLineStripPoint bounds color values numValues) indices
+    lineStrip = concat points
 
 getPercentageLineVboSpecs :: Box -> [VboSpec]
 getPercentageLineVboSpecs bounds = [VboSpec Lines size elements]

@@ -47,26 +47,17 @@ getLineSize list = size
 
 getMovingAverageLines :: StockPriceData -> Box
     -> (StockPriceData -> [MovingAverage]) -> Color3 GLfloat -> [GLfloat]
-getMovingAverageLines priceData bounds movingAverageFunction color =
-  concat lines
+getMovingAverageLines priceData bounds movingAverageFunction color = lineStrip
   where
     priceRange = getPriceRange priceData
     numElements = numDailyElements priceData
-    trim = take numElements
-    indices = [0 .. numElements - 1]
-    values = trim $ movingAverageFunction priceData
-    lines = map (createMovingAverageLine bounds priceRange
-        values color numElements) indices
 
-createMovingAverageLine :: Box -> (Float, Float) -> [MovingAverage]
-    -> Color3 GLfloat -> Int -> Int -> [GLfloat]
-createMovingAverageLine bounds priceRange movingAverages color numElements index
-  | index >= length movingAverages = []
-  | otherwise = [rightX, rightY] ++ colorList
-  where
-    colorList = color3ToList color
-    (leftX, _, rightX) = getXValues bounds numElements index
-    movingAverageValue = movingAverages !! index
-    rightY = getY bounds priceRange movingAverageValue
+    values = take numElements $ movingAverageFunction priceData
+    percentages = map (realToFrac . heightPercentage priceRange) values
+
+    indices = [0 .. numElements - 1]
+    points = map (colorLineStripPoint bounds color percentages numElements)
+        indices
+    lineStrip = concat points
 
 
