@@ -16,14 +16,25 @@ data Config = Config
   } deriving (Eq, Show, Read)
 
 readConfig :: FilePath -> IO Config
-readConfig filePath = do
-  contents <- readFile filePath
-  return $ case reads contents::[(Config, String)] of
-    ((config, _):_) -> config
-    _ -> Config
-        { symbols = []
-        , selectedSymbol = Nothing
-        }
+readConfig filePath = catch (readConfigContents filePath) handleError
+  where
+    readConfigContents filePath = do
+      contents <- readFile filePath
+      return $ case reads contents::[(Config, String)] of
+                 ((config, _):_) -> config
+                 _ -> newConfig
+
+    handleError error = do
+      hPutStr stderr $ "Warning: Couldn't open " ++ filePath
+          ++ ": " ++ show error
+      return newConfig
+
+    newConfig = Config
+      { symbols = []
+      , selectedSymbol = Nothing
+      }
+
+    
 
 writeConfig :: FilePath -> Config -> IO ()
 writeConfig filePath config = writeFile filePath $ show config
