@@ -133,17 +133,9 @@ createSlots = do
               ]
             }
           , G.fontSize = 10
-          }
-        , C.overlayOptions = O.OverlayOptions
-          { O.boundSet = O.OverlayBoundSet
-            { O.graphBounds = Nothing
-            , O.volumeBounds = Nothing
-            , O.stochasticBounds = Nothing
-            , O.weeklyStochasticBounds = Nothing
-            }
+          , G.maybeOverlayOptions = Nothing
           }
         , C.showRefreshButton = False
-        , C.showOverlay = False
         }
   mapM (\symbol -> do
       frameState <- F.newFrameState options $ Just symbol

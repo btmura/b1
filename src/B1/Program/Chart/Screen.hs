@@ -64,17 +64,16 @@ drawScreen resources = do
               ]
             }
           , G.fontSize = 18
-          }
-        , C.overlayOptions = O.OverlayOptions
-          { O.boundSet = O.OverlayBoundSet
-            { O.graphBounds = graphBounds
-            , O.volumeBounds = volumeBounds
-            , O.stochasticBounds = stochasticBounds
-            , O.weeklyStochasticBounds = weeklyStochasticBounds
+          , G.maybeOverlayOptions = Just $ O.OverlayOptions
+            { O.boundSet = O.OverlayBoundSet
+              { O.graphBounds = graphBounds
+              , O.volumeBounds = volumeBounds
+              , O.stochasticBounds = stochasticBounds
+              , O.weeklyStochasticBounds = weeklyStochasticBounds
+              }
             }
           }
         , C.showRefreshButton = True
-        , C.showOverlay = True
         }
   inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
   drawScreenLoop

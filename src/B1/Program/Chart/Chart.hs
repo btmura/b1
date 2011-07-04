@@ -34,7 +34,6 @@ import B1.Program.Chart.Resources
 
 import qualified B1.Program.Chart.Graph as G
 import qualified B1.Program.Chart.Header as H
-import qualified B1.Program.Chart.Overlay as O
 
 data ChartInput = ChartInput
   { bounds :: Box
@@ -54,9 +53,7 @@ data ChartOutput = ChartOutput
 data ChartOptions = ChartOptions
   { headerOptions :: H.HeaderOptions
   , graphOptions :: G.GraphOptions
-  , overlayOptions :: O.OverlayOptions
   , showRefreshButton :: Bool
-  , showOverlay :: Bool
   }
 
 data ChartState = ChartState
@@ -65,7 +62,6 @@ data ChartState = ChartState
   , stockData :: StockData
   , headerState :: H.HeaderState
   , graphState :: G.GraphState
-  , overlayState :: O.OverlayState
   }
 
 newChartState :: ChartOptions -> Symbol -> IO ChartState
@@ -73,7 +69,6 @@ newChartState
     options@ChartOptions
       { headerOptions = headerOptions
       , graphOptions = graphOptions
-      , overlayOptions = overlayOptions
       }
     symbol = do
   stockData <- newStockData symbol
@@ -83,7 +78,6 @@ newChartState
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
     , graphState = G.newGraphState graphOptions stockData
-    , overlayState = O.newOverlayState overlayOptions stockData
     }
 
 cleanChartState :: ChartState -> IO ChartState
@@ -99,13 +93,11 @@ drawChart resources
       , inputState = inputState@ChartState
         { options = ChartOptions
           { showRefreshButton = showRefreshButton
-          , showOverlay = showOverlay
           }
         , symbol = symbol
         , stockData = stockData
         , headerState = headerState
         , graphState = graphState
-        , overlayState = overlayState
         }
       } = do
 
@@ -130,12 +122,6 @@ drawChart resources
     translateToCenter bounds subBounds
     drawGraph resources alpha stockData graphState subBounds
 
-  (newOverlayState, hudDirty) <- preservingMatrix $ do
-    let subBounds = chartBounds boundsSet
-        subAlpha = if showOverlay then alpha else 0
-    translateToCenter bounds subBounds
-    drawOverlay resources subAlpha stockData overlayState subBounds
-
   let refreshedSymbol =
           if refreshClicked
             then Just symbol
@@ -154,9 +140,8 @@ drawChart resources
     { outputState = inputState
       { headerState = newHeaderState
       , graphState = newGraphState
-      , overlayState = newOverlayState
       }
-    , isDirty = headerDirty || graphDirty || hudDirty
+    , isDirty = headerDirty || graphDirty
     , buttonClickedSymbol = buttonClickedSymbol
     , refreshedSymbol = refreshedSymbol
     , otherClickedSymbol = otherClickedSymbol
@@ -259,23 +244,6 @@ drawGraph resources alpha stockData graphState bounds = do
         , G.isDirty = isGraphDirty
         } = graphOutput
   return (outputGraphState, isGraphDirty)
-
-drawOverlay :: Resources -> GLfloat -> StockData -> O.OverlayState -> Box
-    -> IO (O.OverlayState, Dirty)
-drawOverlay resources alpha stockData hudState bounds = do
-  let hudInput = O.OverlayInput
-        { O.bounds = bounds
-        , O.alpha = alpha
-        , O.inputState = hudState
-        }
-
-  hudOutput <- O.drawOverlay resources hudInput
-
-  let O.OverlayOutput
-        { O.outputState = outputOverlayState
-        , O.isDirty = isOverlayDirty
-        } = hudOutput
-  return (outputOverlayState, isOverlayDirty)
 
 drawFrame :: Resources -> Box -> GLfloat -> GLfloat -> Bool -> IO ()
 drawFrame resources bounds headerHeight alpha showRefreshButton = do

@@ -136,8 +136,9 @@ drawHeader resources@Resources
       translate $ vector3 (headerHeight / 2) (-headerHeight / 2) 0
       drawButton resources buttonBounds buttonTextureNumber alpha
 
-    nextIsStatusShowing <- isStockPriceData stockData
-    let nextStatusAlphaAnimation =
+    stockDataStatus <- getStockDataStatus stockData
+    let nextIsStatusShowing = not $ stockDataStatus == Loading
+        nextStatusAlphaAnimation =
           (if nextIsStatusShowing then next else id) statusAlphaAnimation
         outputState = inputState
           { isStatusShowing = nextIsStatusShowing

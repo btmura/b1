@@ -1,12 +1,10 @@
 module B1.Data.Technicals.StockData
   ( StockData
+  , StockDataStatus(..)
   , StockPriceData(..)
   , newStockData
-  , refreshStockData
   , createStockPriceData
-  , isLoading
-  , isStockPriceData
-  , isErrorMessage
+  , getStockDataStatus
   , getStockPriceData
   , getErrorMessage
   , handleStockData
@@ -27,11 +25,10 @@ import B1.Data.Symbol
 import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 
-data StockData
-  -- | Symbol is used when refreshing the stock data.
-  = StockData Symbol (MVar (Either StockPriceData String))
+-- TODO: Rename to StockDataFactory
+data StockData = StockData Symbol (MVar (Either StockPriceData String))
 
--- TODO: Rename to something more different from StockData
+-- TODO: Rename to StockData
 data StockPriceData = StockPriceData
   { prices :: [Price]
   , stochastics :: [Stochastic]
@@ -44,6 +41,8 @@ data StockPriceData = StockPriceData
   , numWeeklyElements :: Int
   }
 
+data StockDataStatus = Loading | Data | ErrorMessage deriving (Eq)
+
 newStockData :: Symbol -> IO StockData
 newStockData symbol = do
   priceDataMVar <- newEmptyMVar
@@ -54,9 +53,6 @@ newStockData symbol = do
     putMVar priceDataMVar $
         either (Left . createStockPriceData) Right pricesOrError
   return $ StockData symbol priceDataMVar
-
-refreshStockData :: StockData -> IO StockData
-refreshStockData (StockData symbol _) = newStockData symbol
 
 getStartDate :: IO LocalTime
 getStartDate = do
@@ -126,14 +122,11 @@ createStockPriceData prices =
         . take maxWeeklyElements
         ) weeklyPrices
 
-isLoading :: StockData -> IO Bool
-isLoading = handleStockData (ignore False) (ignore False) True
+getStockDataStatus :: StockData -> IO StockDataStatus
+getStockDataStatus = handleStockData (ignore Data) (ignore ErrorMessage) Loading
 
-isStockPriceData :: StockData -> IO Bool
-isStockPriceData = handleStockData (ignore True) (ignore False) False 
-
-isErrorMessage :: StockData -> IO Bool
-isErrorMessage = handleStockData (ignore False) (ignore True) False
+getStockPriceData :: StockData -> IO (Maybe StockPriceData)
+getStockPriceData = handleStockData (return . Just) (ignore Nothing) Nothing
 
 getErrorMessage :: StockData -> IO (Maybe String)
 getErrorMessage = handleStockData (ignore Nothing) (return . Just) Nothing
@@ -153,17 +146,4 @@ handleStockData priceFunction errorFunction noValue
 ignore :: a -> b -> IO a
 ignore value _ = return value
 
-{-- TODO: Replace getStockPriceData with this function...
-getStockPriceData :: StockData -> IO (Maybe StockPriceData)
-getStockPriceData = handleStockData Just (ignore Nothing) Nothing
---}
-
-getStockPriceData :: StockData -> IO (Maybe (Either StockPriceData String))
-getStockPriceData (StockData _ pricesMVar) = do
-  maybePrices <- tryTakeMVar pricesMVar
-  case maybePrices of
-    Just prices -> do
-      tryPutMVar pricesMVar prices
-      return $ Just prices
-    _ -> return Nothing
 
