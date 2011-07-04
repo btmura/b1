@@ -42,12 +42,16 @@ data FrameOutput = FrameOutput
   }
 
 data FrameOptions = FrameOptions
-  { initialSymbol :: Maybe Symbol -- ^ Symbol or nothing to get instructions
-  , headerFontSize :: Int -- ^ Header font size
+  { chartOptions :: C.ChartOptions
+  , inScaleAnimation :: Animation (GLfloat, Dirty)
+  , inAlphaAnimation :: Animation (GLfloat, Dirty)
+  , outScaleAnimation :: Animation (GLfloat, Dirty)
+  , outAlphaAnimation :: Animation (GLfloat, Dirty)
   }
 
 data FrameState = FrameState
-  { createChart :: Symbol -> IO Content
+  { options :: FrameOptions
+  , createChart :: Symbol -> IO Content
   , maybeCurrentFrame :: Maybe Frame
   , maybePreviousFrame :: Maybe Frame
   }
@@ -60,14 +64,19 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: C.ChartOptions -> Maybe Symbol -> IO FrameState
-newFrameState chartOptions maybeSymbol = do
+newFrameState :: FrameOptions -> Maybe Symbol -> IO FrameState
+newFrameState
+    options@FrameOptions
+      { chartOptions = chartOptions
+      }
+    maybeSymbol = do
   let createChart = newChartContent chartOptions
   content <- case maybeSymbol of
     Just symbol -> createChart symbol
     _ -> return Instructions
   return FrameState
-    { createChart = createChart
+    { options = options
+    , createChart = createChart
     , maybeCurrentFrame = Just Frame
       { content = content
       , scaleAnimation = incomingScaleAnimation
@@ -137,13 +146,14 @@ handleSymbolRequest :: Maybe Symbol -> FrameState
 handleSymbolRequest Nothing state = return (state, Nothing)
 handleSymbolRequest (Just symbol)
     state@FrameState
-      { createChart = createChart
+      { options = options
+      , createChart = createChart
       , maybeCurrentFrame = maybeCurrentFrame
       } = do
   chartContent <- createChart symbol
   let outputState = state
-        { maybeCurrentFrame = newCurrentFrame chartContent
-        , maybePreviousFrame = newPreviousFrame maybeCurrentFrame
+        { maybeCurrentFrame = newCurrentFrame options chartContent
+        , maybePreviousFrame = newPreviousFrame options maybeCurrentFrame
         } 
   return (outputState, Just symbol)
 
@@ -152,18 +162,18 @@ newChartContent chartOptions symbol = do
   state <- C.newChartState chartOptions symbol
   return $ Chart symbol state
 
-newCurrentFrame :: Content -> Maybe Frame
-newCurrentFrame content = Just Frame
+newCurrentFrame :: FrameOptions -> Content -> Maybe Frame
+newCurrentFrame options content = Just Frame
   { content = content
-  , scaleAnimation = incomingScaleAnimation
-  , alphaAnimation = incomingAlphaAnimation
+  , scaleAnimation = inScaleAnimation options
+  , alphaAnimation = inAlphaAnimation options
   }
 
-newPreviousFrame :: Maybe Frame -> Maybe Frame
-newPreviousFrame Nothing = Nothing
-newPreviousFrame (Just frame) = Just $ frame 
-  { scaleAnimation = outgoingScaleAnimation
-  , alphaAnimation = outgoingAlphaAnimation
+newPreviousFrame :: FrameOptions -> Maybe Frame -> Maybe Frame
+newPreviousFrame _ Nothing = Nothing
+newPreviousFrame options (Just frame) = Just $ frame 
+  { scaleAnimation = outScaleAnimation options
+  , alphaAnimation = outAlphaAnimation options
   }
 
 renderFrame :: Resources -> Box -> GLfloat -> Maybe Frame -> Bool

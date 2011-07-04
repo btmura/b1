@@ -114,28 +114,34 @@ drawSideBar resources
 
 createSlots :: [Symbol] -> IO [Slot]
 createSlots = do
-  let options = C.ChartOptions
-        { C.headerOptions = H.HeaderOptions
-          { H.fontSize = 10
-          , H.padding = 5
-          , H.statusStyle = H.ShortStatus
-          , H.button = H.RemoveButton
-          }
-        , C.graphOptions = G.GraphOptions
-          { G.boundSet = G.GraphBoundSet
-            { G.graphBounds = Nothing
-            , G.volumeBounds = Nothing
-            , G.stochasticsBounds = Just $ Box (-1, 1) (1, 0)
-            , G.weeklyStochasticsBounds = Just $ Box (-1, 0) (1, -1)
-            , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
-            , G.dividerLines =
-              [ LineSegment (-1, 0) (1, -0)
-              ]
+  let options = F.FrameOptions
+        { F.chartOptions = C.ChartOptions
+          { C.headerOptions = H.HeaderOptions
+            { H.fontSize = 10
+            , H.padding = 5
+            , H.statusStyle = H.ShortStatus
+            , H.button = H.RemoveButton
             }
-          , G.fontSize = 10
-          , G.maybeOverlayOptions = Nothing
+          , C.graphOptions = G.GraphOptions
+            { G.boundSet = G.GraphBoundSet
+              { G.graphBounds = Nothing
+              , G.volumeBounds = Nothing
+              , G.stochasticsBounds = Just $ Box (-1, 1) (1, 0)
+              , G.weeklyStochasticsBounds = Just $ Box (-1, 0) (1, -1)
+              , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
+              , G.dividerLines =
+                [ LineSegment (-1, 0) (1, -0)
+                ]
+              }
+            , G.fontSize = 10
+            , G.maybeOverlayOptions = Nothing
+            }
+          , C.showRefreshButton = False
           }
-        , C.showRefreshButton = False
+        , F.inScaleAnimation = animateOnce [1, 1]
+        , F.inAlphaAnimation = animateOnce $ linearRange 0 1 15
+        , F.outScaleAnimation = animateOnce [1, 1]
+        , F.outAlphaAnimation = animateOnce $ linearRange 1 0 10
         }
   mapM (\symbol -> do
       frameState <- F.newFrameState options $ Just symbol

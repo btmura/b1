@@ -43,39 +43,45 @@ drawScreen resources = do
       stochasticBounds = Just $ Box (-1, -0.4) (1, -0.7)
       weeklyStochasticBounds = Just $ Box (-1, -0.7) (1, -1)
 
-      chartOptions = C.ChartOptions
-        { C.headerOptions = H.HeaderOptions
-          { H.fontSize = 18
-          , H.padding = 10 
-          , H.statusStyle = H.LongStatus
-          , H.button = H.AddButton
-          }
-        , C.graphOptions = G.GraphOptions
-          { G.boundSet = G.GraphBoundSet
-            { G.graphBounds = graphBounds
-            , G.volumeBounds = volumeBounds
-            , G.stochasticsBounds = stochasticBounds
-            , G.weeklyStochasticsBounds = weeklyStochasticBounds
-            , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
-            , G.dividerLines =
-              [ LineSegment (-1, -0.1) (1, -0.1)
-              , LineSegment (-1, -0.4) (1, -0.4)
-              , LineSegment (-1, -0.7) (1, -0.7)
-              ]
+      options = F.FrameOptions
+        { F.chartOptions = C.ChartOptions
+          { C.headerOptions = H.HeaderOptions
+            { H.fontSize = 18
+            , H.padding = 10 
+            , H.statusStyle = H.LongStatus
+            , H.button = H.AddButton
             }
-          , G.fontSize = 18
-          , G.maybeOverlayOptions = Just $ O.OverlayOptions
-            { O.boundSet = O.OverlayBoundSet
-              { O.graphBounds = graphBounds
-              , O.volumeBounds = volumeBounds
-              , O.stochasticBounds = stochasticBounds
-              , O.weeklyStochasticBounds = weeklyStochasticBounds
+          , C.graphOptions = G.GraphOptions
+            { G.boundSet = G.GraphBoundSet
+              { G.graphBounds = graphBounds
+              , G.volumeBounds = volumeBounds
+              , G.stochasticsBounds = stochasticBounds
+              , G.weeklyStochasticsBounds = weeklyStochasticBounds
+              , G.monthLineBounds = Just $ Box (-1, 1) (1, -1)
+              , G.dividerLines =
+                [ LineSegment (-1, -0.1) (1, -0.1)
+                , LineSegment (-1, -0.4) (1, -0.4)
+                , LineSegment (-1, -0.7) (1, -0.7)
+                ]
+              }
+            , G.fontSize = 18
+            , G.maybeOverlayOptions = Just $ O.OverlayOptions
+              { O.boundSet = O.OverlayBoundSet
+                { O.graphBounds = graphBounds
+                , O.volumeBounds = volumeBounds
+                , O.stochasticBounds = stochasticBounds
+                , O.weeklyStochasticBounds = weeklyStochasticBounds
+                }
               }
             }
+          , C.showRefreshButton = True
           }
-        , C.showRefreshButton = True
+        , F.inScaleAnimation = incomingScaleAnimation
+        , F.inAlphaAnimation = incomingAlphaAnimation
+        , F.outScaleAnimation = outgoingScaleAnimation
+        , F.outAlphaAnimation = outgoingAlphaAnimation
         }
-  inputFrameState <- F.newFrameState chartOptions $ selectedSymbol config
+  inputFrameState <- F.newFrameState options $ selectedSymbol config
   drawScreenLoop
       configPath
       S.SideBarInput
