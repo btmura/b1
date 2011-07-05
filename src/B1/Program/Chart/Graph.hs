@@ -13,6 +13,7 @@ import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
+import B1.Control.TaskManager
 import B1.Data.List
 import B1.Data.Price
 import B1.Data.Range
@@ -72,22 +73,26 @@ data GraphState = GraphState
   , stockData :: StockData
   , stockDataStatus :: StockDataStatus
   , bufferManager :: BufferManager
+  , taskManager :: TaskManager
   , maybeVbo :: Maybe Vbo
   , maybeOverlayState :: Maybe O.OverlayState
   , loadingAlphaAnimation :: Animation (GLfloat, Dirty)
   , contentAlphaAnimation :: Animation (GLfloat, Dirty)
   }
 
-newGraphState :: GraphOptions -> StockData -> BufferManager -> GraphState
+newGraphState :: GraphOptions -> StockData -> BufferManager -> TaskManager
+    -> GraphState
 newGraphState
     options@GraphOptions { maybeOverlayOptions = maybeOverlayOptions }
     stockData
-    bufferManager =
+    bufferManager
+    taskManager =
   GraphState
     { options = options
     , stockData = stockData
     , stockDataStatus = Loading
     , bufferManager = bufferManager
+    , taskManager = taskManager
     , maybeVbo = Nothing
     , maybeOverlayState = case maybeOverlayOptions of
                             Just overlayOptions ->
@@ -160,6 +165,7 @@ renderData
         { options = GraphOptions { boundSet = boundSet }
         , stockData = stockData
         , bufferManager = bufferManager
+        , taskManager = taskManager
         , maybeVbo = maybeVbo
         , loadingAlphaAnimation = loadingAlphaAnimation
         , contentAlphaAnimation = contentAlphaAnimation
@@ -168,7 +174,8 @@ renderData
     = do
 
   priceData <- liftM fromJust $ getStockPriceData stockData
-  vbo <- maybe (createGraphVbo bufferManager boundSet priceData) return maybeVbo
+  vbo <- maybe (createGraphVbo bufferManager taskManager boundSet priceData)
+      return maybeVbo
 
   let finalAlpha = (min alpha . fst . current) contentAlphaAnimation
   preservingMatrix $ do
@@ -195,9 +202,10 @@ renderData
       , isDirty = not hasRendered
       }
 
-createGraphVbo :: BufferManager -> GraphBoundSet -> StockPriceData -> IO Vbo
-createGraphVbo bufferManager boundSet priceData = 
-  createVbo bufferManager $ concat
+createGraphVbo :: BufferManager -> TaskManager -> GraphBoundSet
+    -> StockPriceData -> IO Vbo
+createGraphVbo bufferManager taskManager boundSet priceData = 
+  createVbo bufferManager taskManager $ concat
     [ getVboSpecList monthLineBounds $
         L.getVboSpecs priceData
     , getVboSpecList graphBounds $

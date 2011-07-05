@@ -16,6 +16,7 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Text.Printf
 
+import B1.Control.TaskManager
 import B1.Data.Range
 import B1.Data.Symbol
 import B1.Data.Technicals.Stochastic
@@ -65,13 +66,15 @@ data ChartState = ChartState
   , graphState :: G.GraphState
   }
 
-newChartState :: ChartOptions -> BufferManager -> Symbol -> IO ChartState
+newChartState :: ChartOptions -> BufferManager -> TaskManager -> Symbol
+    -> IO ChartState
 newChartState
     options@ChartOptions
       { headerOptions = headerOptions
       , graphOptions = graphOptions
       }
     bufferManager
+    taskManager
     symbol = do
   stockData <- newStockData symbol
   return ChartState
@@ -80,6 +83,7 @@ newChartState
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
     , graphState = G.newGraphState graphOptions stockData bufferManager
+        taskManager
     }
 
 cleanChartState :: ChartState -> IO ChartState

@@ -15,6 +15,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Rendering.OpenGL
 
+import B1.Control.TaskManager
 import B1.Graphics.Rendering.OpenGL.BufferManager
 
 type NumElements = Int
@@ -29,8 +30,8 @@ type ArraySize = Int
 
 data VboSpec = VboSpec PrimitiveMode ArraySize [GLfloat]
 
-createVbo :: BufferManager -> [VboSpec] -> IO Vbo
-createVbo bufferManager vboSpecs = do
+createVbo :: BufferManager -> TaskManager -> [VboSpec] -> IO Vbo
+createVbo bufferManager taskManager vboSpecs = do
   maybeBuffer <- getBuffer bufferManager
   bufferObject <- case maybeBuffer of
                     Just buffer -> do
@@ -52,14 +53,13 @@ createVbo bufferManager vboSpecs = do
   unmapMVar <- newEmptyMVar
   case maybePtr of
     Just ptr -> do
-      forkIO $ do
+      addTask taskManager $ do
         let allElements = concat $
                 map (\(VboSpec _ _ elements) -> elements) vboSpecs
         pokeArray ptr allElements
         putMVar unmapMVar True
         putStrLn $ "Size: " ++ show totalSize
             ++ " Real size: " ++ show (length allElements)
-      return ()
     _ ->
       putStrLn "Couldn't map buffer..."
 

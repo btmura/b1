@@ -12,6 +12,7 @@ import Control.Monad
 import Data.Maybe
 import Graphics.Rendering.OpenGL
 
+import B1.Control.TaskManager
 import B1.Data.Range
 import B1.Data.Symbol
 import B1.Graphics.Rendering.OpenGL.Box
@@ -65,14 +66,16 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: FrameOptions -> BufferManager -> Maybe Symbol -> IO FrameState
+newFrameState :: FrameOptions -> BufferManager -> TaskManager -> Maybe Symbol
+    -> IO FrameState
 newFrameState
     options@FrameOptions
       { chartOptions = chartOptions
       }
     bufferManager
+    taskManager
     maybeSymbol = do
-  let createChart = newChartContent chartOptions bufferManager
+  let createChart = newChartContent chartOptions bufferManager taskManager
   content <- case maybeSymbol of
     Just symbol -> createChart symbol
     _ -> return Instructions
@@ -159,9 +162,10 @@ handleSymbolRequest (Just symbol)
         } 
   return (outputState, Just symbol)
 
-newChartContent :: C.ChartOptions -> BufferManager -> Symbol -> IO Content
-newChartContent chartOptions bufferManager symbol = do
-  state <- C.newChartState chartOptions bufferManager symbol
+newChartContent :: C.ChartOptions -> BufferManager -> TaskManager -> Symbol
+    -> IO Content
+newChartContent chartOptions bufferManager taskManager symbol = do
+  state <- C.newChartState chartOptions bufferManager taskManager symbol
   return $ Chart symbol state
 
 newCurrentFrame :: FrameOptions -> Content -> Maybe Frame
