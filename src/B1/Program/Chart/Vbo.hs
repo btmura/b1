@@ -33,21 +33,7 @@ data VboSpec = VboSpec PrimitiveMode ArraySize [GLfloat]
 
 createVbo :: Resources -> [VboSpec] -> IO Vbo
 createVbo resources vboSpecs = do
-  maybeBuffer <- getBuffer $ bufferManager resources
-  bufferObject <- case maybeBuffer of
-                    Just buffer -> do
-                      putStrLn $ "Using recycled buffer: " ++ show buffer
-                      bindBuffer ArrayBuffer $= Just buffer
-                      return buffer
-                    _ -> do
-                      [buffer] <- genObjectNames 1
-                      putStrLn $ "Creating new buffer: " ++ show buffer
-                          ++ " Bytes needed: " ++ show (numBytes :: GLsizeiptr)
-                      bindBuffer ArrayBuffer $= Just buffer
-                      -- Use fixed buffer size of 100k instead of numBytes...
-                      bufferData ArrayBuffer $= (100000, nullPtr, DynamicDraw)
-                      return buffer
-
+  bufferObject <- getOrCreateBindedBuffer (bufferManager resources) numBytes
   maybePtr <- mapBuffer ArrayBuffer WriteOnly
   bindBuffer ArrayBuffer $= Nothing
   
@@ -59,8 +45,8 @@ createVbo resources vboSpecs = do
                 map (\(VboSpec _ _ elements) -> elements) vboSpecs
         pokeArray ptr allElements
         putMVar unmapMVar True
-        putStrLn $ "Size: " ++ show totalSize
-            ++ " Real size: " ++ show (length allElements)
+        putStrLn $ "Size: " ++ show numBytes
+            ++ " Real size: " ++ show (length allElements * 4)
     _ ->
       putStrLn "Couldn't map buffer..."
 
@@ -82,10 +68,9 @@ deleteVbo resources
       { bufferObject = bufferObject
       , unmapMVar = unmapMVar
       } = do
-  putStrLn $ "Recycling buffer: " ++ show bufferObject
   unmap <- takeMVar unmapMVar
   unmapIfNecessary unmap bufferObject
-  addBuffer (bufferManager resources) bufferObject
+  recycleBuffer (bufferManager resources) bufferObject
 
 unmapIfNecessary :: Bool -> BufferObject -> IO ()
 unmapIfNecessary unmap bufferObject = do
