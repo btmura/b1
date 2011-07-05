@@ -15,6 +15,8 @@ import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Rendering.OpenGL
 
+import B1.Graphics.Rendering.OpenGL.BufferManager
+
 type NumElements = Int
 
 data Vbo = Vbo
@@ -27,13 +29,23 @@ type ArraySize = Int
 
 data VboSpec = VboSpec PrimitiveMode ArraySize [GLfloat]
 
-createVbo :: [VboSpec] -> IO Vbo
-createVbo vboSpecs = do
-  [bufferObject] <- genObjectNames 1
-  putStrLn $ "Created VBO: " ++ show bufferObject
+createVbo :: BufferManager -> [VboSpec] -> IO Vbo
+createVbo bufferManager vboSpecs = do
+  maybeBuffer <- getBuffer bufferManager
+  bufferObject <- case maybeBuffer of
+                    Just buffer -> do
+                      putStrLn $ "Using recycled buffer: " ++ show buffer
+                      bindBuffer ArrayBuffer $= Just buffer
+                      return buffer
+                    _ -> do
+                      [buffer] <- genObjectNames 1
+                      putStrLn $ "Creating new buffer: " ++ show buffer
+                          ++ " Bytes needed: " ++ show (numBytes :: GLsizeiptr)
+                      bindBuffer ArrayBuffer $= Just buffer
+                      -- Use fixed buffer size of 100k instead of numBytes...
+                      bufferData ArrayBuffer $= (100000, nullPtr, DynamicDraw)
+                      return buffer
 
-  bindBuffer ArrayBuffer $= Just bufferObject
-  bufferData ArrayBuffer $= (numBytes, nullPtr, StaticDraw)
   maybePtr <- mapBuffer ArrayBuffer WriteOnly
   bindBuffer ArrayBuffer $= Nothing
   
@@ -63,16 +75,16 @@ createVbo vboSpecs = do
         (\(VboSpec primitiveMode size _) -> (primitiveMode, size `div` 5))
         vboSpecs
 
-deleteVbo :: Vbo -> IO ()
-deleteVbo
+deleteVbo :: BufferManager -> Vbo -> IO ()
+deleteVbo bufferManager
     Vbo
       { bufferObject = bufferObject
       , unmapMVar = unmapMVar
       } = do
-  putStrLn $ "Deleting VBO: " ++ show bufferObject
+  putStrLn $ "Recycling buffer: " ++ show bufferObject
   unmap <- takeMVar unmapMVar
   unmapIfNecessary unmap bufferObject
-  deleteObjectNames [bufferObject]
+  addBuffer bufferManager bufferObject
 
 unmapIfNecessary :: Bool -> BufferObject -> IO ()
 unmapIfNecessary unmap bufferObject = do

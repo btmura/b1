@@ -14,6 +14,7 @@ import System.IO
 import B1.Data.Action
 import B1.Data.Range
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
@@ -38,7 +39,9 @@ drawScreen resources = do
   homeDirectory <- getHomeDirectory
   let configPath = homeDirectory ++ [pathSeparator] ++ configFileName
   config <- readConfig configPath
-  let graphBounds = Just $ Box (-1, 1) (1, -0.1)
+  let configSymbol = selectedSymbol config
+
+      graphBounds = Just $ Box (-1, 1) (1, -0.1)
       volumeBounds = Just $ Box (-1, -0.1) (1, -0.4)
       stochasticBounds = Just $ Box (-1, -0.4) (1, -0.7)
       weeklyStochasticBounds = Just $ Box (-1, -0.7) (1, -1)
@@ -81,16 +84,17 @@ drawScreen resources = do
         , F.outScaleAnimation = outgoingScaleAnimation
         , F.outAlphaAnimation = outgoingAlphaAnimation
         }
-  inputFrameState <- F.newFrameState options $ selectedSymbol config
+  bufferManager <- newBufferManager
+  inputFrameState <- F.newFrameState options bufferManager configSymbol
   drawScreenLoop
       configPath
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
-        , S.selectedSymbol = selectedSymbol config
+        , S.selectedSymbol = configSymbol
         , S.draggedSymbol = Nothing
         , S.refreshRequested = False
-        , S.inputState = S.newSideBarState
+        , S.inputState = S.newSideBarState bufferManager
         }
       F.FrameInput
         { F.bounds = zeroBox

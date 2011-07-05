@@ -20,6 +20,7 @@ import B1.Data.Technicals.MovingAverage
 import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
@@ -70,22 +71,23 @@ data GraphState = GraphState
   { options :: GraphOptions
   , stockData :: StockData
   , stockDataStatus :: StockDataStatus
+  , bufferManager :: BufferManager
   , maybeVbo :: Maybe Vbo
   , maybeOverlayState :: Maybe O.OverlayState
   , loadingAlphaAnimation :: Animation (GLfloat, Dirty)
   , contentAlphaAnimation :: Animation (GLfloat, Dirty)
   }
 
-newGraphState :: GraphOptions -> StockData -> GraphState
+newGraphState :: GraphOptions -> StockData -> BufferManager -> GraphState
 newGraphState
-    options@GraphOptions
-      { maybeOverlayOptions = maybeOverlayOptions
-      }
-    stockData =
+    options@GraphOptions { maybeOverlayOptions = maybeOverlayOptions }
+    stockData
+    bufferManager =
   GraphState
     { options = options
     , stockData = stockData
     , stockDataStatus = Loading
+    , bufferManager = bufferManager
     , maybeVbo = Nothing
     , maybeOverlayState = case maybeOverlayOptions of
                             Just overlayOptions ->
@@ -96,10 +98,14 @@ newGraphState
     }
 
 cleanGraphState :: GraphState -> IO GraphState
-cleanGraphState state@GraphState { maybeVbo = maybeVbo } =
+cleanGraphState
+    state@GraphState
+      { maybeVbo = maybeVbo
+      , bufferManager = bufferManager
+      } =
   case maybeVbo of
     Just vbo -> do
-      deleteVbo vbo
+      deleteVbo bufferManager vbo
       return state { maybeVbo = Nothing }
     _ -> return state
 
@@ -153,6 +159,7 @@ renderData
       , inputState = state@GraphState
         { options = GraphOptions { boundSet = boundSet }
         , stockData = stockData
+        , bufferManager = bufferManager
         , maybeVbo = maybeVbo
         , loadingAlphaAnimation = loadingAlphaAnimation
         , contentAlphaAnimation = contentAlphaAnimation
@@ -161,7 +168,7 @@ renderData
     = do
 
   priceData <- liftM fromJust $ getStockPriceData stockData
-  vbo <- maybe (createGraphVbo boundSet priceData) return maybeVbo
+  vbo <- maybe (createGraphVbo bufferManager boundSet priceData) return maybeVbo
 
   let finalAlpha = (min alpha . fst . current) contentAlphaAnimation
   preservingMatrix $ do
@@ -188,9 +195,9 @@ renderData
       , isDirty = not hasRendered
       }
 
-createGraphVbo :: GraphBoundSet -> StockPriceData -> IO Vbo
-createGraphVbo boundSet priceData = 
-  createVbo $ concat
+createGraphVbo :: BufferManager -> GraphBoundSet -> StockPriceData -> IO Vbo
+createGraphVbo bufferManager boundSet priceData = 
+  createVbo bufferManager $ concat
     [ getVboSpecList monthLineBounds $
         L.getVboSpecs priceData
     , getVboSpecList graphBounds $

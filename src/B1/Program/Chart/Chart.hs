@@ -22,6 +22,7 @@ import B1.Data.Technicals.Stochastic
 import B1.Data.Technicals.StockData
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Shapes
 import B1.Graphics.Rendering.OpenGL.Utils
@@ -64,12 +65,13 @@ data ChartState = ChartState
   , graphState :: G.GraphState
   }
 
-newChartState :: ChartOptions -> Symbol -> IO ChartState
+newChartState :: ChartOptions -> BufferManager -> Symbol -> IO ChartState
 newChartState
     options@ChartOptions
       { headerOptions = headerOptions
       , graphOptions = graphOptions
       }
+    bufferManager
     symbol = do
   stockData <- newStockData symbol
   return ChartState
@@ -77,7 +79,7 @@ newChartState
     , symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
-    , graphState = G.newGraphState graphOptions stockData
+    , graphState = G.newGraphState graphOptions stockData bufferManager
     }
 
 cleanChartState :: ChartState -> IO ChartState

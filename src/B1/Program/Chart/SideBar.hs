@@ -14,6 +14,7 @@ import B1.Data.Range
 import B1.Data.Symbol
 import B1.Graphics.Rendering.FTGL.Utils
 import B1.Graphics.Rendering.OpenGL.Box
+import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Graphics.Rendering.OpenGL.LineSegment
 import B1.Graphics.Rendering.OpenGL.Point
 import B1.Graphics.Rendering.OpenGL.Shapes
@@ -69,6 +70,7 @@ data SideBarState = SideBarState
   , slots :: [Slot] -- ^ Slots currently part of the side bar
   , newSlots :: [Slot] -- ^ TODO: Remove this!
   , maybeFreeDragSlot :: Maybe Slot -- ^ Slot dragged outside of the side bar
+  , bufferManager :: BufferManager -- ^ Buffer manager passed to slots
   }
 
 data Slot = Slot
@@ -83,12 +85,13 @@ data Slot = Slot
   , frameState :: F.FrameState
   } 
 
-newSideBarState :: SideBarState
-newSideBarState  = SideBarState
+newSideBarState :: BufferManager -> SideBarState
+newSideBarState bufferManager = SideBarState
   { scrollAmount = 0
   , slots = []
   , newSlots = []
   , maybeFreeDragSlot = Nothing
+  , bufferManager = bufferManager
   }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
@@ -99,10 +102,10 @@ drawSideBar resources
       , selectedSymbol = selectedSymbol
       , draggedSymbol = maybeDraggedSymbol
       , refreshRequested = refreshRequested
-      , inputState = inputState
+      , inputState = inputState@SideBarState { bufferManager = bufferManager }
       } = do
-  newSlots <- createSlots newSymbols
-  maybeNewFreeDragSlot <- createDraggedSlot maybeDraggedSymbol
+  newSlots <- createSlots bufferManager newSymbols
+  maybeNewFreeDragSlot <- createDraggedSlot bufferManager maybeDraggedSymbol
   (drawSlots resources bounds refreshRequested 
       . addDraggingScrollAmount resources bounds
       . calculateNextScrollAmount resources bounds selectedSymbol
@@ -112,8 +115,8 @@ drawSideBar resources
       . includeFreeDragSlot resources bounds
       . addNewSlots newSlots maybeNewFreeDragSlot) inputState
 
-createSlots :: [Symbol] -> IO [Slot]
-createSlots = do
+createSlots :: BufferManager -> [Symbol] -> IO [Slot]
+createSlots bufferManager = do
   let options = F.FrameOptions
         { F.chartOptions = C.ChartOptions
           { C.headerOptions = H.HeaderOptions
@@ -144,7 +147,7 @@ createSlots = do
         , F.outAlphaAnimation = animateOnce $ linearRange 1 0 10
         }
   mapM (\symbol -> do
-      frameState <- F.newFrameState options $ Just symbol
+      frameState <- F.newFrameState options bufferManager $ Just symbol
       return Slot
         { symbol = symbol
         , remove = False
@@ -157,10 +160,10 @@ createSlots = do
         , frameState = frameState
         })
 
-createDraggedSlot :: Maybe Symbol -> IO (Maybe Slot)
-createDraggedSlot Nothing = return Nothing
-createDraggedSlot (Just symbol) = do
-  newSlots <- createSlots [symbol]
+createDraggedSlot :: BufferManager -> Maybe Symbol -> IO (Maybe Slot)
+createDraggedSlot _ Nothing = return Nothing
+createDraggedSlot bufferManager (Just symbol) = do
+  newSlots <- createSlots bufferManager [symbol]
   return $ (Just . head . map makeDraggedSlot) newSlots
   where
     makeDraggedSlot :: Slot -> Slot
