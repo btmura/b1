@@ -71,6 +71,8 @@ data SideBarState = SideBarState
   , slots :: [Slot] -- ^ Slots currently part of the side bar
   , newSlots :: [Slot] -- ^ TODO: Remove this!
   , maybeFreeDragSlot :: Maybe Slot -- ^ Slot dragged outside of the side bar
+  , bufferManager :: BufferManager -- ^ Buffer manager passed to slots
+  , taskManager :: TaskManager -- ^ Task manager passed to slots
   }
 
 data Slot = Slot
@@ -85,12 +87,14 @@ data Slot = Slot
   , frameState :: F.FrameState
   } 
 
-newSideBarState :: SideBarState
-newSideBarState = SideBarState
+newSideBarState :: BufferManager -> TaskManager -> SideBarState
+newSideBarState bufferManager taskManager = SideBarState
   { scrollAmount = 0
   , slots = []
   , newSlots = []
   , maybeFreeDragSlot = Nothing
+  , bufferManager = bufferManager
+  , taskManager = taskManager
   }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
@@ -101,10 +105,14 @@ drawSideBar resources
       , selectedSymbol = selectedSymbol
       , draggedSymbol = maybeDraggedSymbol
       , refreshRequested = refreshRequested
-      , inputState = inputState
+      , inputState = inputState@SideBarState
+        { bufferManager = bufferManager
+        , taskManager = taskManager
+        }
       } = do
-  newSlots <- createSlots resources newSymbols
-  maybeNewFreeDragSlot <- createDraggedSlot resources maybeDraggedSymbol
+  newSlots <- createSlots bufferManager taskManager newSymbols
+  maybeNewFreeDragSlot <- createDraggedSlot bufferManager taskManager
+      maybeDraggedSymbol
   (drawSlots resources bounds refreshRequested 
       . addDraggingScrollAmount resources bounds
       . calculateNextScrollAmount resources bounds selectedSymbol
@@ -114,8 +122,8 @@ drawSideBar resources
       . includeFreeDragSlot resources bounds
       . addNewSlots newSlots maybeNewFreeDragSlot) inputState
 
-createSlots :: Resources -> [Symbol] -> IO [Slot]
-createSlots resources = do
+createSlots :: BufferManager -> TaskManager -> [Symbol] -> IO [Slot]
+createSlots bufferManager taskManager = do
   let options = F.FrameOptions
         { F.chartOptions = C.ChartOptions
           { C.headerOptions = H.HeaderOptions
@@ -146,7 +154,7 @@ createSlots resources = do
         , F.outAlphaAnimation = animateOnce $ linearRange 1 0 10
         }
   mapM (\symbol -> do
-      frameState <- F.newFrameState options (taskManager resources) $
+      frameState <- F.newFrameState options bufferManager taskManager $
           Just symbol
       return Slot
         { symbol = symbol
@@ -160,10 +168,11 @@ createSlots resources = do
         , frameState = frameState
         })
 
-createDraggedSlot :: Resources -> Maybe Symbol -> IO (Maybe Slot)
-createDraggedSlot _ Nothing = return Nothing
-createDraggedSlot resources (Just symbol) = do
-  newSlots <- createSlots resources [symbol]
+createDraggedSlot :: BufferManager -> TaskManager -> Maybe Symbol
+    -> IO (Maybe Slot)
+createDraggedSlot _ _ Nothing = return Nothing
+createDraggedSlot bufferManager taskManager (Just symbol) = do
+  newSlots <- createSlots bufferManager taskManager [symbol]
   return $ (Just . head . map makeDraggedSlot) newSlots
   where
     makeDraggedSlot :: Slot -> Slot
@@ -500,8 +509,7 @@ drawOneSlot resources
 convertDrawingOutputs :: Resources -> SideBarState -> [(F.FrameOutput, Dirty)]
     -> [(F.FrameOutput, Dirty)] -> IO SideBarOutput
 convertDrawingOutputs resources state outputs freeDragOutputs = do
-  mapM_ (F.cleanFrameState resources . frameState)
-      (cleanSlots ++ cleanFreeDragSlots)
+  mapM_ (F.cleanFrameState . frameState) (cleanSlots ++ cleanFreeDragSlots)
   return nextOutput
   where
     (outputStates, dirtyFlags) = unzip outputs

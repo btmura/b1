@@ -10,9 +10,7 @@ import Graphics.UI.GLFW
 import Paths_b1
 import System.Environment
 
-import B1.Control.TaskManager
 import B1.Data.Action
-import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Program.Chart.Dirty
 import B1.Program.Chart.Resources
 import B1.Program.Chart.Options
@@ -81,10 +79,7 @@ createInitialResources options = do
   vertexShaderPath <- getDataFileName "res/shaders/vertex-shader.txt"
   fragmentShaderPath <- getDataFileName "res/shaders/fragment-shader.txt"
   program <- loadProgram [vertexShaderPath] [fragmentShaderPath]
-  bufferManager <- newBufferManager
-  taskManager <- newTaskManager
-  newIORef $ newResources (verbose options) font program bufferManager
-      taskManager
+  newIORef $ newResources (verbose options) font program
 
 -- TODO: Move loading program code to a helper module
 loadProgram :: [FilePath] -> [FilePath] -> IO Program

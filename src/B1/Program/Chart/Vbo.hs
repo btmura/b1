@@ -17,7 +17,6 @@ import Graphics.Rendering.OpenGL
 
 import B1.Control.TaskManager
 import B1.Graphics.Rendering.OpenGL.BufferManager
-import B1.Program.Chart.Resources
 
 type NumElements = Int
 
@@ -31,9 +30,9 @@ type ArraySize = Int
 
 data VboSpec = VboSpec PrimitiveMode ArraySize [GLfloat]
 
-createVbo :: Resources -> [VboSpec] -> IO Vbo
-createVbo resources vboSpecs = do
-  maybeBuffer <- getBuffer $ bufferManager resources
+createVbo :: BufferManager -> TaskManager -> [VboSpec] -> IO Vbo
+createVbo bufferManager taskManager vboSpecs = do
+  maybeBuffer <- getBuffer bufferManager
   bufferObject <- case maybeBuffer of
                     Just buffer -> do
                       putStrLn $ "Using recycled buffer: " ++ show buffer
@@ -54,7 +53,7 @@ createVbo resources vboSpecs = do
   unmapMVar <- newEmptyMVar
   case maybePtr of
     Just ptr -> do
-      addTask (taskManager resources) $ do
+      addTask taskManager $ do
         let allElements = concat $
                 map (\(VboSpec _ _ elements) -> elements) vboSpecs
         pokeArray ptr allElements
@@ -76,8 +75,8 @@ createVbo resources vboSpecs = do
         (\(VboSpec primitiveMode size _) -> (primitiveMode, size `div` 5))
         vboSpecs
 
-deleteVbo :: Resources -> Vbo -> IO ()
-deleteVbo resources
+deleteVbo :: BufferManager -> Vbo -> IO ()
+deleteVbo bufferManager
     Vbo
       { bufferObject = bufferObject
       , unmapMVar = unmapMVar
@@ -85,7 +84,7 @@ deleteVbo resources
   putStrLn $ "Recycling buffer: " ++ show bufferObject
   unmap <- takeMVar unmapMVar
   unmapIfNecessary unmap bufferObject
-  addBuffer (bufferManager resources) bufferObject
+  addBuffer bufferManager bufferObject
 
 unmapIfNecessary :: Bool -> BufferObject -> IO ()
 unmapIfNecessary unmap bufferObject = do

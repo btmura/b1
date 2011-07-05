@@ -3,8 +3,6 @@ module B1.Program.Chart.Resources
     ( Resources
     , font
     , program
-    , bufferManager
-    , taskManager
     , windowWidth
     , windowHeight
     , mousePosition
@@ -38,17 +36,12 @@ import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
 
-import B1.Control.TaskManager
-import B1.Graphics.Rendering.OpenGL.BufferManager
-
 dragThreshold = 10::Int 
 
 data Resources = Resources
   { verbose :: Bool
   , font :: Font
   , program :: Program
-  , bufferManager :: BufferManager
-  , taskManager :: TaskManager
   , windowWidth :: GLfloat
   , windowHeight :: GLfloat
   , keysPressed :: [Key]
@@ -64,16 +57,13 @@ data Resources = Resources
   , previousMouseDragCount :: Int
   , mouseWheelPosition :: Int
   , previousMouseWheelPosition :: Int
-  } deriving (Eq, Show)
+  } deriving (Show, Eq)
 
-newResources :: Bool -> Font -> Program -> BufferManager -> TaskManager
-    -> Resources
-newResources verbose font program bufferManager taskManager = Resources
+newResources :: Bool -> Font -> Program -> Resources
+newResources verbose font program = Resources
   { verbose = verbose
   , font = font
   , program = program
-  , bufferManager = bufferManager
-  , taskManager = taskManager
   , windowWidth = 0
   , windowHeight = 0
   , keysPressed = []

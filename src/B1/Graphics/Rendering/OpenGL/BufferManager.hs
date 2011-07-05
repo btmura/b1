@@ -8,11 +8,7 @@ module B1.Graphics.Rendering.OpenGL.BufferManager
 import Data.IORef
 import Graphics.Rendering.OpenGL
 
-data BufferManager = BufferManager (IORef [BufferObject]) deriving (Eq)
-
--- TODO: Add a counter to be able to tell different instances apart...
-instance Show BufferManager where
-  show bufferManager = "BufferManager"
+data BufferManager = BufferManager (IORef [BufferObject])
 
 newBufferManager :: IO BufferManager
 newBufferManager = do

@@ -85,17 +85,20 @@ drawScreen resources = do
         , F.outScaleAnimation = outgoingScaleAnimation
         , F.outAlphaAnimation = outgoingAlphaAnimation
         }
-  inputFrameState <- F.newFrameState options (taskManager resources)
+  bufferManager <- newBufferManager
+  taskManager <- newTaskManager
+  inputFrameState <- F.newFrameState options bufferManager taskManager
       configSymbol
   drawScreenLoop
       configPath
+      taskManager
       S.SideBarInput
         { S.bounds = zeroBox
         , S.newSymbols = symbols config
         , S.selectedSymbol = configSymbol
         , S.draggedSymbol = Nothing
         , S.refreshRequested = False
-        , S.inputState = S.newSideBarState
+        , S.inputState = S.newSideBarState bufferManager taskManager
         }
       F.FrameInput
         { F.bounds = zeroBox
@@ -126,11 +129,12 @@ sideBarOpenWidth = 150
 openSideBarAnimation = animateOnce $ linearRange 0 sideBarOpenWidth 10
 closeSideBarAnimation = animateOnce $ linearRange sideBarOpenWidth 0 10
 
-drawScreenLoop :: String -> S.SideBarInput -> F.FrameInput
+drawScreenLoop :: String -> TaskManager -> S.SideBarInput -> F.FrameInput
     -> E.SymbolEntryInput -> ScreenState -> Resources
     -> IO (Action Resources Dirty, Dirty)
 drawScreenLoop
     configPath
+    taskManager
     sideBarInput@S.SideBarInput
       { S.inputState = S.SideBarState { S.slots = slots }
       }
@@ -156,7 +160,7 @@ drawScreenLoop
     translateToCenter frameBounds
     E.drawSymbolEntry resources symbolEntryInput { E.bounds = frameBounds }
 
-  launchTasks $ taskManager resources
+  launchTasks taskManager
 
   let nextSymbols = S.symbols sideBarOutput
       nextSelectedSymbol =
@@ -206,8 +210,8 @@ drawScreenLoop
           || S.isDirty sideBarOutput
           || E.isDirty symbolEntryOutput
           || F.isDirty frameOutput
-  return (Action (drawScreenLoop configPath nextSideBarInput nextFrameInput
-      nextSymbolEntryInput nextScreenState), nextDirty)
+  return (Action (drawScreenLoop configPath taskManager nextSideBarInput
+      nextFrameInput nextSymbolEntryInput nextScreenState), nextDirty)
   where
     (sideBarWidth, sideBarWidthDirty) = current sideBarWidthAnimation
 

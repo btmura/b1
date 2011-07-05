@@ -65,12 +65,14 @@ data ChartState = ChartState
   , graphState :: G.GraphState
   }
 
-newChartState :: ChartOptions -> TaskManager -> Symbol -> IO ChartState
+newChartState :: ChartOptions -> BufferManager -> TaskManager -> Symbol
+    -> IO ChartState
 newChartState
     options@ChartOptions
       { headerOptions = headerOptions
       , graphOptions = graphOptions
       }
+    bufferManager
     taskManager
     symbol = do
   stockData <- newStockData taskManager symbol
@@ -79,12 +81,13 @@ newChartState
     , symbol = symbol
     , stockData = stockData
     , headerState = H.newHeaderState headerOptions
-    , graphState = G.newGraphState graphOptions stockData
+    , graphState = G.newGraphState graphOptions stockData bufferManager
+        taskManager
     }
 
-cleanChartState :: Resources -> ChartState -> IO ChartState
-cleanChartState resources state@ChartState { graphState = graphState } = do
-  newGraphState <- G.cleanGraphState resources graphState
+cleanChartState :: ChartState -> IO ChartState
+cleanChartState state@ChartState { graphState = graphState } = do
+  newGraphState <- G.cleanGraphState graphState
   return state { graphState = newGraphState }
 
 drawChart :: Resources -> ChartInput -> IO ChartOutput

@@ -11,11 +11,7 @@ import Data.IORef
 
 type Task = IO ()
 
-data TaskManager = TaskManager (IORef [Task]) (MVar Bool) deriving (Eq)
-
--- TODO: Add a counter to be able to tell instances apart...
-instance Show TaskManager where
-  show _ = "TaskManager"
+data TaskManager = TaskManager (IORef [Task]) (MVar Bool)
 
 newTaskManager :: IO TaskManager
 newTaskManager = do
