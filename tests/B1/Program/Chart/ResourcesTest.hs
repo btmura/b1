@@ -10,6 +10,9 @@ import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.HUnit
 
+import B1.Control.TaskManager
+import B1.Graphics.Rendering.OpenGL.BufferManager
+
 import qualified Test.Framework.Providers.API
 
 import B1.Program.Chart.Resources
@@ -61,5 +64,7 @@ createResources :: IO Resources
 createResources = do
   font <- createTextureFont "noSuchFont"
   [program] <- genObjectNames 1
-  return $ newResources False font program
+  bufferManager <- newBufferManager
+  taskManager <- newTaskManager
+  return $ newResources False font program bufferManager taskManager
 
