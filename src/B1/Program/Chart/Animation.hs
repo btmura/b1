@@ -30,14 +30,14 @@ animateOnce values = zip (init values) (repeat True)
     ++ zip (repeat (last values)) (repeat False)
 
 incomingScaleAnimation :: Animation (GLfloat, Dirty)
-incomingScaleAnimation = animateOnce $ linearRange 0.9 1 20
+incomingScaleAnimation = animateOnce $ linearRange 0.95 1 10
 
 incomingAlphaAnimation :: Animation (GLfloat, Dirty)
-incomingAlphaAnimation = animateOnce $ linearRange 0 1 20
+incomingAlphaAnimation = animateOnce $ linearRange 0 1 10
 
 outgoingScaleAnimation :: Animation (GLfloat, Dirty)
-outgoingScaleAnimation = animateOnce $ linearRange 1 1.1 20
+outgoingScaleAnimation = animateOnce $ linearRange 1 1.1 10
 
 outgoingAlphaAnimation :: Animation (GLfloat, Dirty)
-outgoingAlphaAnimation = animateOnce $ linearRange 1 0 20
+outgoingAlphaAnimation = animateOnce $ linearRange 1 0 10
 

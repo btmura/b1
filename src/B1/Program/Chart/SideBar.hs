@@ -141,9 +141,9 @@ createSlots resources = do
           , C.showRefreshButton = False
           }
         , F.inScaleAnimation = animateOnce [1, 1]
-        , F.inAlphaAnimation = animateOnce $ linearRange 0 1 15
+        , F.inAlphaAnimation = animateOnce $ linearRange 0 1 5
         , F.outScaleAnimation = animateOnce [1, 1]
-        , F.outAlphaAnimation = animateOnce $ linearRange 1 0 10
+        , F.outAlphaAnimation = animateOnce $ linearRange 1 0 3
         }
   mapM (\symbol -> do
       frameState <- F.newFrameState options (taskManager resources) $
