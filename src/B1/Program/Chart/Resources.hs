@@ -12,7 +12,6 @@ module B1.Program.Chart.Resources
     , mouseDragStartPosition
     )
   , newResources
-  , logMessage
   , updateKeysPressed
   , isKeyPressed
   , getKeyPressed
@@ -44,8 +43,7 @@ import B1.Graphics.Rendering.OpenGL.BufferManager
 dragThreshold = 10::Int 
 
 data Resources = Resources
-  { verbose :: Bool
-  , font :: Font
+  { font :: Font
   , program :: Program
   , bufferManager :: BufferManager
   , taskManager :: TaskManager
@@ -66,11 +64,10 @@ data Resources = Resources
   , previousMouseWheelPosition :: Int
   } deriving (Eq, Show)
 
-newResources :: Bool -> Font -> Program -> BufferManager -> TaskManager
+newResources :: Font -> Program -> BufferManager -> TaskManager
     -> Resources
-newResources verbose font program bufferManager taskManager = Resources
-  { verbose = verbose
-  , font = font
+newResources font program bufferManager taskManager = Resources
+  { font = font
   , program = program
   , bufferManager = bufferManager
   , taskManager = taskManager
@@ -90,12 +87,6 @@ newResources verbose font program bufferManager taskManager = Resources
   , mouseWheelPosition = 0
   , previousMouseWheelPosition = 0
   }
-
-logMessage :: Resources -> String -> IO ()
-logMessage resources message = do
-  when (verbose resources) $ do
-    hPutStr stderr $ message ++ "\n"
-  return ()
 
 updateKeysPressed :: [Key] -> Resources -> Resources
 updateKeysPressed keysPressed

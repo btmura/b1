@@ -10,6 +10,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Data.Array.Storable
+import Debug.Trace
 import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
@@ -45,10 +46,9 @@ createVbo resources vboSpecs = do
                 map (\(VboSpec _ _ elements) -> elements) vboSpecs
         pokeArray ptr allElements
         putMVar unmapMVar True
-        putStrLn $ "Size: " ++ show numBytes
+        putTraceMsg $ "VBO Estimated size: " ++ show numBytes
             ++ " Real size: " ++ show (length allElements * 4)
-    _ ->
-      putStrLn "Couldn't map buffer..."
+    _ -> error "Couldn't map buffer..."
 
   return Vbo
     { bufferObject = bufferObject

@@ -66,5 +66,5 @@ createResources = do
   [program] <- genObjectNames 1
   bufferManager <- newBufferManager
   taskManager <- newTaskManager
-  return $ newResources False font program bufferManager taskManager
+  return $ newResources font program bufferManager taskManager
 

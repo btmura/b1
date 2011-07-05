@@ -6,6 +6,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Control.Monad
 import Data.Maybe
+import Debug.Trace
 import Graphics.Rendering.OpenGL
 import System.Directory
 import System.FilePath
@@ -169,8 +170,8 @@ drawScreenLoop
         }
   unless (config == nextConfig) $ do
     -- TODO: Extract this code into a separate ConfigManager module
-    putStrLn $ "Saving configuration..."
     forkIO $ do
+      putTraceMsg $ "Saving configuration..."
       putMVar configLock nextConfig
       writeConfig configPath nextConfig
       takeMVar configLock

@@ -4,6 +4,7 @@ module B1.Program.Chart.Main
 
 import Control.Monad
 import Data.IORef
+import Debug.Trace
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLFW
@@ -29,7 +30,7 @@ main = do
 
   resourcesRef <- createInitialResources options
   resources <- readIORef resourcesRef
-  loadTextures resources
+  loadTextures
 
   windowDirtyRef <- newIORef False
   windowSizeCallback $= myWindowSizeCallback resourcesRef windowDirtyRef
@@ -52,10 +53,10 @@ initClientState = do
   clientState VertexArray $= Enabled
   clientState ColorArray $= Enabled
 
-loadTextures :: Resources -> IO ()
-loadTextures resources = do
+loadTextures :: IO ()
+loadTextures = do
   filePaths <- mapM getDataFileName fileNames
-  mapM_ (uncurry (bindTexture resources)) (zip [0 ..] filePaths)
+  mapM_ (uncurry bindTexture) (zip [0 ..] filePaths)
   texture Texture2D $= Disabled
   where
     fileNames =
@@ -64,13 +65,13 @@ loadTextures resources = do
       , "res/tga/refresh-button.tga"
       ]
 
-bindTexture :: Resources -> Int -> String -> IO ()
-bindTexture resources textureNumber fileName = do
+bindTexture :: Int -> String -> IO ()
+bindTexture textureNumber fileName = do
   textureBinding Texture2D $= Just (TextureObject (fromIntegral textureNumber))
   textureFilter Texture2D $= ((Linear', Nothing), Linear')
   loadResult <- loadTexture2D fileName [BuildMipMaps]
-  logMessage resources $ "Loading texture " ++ fileName ++ ": "
-      ++ show loadResult
+  putTraceMsg $ "Loading texture " ++ fileName
+      ++ if loadResult then "SUCCESS" else "FAIL"
 
 -- | Initialize the resources that should be immutable like fonts.
 -- The other fields will be filled in later.
@@ -83,8 +84,7 @@ createInitialResources options = do
   program <- loadProgram [vertexShaderPath] [fragmentShaderPath]
   bufferManager <- newBufferManager
   taskManager <- newTaskManager
-  newIORef $ newResources (verbose options) font program bufferManager
-      taskManager
+  newIORef $ newResources font program bufferManager taskManager
 
 -- TODO: Move loading program code to a helper module
 loadProgram :: [FilePath] -> [FilePath] -> IO Program
@@ -101,7 +101,7 @@ readAndCompileShader filePath = do
   compileShader shader
   ok <- get $ compileStatus shader
   infoLog <- get $ shaderInfoLog shader
-  putStrLn $ "Shader info log: " ++ infoLog
+  putTraceMsg $ "Shader info log: " ++ infoLog
   unless ok $ do
     deleteObjectNames [shader]
     ioError $ userError "Shader compilation failed"
@@ -114,7 +114,7 @@ createProgram vertexShader fragmentShader = do
   linkProgram program
   ok <- get $ linkStatus program
   infoLog <- get $ programInfoLog program
-  putStrLn $ "Program info log: " ++ infoLog
+  putTraceMsg $ "Program info log: " ++ infoLog
   unless ok $ do
     deleteObjectNames [program]
     ioError $ userError "Program linking failed"
@@ -169,7 +169,7 @@ drawLoop resourcesRef windowDirtyRef action = do
     -- If the screen is not dirty, then wait for events rather than drawing
     -- the same frame again and pegging the CPU to a 100%.
     unless (isWindowDirty || isContentDirty || isMouseStateDirty) $ do
---      putStrLn $ "Waiting isWindowDirty: " ++ show isWindowDirty
+--      putTraceMsg $ "Waiting isWindowDirty: " ++ show isWindowDirty
 --          ++ " isContentDirty: " ++ show isContentDirty
 --          ++ " isMouseStateDirty: " ++ show isMouseStateDirty
       waitEvents

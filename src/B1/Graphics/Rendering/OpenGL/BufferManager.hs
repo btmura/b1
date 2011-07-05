@@ -7,6 +7,7 @@ module B1.Graphics.Rendering.OpenGL.BufferManager
 
 import Data.IORef
 import Data.List
+import Debug.Trace
 import Foreign.Ptr
 import Graphics.Rendering.OpenGL
 
@@ -34,12 +35,12 @@ getOrCreateBindedBuffer (BufferManager freeBuffersRef) size = do
   maybeBufferObject <- atomicModifyIORef freeBuffersRef (nextBuffer size)
   case maybeBufferObject of
     Just bufferObject -> do
-      putStrLn $ "Using recycled buffer: " ++ show bufferObject
+      putTraceMsg $ "Using recycled buffer: " ++ show bufferObject
       bindBuffer ArrayBuffer $= Just bufferObject
       return bufferObject
     _ -> do
       [bufferObject] <- genObjectNames 1
-      putStrLn $ "Created new buffer: " ++ show bufferObject
+      putTraceMsg $ "Created new buffer: " ++ show bufferObject
           ++ " Size: " ++ show size
       bindBuffer ArrayBuffer $= Just bufferObject
       bufferData ArrayBuffer $= (fromIntegral size, nullPtr, DynamicDraw)
@@ -60,7 +61,7 @@ recycleBuffer (BufferManager freeBuffersRef) bufferObject = do
   bindBuffer ArrayBuffer $= Just bufferObject
   (size, _, _) <- get $ bufferData ArrayBuffer
   bindBuffer ArrayBuffer $= Nothing
-  putStrLn $ "Recycling buffer: " ++ show bufferObject
+  putTraceMsg $ "Recycling buffer: " ++ show bufferObject
       ++ " Size: " ++ show size
 
   let newBuffer = Buffer bufferObject $ fromIntegral size

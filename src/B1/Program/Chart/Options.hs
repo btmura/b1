@@ -6,12 +6,8 @@ module B1.Program.Chart.Options
 import System.Console.GetOpt
 
 data Options = Options
-  { verbose :: Bool
-  }
 
 defaultOptions = Options
-  { verbose = False
-  }
 
 readOptions :: [String] -> IO (Options, [String])
 readOptions args =
@@ -25,11 +21,5 @@ readOptions args =
     header = "Usage: " ++ progName ++ " [OPTION...]"
 
 options :: [OptDescr (Options -> Options)]
-options =
-  [ Option "v" ["verbose"] (NoArg setVerbose)
-      "Output verbose messages to STDERR."
-  ]
-
-setVerbose :: Options -> Options
-setVerbose options = options { verbose = True }
+options = []
 
