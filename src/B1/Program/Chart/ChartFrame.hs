@@ -66,16 +66,14 @@ data Frame = Frame
 
 data Content = Instructions | Chart Symbol C.ChartState
 
-newFrameState :: FrameOptions -> BufferManager -> TaskManager -> Maybe Symbol
-    -> IO FrameState
+newFrameState :: FrameOptions -> TaskManager -> Maybe Symbol -> IO FrameState
 newFrameState
     options@FrameOptions
       { chartOptions = chartOptions
       }
-    bufferManager
     taskManager
     maybeSymbol = do
-  let createChart = newChartContent chartOptions bufferManager taskManager
+  let createChart = newChartContent chartOptions taskManager
   content <- case maybeSymbol of
     Just symbol -> createChart symbol
     _ -> return Instructions
@@ -90,19 +88,20 @@ newFrameState
     , maybePreviousFrame = Nothing
     }
 
-cleanFrameState :: FrameState -> IO FrameState
+cleanFrameState :: Resources -> FrameState -> IO FrameState
 cleanFrameState
+    resources
     state@FrameState
       { maybeCurrentFrame = maybeCurrentFrame
       , maybePreviousFrame = maybePreviousFrame
       } = do
-  let cleanContent :: Maybe Frame -> IO (Maybe Frame)
-      cleanContent Nothing = return Nothing
-      cleanContent (Just frame) = do
-        newContent <- cleanFrameContent $ content frame
+  let cleanContent :: Resources -> Maybe Frame -> IO (Maybe Frame)
+      cleanContent _ Nothing = return Nothing
+      cleanContent resources (Just frame) = do
+        newContent <- cleanFrameContent resources $ content frame
         return $ Just (frame { content = newContent })
-  newCurrentFrame <- cleanContent maybeCurrentFrame
-  newPreviousFrame <- cleanContent maybePreviousFrame
+  newCurrentFrame <- cleanContent resources maybeCurrentFrame
+  newPreviousFrame <- cleanContent resources maybePreviousFrame
   return state
     { maybeCurrentFrame = newCurrentFrame
     , maybePreviousFrame = newPreviousFrame
@@ -162,10 +161,9 @@ handleSymbolRequest (Just symbol)
         } 
   return (outputState, Just symbol)
 
-newChartContent :: C.ChartOptions -> BufferManager -> TaskManager -> Symbol
-    -> IO Content
-newChartContent chartOptions bufferManager taskManager symbol = do
-  state <- C.newChartState chartOptions bufferManager taskManager symbol
+newChartContent :: C.ChartOptions -> TaskManager -> Symbol -> IO Content
+newChartContent chartOptions taskManager symbol = do
+  state <- C.newChartState chartOptions taskManager symbol
   return $ Chart symbol state
 
 newCurrentFrame :: FrameOptions -> Content -> Maybe Frame
@@ -197,7 +195,7 @@ renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
       removeInvisiblePreviousFrame = not isCurrentFrame && finalAlpha <= 0.0
   if removeInvisiblePreviousFrame
     then do
-      cleanFrameContent currentContent
+      cleanFrameContent resources currentContent
       return (Nothing, False, Nothing, Nothing, Nothing, Nothing)
     else
       preservingMatrix $ do
@@ -219,11 +217,11 @@ renderFrame resources bounds alpha (Just frame) isCurrentFrame = do
             otherClickedSymbol, draggedSymbol)
 
 -- TODO: Use type classes instead of special cases...
-cleanFrameContent :: Content -> IO Content
-cleanFrameContent (Chart symbol state) = do
-  newState <- C.cleanChartState state
+cleanFrameContent :: Resources -> Content -> IO Content
+cleanFrameContent resources (Chart symbol state) = do
+  newState <- C.cleanChartState resources state
   return $ Chart symbol newState
-cleanFrameContent content = return content
+cleanFrameContent _ content = return content
 
 renderContent :: Resources -> Box -> Content -> GLfloat
     -> IO (Content, Dirty, Maybe Symbol, Maybe Symbol, Maybe Symbol,
