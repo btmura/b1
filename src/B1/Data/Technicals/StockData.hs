@@ -19,6 +19,7 @@ import Data.Time.Clock
 import Data.Time.LocalTime
 import System.IO
 
+import B1.Control.TaskManager
 import B1.Data.Price
 import B1.Data.Price.Google
 import B1.Data.Symbol
@@ -43,10 +44,10 @@ data StockPriceData = StockPriceData
 
 data StockDataStatus = Loading | Data | ErrorMessage deriving (Eq)
 
-newStockData :: Symbol -> IO StockData
-newStockData symbol = do
+newStockData :: TaskManager -> Symbol -> IO StockData
+newStockData taskManager symbol = do
   priceDataMVar <- newEmptyMVar
-  forkIO $ do
+  addTask taskManager $ do
     startDate <- getStartDate
     endDate <- getEndDate
     pricesOrError <- getGooglePrices startDate endDate symbol

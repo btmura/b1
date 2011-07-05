@@ -81,6 +81,7 @@ createInitialResources options = do
   program <- loadProgram [vertexShaderPath] [fragmentShaderPath]
   newIORef $ newResources (verbose options) font program
 
+-- TODO: Move loading program code to a helper module
 loadProgram :: [FilePath] -> [FilePath] -> IO Program
 loadProgram vertexShaderPaths fragmentShaderPaths= do
   vertexShaders <- mapM readAndCompileShader vertexShaderPaths

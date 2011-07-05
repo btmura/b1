@@ -11,7 +11,6 @@ module B1.Program.Chart.Chart
 import Control.Monad
 import Data.Maybe
 import Data.Time.Calendar
-import Data.Time.Clock
 import Graphics.Rendering.FTGL
 import Graphics.Rendering.OpenGL
 import Text.Printf
@@ -76,7 +75,7 @@ newChartState
     bufferManager
     taskManager
     symbol = do
-  stockData <- newStockData symbol
+  stockData <- newStockData taskManager symbol
   return ChartState
     { options = options
     , symbol = symbol
@@ -106,7 +105,6 @@ drawChart resources
         , graphState = graphState
         }
       } = do
-
   (newHeaderState, headerDirty, buttonClickedSymbol, statusClickedSymbol,
       headerHeight) <- drawHeader resources alpha symbol stockData headerState
           bounds
@@ -142,6 +140,7 @@ drawChart resources
               && boxContains bounds (mousePosition resources)
             then Just symbol
             else Nothing
+
   return ChartOutput
     { outputState = inputState
       { headerState = newHeaderState
