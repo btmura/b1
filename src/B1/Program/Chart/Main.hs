@@ -70,7 +70,7 @@ bindTexture textureNumber fileName = do
   textureBinding Texture2D $= Just (TextureObject (fromIntegral textureNumber))
   textureFilter Texture2D $= ((Linear', Nothing), Linear')
   loadResult <- loadTexture2D fileName [BuildMipMaps]
-  putTraceMsg $ "Loading texture " ++ fileName
+  putTraceMsg $ "Loading texture " ++ fileName ++ "..."
       ++ if loadResult then "SUCCESS" else "FAIL"
 
 -- | Initialize the resources that should be immutable like fonts.

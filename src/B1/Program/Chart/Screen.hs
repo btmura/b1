@@ -8,6 +8,7 @@ import Control.Monad
 import Data.Maybe
 import Debug.Trace
 import Graphics.Rendering.OpenGL
+import Graphics.UI.GLFW
 import System.Directory
 import System.FilePath
 import System.IO
@@ -178,12 +179,21 @@ drawScreenLoop
       return ()
     return ()
 
+  control <- getKey LCTRL
+  c <- getKey 'C'
+  let (cleanSideBar, cleanFrame) = if control == Press && c == Press
+                                     then (S.cleanSideBarState resources,
+                                         F.cleanFrameState resources)
+                                     else (return, return)
+  nextSideBarState <- cleanSideBar $ S.outputState sideBarOutput
+  nextFrameState <- cleanFrame $ F.outputState frameOutput
+
   let nextSideBarInput = sideBarInput
         { S.newSymbols = maybeToList $ F.buttonClickedSymbol frameOutput
         , S.selectedSymbol = F.selectedSymbol frameOutput
         , S.draggedSymbol = F.draggedSymbol frameOutput
         , S.refreshRequested = isJust $ F.refreshedSymbol frameOutput
-        , S.inputState = S.outputState sideBarOutput
+        , S.inputState = nextSideBarState
         }
       nextMaybeSymbolRequest = listToMaybe $ catMaybes
           [ S.symbolRequest sideBarOutput
@@ -192,7 +202,7 @@ drawScreenLoop
           ]
       nextFrameInput = frameInput
         { F.maybeSymbolRequest = nextMaybeSymbolRequest
-        , F.inputState = F.outputState frameOutput
+        , F.inputState = nextFrameState
         }
       nextSymbolEntryInput = symbolEntryInput
         { E.inputState = E.outputState symbolEntryOutput

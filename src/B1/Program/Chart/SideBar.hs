@@ -4,6 +4,7 @@ module B1.Program.Chart.SideBar
   , SideBarState(..)
   , drawSideBar
   , newSideBarState
+  , cleanSideBarState
   ) where
 
 import Control.Monad
@@ -92,6 +93,25 @@ newSideBarState = SideBarState
   , newSlots = []
   , maybeFreeDragSlot = Nothing
   }
+
+cleanSideBarState :: Resources -> SideBarState -> IO SideBarState
+cleanSideBarState
+    resources
+    state@SideBarState
+      { slots = slots
+      , newSlots = newSlots
+      } = do
+  cleanedSlots <- mapM (cleanSlot resources) slots
+  cleanedNewSlots <- mapM (cleanSlot resources) newSlots
+  return state
+    { slots = cleanedSlots
+    , newSlots = cleanedNewSlots
+    }
+
+cleanSlot :: Resources -> Slot -> IO Slot
+cleanSlot resources slot = do
+  nextFrameState <- F.cleanFrameState resources $ frameState slot
+  return slot { frameState = nextFrameState }
 
 drawSideBar :: Resources -> SideBarInput -> IO SideBarOutput
 drawSideBar resources
