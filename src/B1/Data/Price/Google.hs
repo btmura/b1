@@ -29,8 +29,9 @@ getGooglePrices startDate endDate symbol = pricesOrError
     url = "http://www.google.com/finance/historical?output=csv&q=" ++ symbol
         ++ "&startdate=" ++ formattedStartDate
         ++ "&enddate=" ++ formattedEndDate
-
+  
     pricesOrError = do
+      putStrLn url
       exceptionOrResult <- try $ simpleHTTP (getRequest url)
       return $ either handleGetException handleGetResult exceptionOrResult
 
@@ -52,7 +53,7 @@ handleResponse response =
 -- | Parses the CSV response from Google Finance.
 -- Exposed only for testing purposes.
 parseGoogleCsv :: String -> Either [Price] String
-parseGoogleCsv = maybe (Right "Invalid CSV format") pricesOrError
+parseGoogleCsv = maybe (Right "Invalid CSV format 1") pricesOrError
     . maybe Nothing (Just . parsePriceLines)
     . dropHeader
     . split '\n'
@@ -103,8 +104,5 @@ parseValue string =
     _ -> Nothing
 
 pricesOrError :: [Maybe Price] -> Either [Price] String
-pricesOrError maybePrices =
-  if all isJust maybePrices
-    then Left $ catMaybes maybePrices
-    else Right "Invalid CSV format"
+pricesOrError maybePrices = Left $ catMaybes maybePrices
 
