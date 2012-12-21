@@ -76,6 +76,7 @@ Executable b1-prices
 
 Executable b1-tests
   Main-is: Tests.hs
+  Ghc-options: -XTypeSynonymInstances
   Build-depends:
     base >= 4,
     directory >= 1.0.1.0,
