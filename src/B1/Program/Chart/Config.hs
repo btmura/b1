@@ -4,6 +4,7 @@ module B1.Program.Chart.Config
   , writeConfig
   ) where
 
+import Control.Exception
 import Data.Maybe
 import System.IO
 
@@ -25,8 +26,9 @@ readConfig filePath = catch (readConfigContents filePath) handleError
                  _ -> newConfig
 
     handleError error = do
+      let err = show (error :: IOException)
       hPutStr stderr $ "Warning: Couldn't open " ++ filePath
-          ++ ": " ++ show error
+          ++ ": " ++ show err
       return newConfig
 
     newConfig = Config
