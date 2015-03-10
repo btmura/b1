@@ -15,8 +15,8 @@ import B1.Control.TaskManager
 import B1.Data.Action
 import B1.Graphics.Rendering.OpenGL.BufferManager
 import B1.Program.Chart.Dirty
-import B1.Program.Chart.Resources
 import B1.Program.Chart.Options
+import B1.Program.Chart.Resources
 import B1.Program.Chart.Screen
 
 main :: IO ()
@@ -89,14 +89,14 @@ createInitialResources options = do
 -- TODO: Move loading program code to a helper module
 loadProgram :: [FilePath] -> [FilePath] -> IO Program
 loadProgram vertexShaderPaths fragmentShaderPaths= do
-  vertexShaders <- mapM readAndCompileShader vertexShaderPaths
-  fragmentShaders <- mapM readAndCompileShader fragmentShaderPaths
-  createProgram vertexShaders fragmentShaders
+  vertexShaders <- mapM (readAndCompileShader VertexShader) vertexShaderPaths
+  fragmentShaders <- mapM (readAndCompileShader FragmentShader) fragmentShaderPaths
+  B1.Program.Chart.Main.createProgram vertexShaders fragmentShaders
 
-readAndCompileShader :: Shader s => FilePath -> IO s
-readAndCompileShader filePath = do
+readAndCompileShader :: ShaderType -> FilePath -> IO Shader
+readAndCompileShader shaderType filePath = do
   src <- readFile filePath
-  [shader] <- genObjectNames 1
+  shader <- createShader shaderType
   shaderSource shader $= [src]
   compileShader shader
   ok <- get $ compileStatus shader
@@ -107,10 +107,10 @@ readAndCompileShader filePath = do
     ioError $ userError "Shader compilation failed"
   return shader
 
-createProgram :: [VertexShader] -> [FragmentShader] -> IO Program
+createProgram :: [Shader] -> [Shader] -> IO Program
 createProgram vertexShader fragmentShader = do
-  [program] <- genObjectNames 1
-  attachedShaders program $= (vertexShader, fragmentShader)
+  program <- Graphics.Rendering.OpenGL.createProgram
+  attachedShaders program $= (vertexShader ++ fragmentShader)
   linkProgram program
   ok <- get $ linkStatus program
   infoLog <- get $ programInfoLog program
@@ -160,7 +160,7 @@ drawLoop resourcesRef windowDirtyRef action = do
   control <- getKey LCTRL
   c <- getKey 'C'
   unless (control == Press && c == Press) $ do
-    -- TODO: Need to do the same for key presses. 
+    -- TODO: Need to do the same for key presses.
     let isMouseStateDirty = isMouseButtonPressed resources ButtonLeft
             || isMouseButtonClicked resources ButtonLeft
             || isMouseWheelMoving resources

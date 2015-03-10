@@ -56,11 +56,11 @@ Executable b1-chart
     array >= 0.3.0.0,
     base >= 4,
     filepath >= 1.1.0.3,
-    FTGL == 1.333,
+    FTGL,
     GLFW >= 0.4.2,
     HTTP >= 4000.0.8,
     old-locale >= 1.0.0.2,
-    OpenGL >= 2.6 && < 2.9,
+    OpenGL,
     time >= 1.1.4
   Hs-source-dirs: src
 
