@@ -22,7 +22,7 @@ getGooglePrices :: LocalTime -> LocalTime -> String
     -> IO (Either [Price] String)
 getGooglePrices startDate endDate symbol = pricesOrError
   where
-    formatDate = formatTime defaultTimeLocale "%m/%d/%y"
+    formatDate = formatTime Data.Time.defaultTimeLocale "%m/%d/%y"
     formattedStartDate = formatDate startDate
     formattedEndDate = formatDate endDate
 
@@ -95,7 +95,7 @@ parsePriceTokens _ = Nothing
 
 parseDateString :: String -> Maybe LocalTime
 parseDateString time =
-  parseTime defaultTimeLocale "%e-%b-%y-%C" (time ++ "-20")
+  parseTime Data.Time.defaultTimeLocale "%e-%b-%y-%C" (time ++ "-20")
 
 parseValue :: (Read a) => String -> Maybe a
 parseValue string =

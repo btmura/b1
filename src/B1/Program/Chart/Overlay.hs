@@ -10,6 +10,7 @@ module B1.Program.Chart.Overlay
 
 import Control.Monad
 import Data.Maybe
+import Data.Time
 import Data.Time.Format
 import Graphics.Rendering.OpenGL
 import System.Locale
@@ -332,7 +333,7 @@ getVerticalAxisText :: Resources -> Box -> StockPriceData -> Maybe String
 getVerticalAxisText resources bounds priceData = do
   let maybePrice = getPriceDataForMousePosition resources bounds priceData
   case maybePrice of
-    Just price -> Just $ formatTime defaultTimeLocale "%D" $ endTime price
+    Just price -> Just $ formatTime Data.Time.defaultTimeLocale "%D" $ endTime price
     _ -> Nothing
 
 getPriceDataForMousePosition :: Resources -> Box -> StockPriceData
