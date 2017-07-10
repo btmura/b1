@@ -36,9 +36,6 @@ prop_lineStripPoint_length bounds percentages size index =
        then null point
        else length point == 2
 
-instance Arbitrary GLfloat where
-  arbitrary = genGLfloat (0, 1)
-
 instance Arbitrary Box where
   arbitrary = do
     left <- genGLfloat (0, 100)
